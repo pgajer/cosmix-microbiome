@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HERE = ROOT / 'rank2_feature_graph'
 sys.path.insert(0, str(HERE))
 from viewer_source import assemble_viewer
+from empty_view import write_empty_view
 from taxon_palette import load_palette
 from resource_pages import source_digest, page as resource_page, coverage_terminology
 from policy_document import policy_html
@@ -201,6 +202,15 @@ def prepare(package, metadata_path, output, announce=True):
             bundle=next(b for part in parts for b in part.get('bundles',[]) if b['dataset']['id']==dataset)
             participants=next(part['participants'][dataset] for part in parts if dataset in part.get('participants',{}))
             validate_unfolded(bank,bundle,participants)
+    unfolded_edge_banks=metadata.get('datasetUnfoldedEdgeEmbeddings',{})
+    if unfolded_edge_banks:
+        from unfolded_edge_supplement import validate as validate_unfolded_edges
+        for dataset,bank in unfolded_edge_banks.items():
+            if dataset not in original['datasets']:raise ValueError('Unfolded edge supplement requires dataset '+dataset)
+            parts=[json.loads(checked_bytes(web,d)) for d in original['datasets'][dataset]['parts']]
+            bundle=next(b for part in parts for b in part.get('bundles',[]) if b['dataset']['id']==dataset)
+            participants=next(part['participants'][dataset] for part in parts if dataset in part.get('participants',{}))
+            validate_unfolded_edges(bank,bundle,participants)
     valencia_banks = metadata.get('valencia2', {})
     if valencia_banks:
         from valencia_supplement import validate as validate_valencia
@@ -261,7 +271,7 @@ def prepare(package, metadata_path, output, announce=True):
         manifest['datasets']['comb-V3V4-tx']['parts'].append(publish(encoded({'pureVertexLocal': pure_vertices}), 'json'))
     for dataset, asset in valencia_banks.items():
         manifest['datasets'][dataset]['parts'].append(publish(encoded({'valencia2': {dataset: asset}}), 'json'))
-    for field,banks in [('datasetMaxNormalizedEmbeddings',dataset_banks),('datasetUnfoldedEmbeddings',unfolded_banks)]:
+    for field,banks in [('datasetMaxNormalizedEmbeddings',dataset_banks),('datasetUnfoldedEmbeddings',unfolded_banks),('datasetUnfoldedEdgeEmbeddings',unfolded_edge_banks)]:
         for dataset,bank in banks.items():
             parts=manifest['datasets'][dataset]['parts']
             parts.append(publish(encoded({field:{dataset:{**bank,'fits':{}}}}),'json'))
@@ -281,6 +291,7 @@ def prepare(package, metadata_path, output, announce=True):
     pieces.append(page[cursor:])
     page = ''.join(pieces).replace('<body>', '<body><p id="vmeLoadStatus" role="status" aria-live="polite">Loading dataset…</p><button id="vmeLoadRetry" type="button" hidden>Retry loading</button>', 1)
     (outweb / 'index.html').write_text(page)
+    write_empty_view(manifest, outweb / 'empty.html')
     for name in ('about.html', 'portable.html'):
         (outweb / name).write_text(coverage_terminology((web / name).read_text()))
     (outweb / 'QUALITY_PREVIEW_POLICY.md').write_bytes((HERE / 'QUALITY_PREVIEW_POLICY.md').read_bytes())
@@ -350,6 +361,7 @@ def attach_neighborhoods(page_path, optional_web):
     temporary = page_path.with_suffix(page_path.suffix + '.optional-tmp')
     temporary.write_text(page)
     temporary.replace(page_path)
+    write_empty_view(main, page_path.parent / 'empty.html', page_path.name.replace('.http.html', '.html'))
     return sha(encoded(extra))
 
 
@@ -450,7 +462,8 @@ def recover_update(output, journal):
     journal.unlink()
 
 
-def update(package=None, metadata_path=None, output=None, neighborhood_package=None, neighborhood_metadata=None):
+def update(package=None, metadata_path=None, output=None, neighborhood_package=None, neighborhood_metadata=None,
+           catalog=None, datasets=None, select_datasets=False):
     output = Path(output or Path.home() / 'vme').expanduser().absolute()
     if output.is_symlink():
         raise ValueError('The app folder must not be a symbolic link')
@@ -469,29 +482,48 @@ def update(package=None, metadata_path=None, output=None, neighborhood_package=N
             old_receipt = json.loads((output / 'SOURCE_AND_DATA.json').read_text())
             if not all((output / name).is_file() for name in ('vme-server', 'Start VME.command', 'web/index.html')):
                 raise ValueError('Existing app is incomplete; inspect it before updating')
-        package = Path(package or old_receipt.get('dataPackage') or
-                       Path.home() / 'Downloads/VME-Mac-Meeting-2026-10-23').expanduser().resolve()
-        metadata_path = Path(metadata_path or old_receipt.get('metadataFile') or
-                             Path.home() / 'Downloads/VME-metadata-2026-10-24.json').expanduser().resolve()
-        if (output == package or output in package.parents or package in output.parents
-                or output == metadata_path or output in metadata_path.parents):
-            raise ValueError('Keep the original data package and metadata outside the app folder')
-        saved_optional = old_receipt.get('optionalNeighborhoods', {})
-        neighborhood_package = neighborhood_package or saved_optional.get('dataPackage')
-        neighborhood_metadata = neighborhood_metadata or saved_optional.get('metadataFile')
-        if bool(neighborhood_package) != bool(neighborhood_metadata):
-            raise ValueError('Supply both the neighborhood package and its metadata')
-        if neighborhood_package:
-            neighborhood_package = Path(neighborhood_package).expanduser().resolve()
-            neighborhood_metadata = Path(neighborhood_metadata).expanduser().resolve()
-            if any(p == output or output in p.parents or p in output.parents for p in (neighborhood_package, neighborhood_metadata)):
-                raise ValueError('Keep optional neighborhood inputs outside the app folder')
+        meeting = catalog is not None or (old_receipt.get('meetingRelease') and package is None)
+        if meeting:
+            import meeting_release
+            if any((package, metadata_path, neighborhood_package, neighborhood_metadata)):
+                raise ValueError('Use either a selectable release or the older package/metadata installation')
+            saved_release = old_receipt.get('meetingRelease', {})
+            release_root = Path(catalog or saved_release['path']).expanduser().resolve()
+            if any((output == release_root, output in release_root.parents, release_root in output.parents)):
+                raise ValueError('Keep data outside the app folder')
+            if catalog is None and sha((release_root / 'catalog.json').read_bytes()) != saved_release['catalogSha256']:
+                raise ValueError('The installed release catalogue changed; supply --catalog explicitly for a new release')
+            chosen = meeting_release.selection(release_root, datasets,
+                old_receipt.get('datasets') if saved_release else None, select_datasets)
+        else:
+            if datasets is not None or select_datasets:
+                raise ValueError('Dataset selection requires --catalog for a selectable data release')
+            package = Path(package or old_receipt.get('dataPackage') or
+                           Path.home() / 'Downloads/VME-Mac-Meeting-2026-10-23').expanduser().resolve()
+            metadata_path = Path(metadata_path or old_receipt.get('metadataFile') or
+                                 Path.home() / 'Downloads/VME-metadata-2026-10-24.json').expanduser().resolve()
+            if (output == package or output in package.parents or package in output.parents
+                    or output == metadata_path or output in metadata_path.parents):
+                raise ValueError('Keep the original data package and metadata outside the app folder')
+            saved_optional = old_receipt.get('optionalNeighborhoods', {})
+            neighborhood_package = neighborhood_package or saved_optional.get('dataPackage')
+            neighborhood_metadata = neighborhood_metadata or saved_optional.get('metadataFile')
+            if bool(neighborhood_package) != bool(neighborhood_metadata):
+                raise ValueError('Supply both the neighborhood package and its metadata')
+            if neighborhood_package:
+                neighborhood_package = Path(neighborhood_package).expanduser().resolve()
+                neighborhood_metadata = Path(neighborhood_metadata).expanduser().resolve()
+                if any(p == output or output in p.parents or p in output.parents for p in (neighborhood_package, neighborhood_metadata)):
+                    raise ValueError('Keep optional neighborhood inputs outside the app folder')
         transaction = Path(tempfile.mkdtemp(prefix=output.name + '-update-', dir=output.parent))
         candidate, previous = transaction / 'candidate', transaction / 'previous'
         try:
-            prepare(package, metadata_path, candidate, announce=False)
-            if neighborhood_package:
-                install_neighborhoods(candidate, neighborhood_package, neighborhood_metadata)
+            if meeting:
+                meeting_release.assemble(release_root, chosen, candidate)
+            else:
+                prepare(package, metadata_path, candidate, announce=False)
+                if neighborhood_package:
+                    install_neighborhoods(candidate, neighborhood_package, neighborhood_metadata)
             validate_prepared(candidate)
             # Write recovery information before either directory is moved.
             with journal.open('x') as stream:
@@ -529,15 +561,19 @@ def main():
     item.add_argument('--output', type=Path, default=Path.home() / 'vme')
     item.add_argument('--neighborhood-package', type=Path, help='Optional historical Li/Lc data package (remembered locally)')
     item.add_argument('--neighborhood-metadata', type=Path, help='Matching neighborhood metadata (remembered locally)')
+    item.add_argument('--catalog', type=Path, help='Folder containing a selectable release catalog.json')
+    item.add_argument('--datasets', nargs='+', help='Exact dataset IDs to install; replaces the installed selection')
+    item.add_argument('--select-datasets', action='store_true', help='Choose datasets interactively')
     args = parser.parse_args()
     try:
         if args.command == 'update':
-            update(args.package, args.metadata, args.output, args.neighborhood_package, args.neighborhood_metadata)
+            update(args.package, args.metadata, args.output, args.neighborhood_package, args.neighborhood_metadata,
+                   args.catalog, args.datasets, args.select_datasets)
         elif args.command == 'prepare':
             prepare(args.package.resolve(), args.metadata.resolve(), args.output.resolve())
         else:
             export_metadata(args.package.resolve(), args.output.resolve())
-    except (ValueError, KeyError, OSError, subprocess.SubprocessError) as error:
+    except (ValueError, KeyError, OSError, EOFError, subprocess.SubprocessError) as error:
         parser.exit(1, 'VME setup: ' + str(error) + '\n')
 
 

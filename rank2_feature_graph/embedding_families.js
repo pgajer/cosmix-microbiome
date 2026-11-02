@@ -223,10 +223,49 @@ function familyVertexOverlay(model,xyz,size,key,offsets={}){
   bgcolor:'rgba(255,255,255,0.85)',font:{family:'Arial, sans-serif',size,color:'#24414c'}
  },offsets[offsetKey]);}));
  const trace={type:'scatter3d',mode:'markers',x:anchors.map(([i])=>xyz[0][i]),y:anchors.map(([i])=>xyz[1][i]),z:anchors.map(([i])=>xyz[2][i]),
-  customdata:anchors.map(([i])=>i),meta:{familyKey:key,familyReference:true},marker:{size:8,symbol:'diamond',color:'#24414c',line:{color:'#ffffff',width:1}},showlegend:false,
+  customdata:anchors.map(([i])=>i),meta:{familyKey:key,familyReference:true,referenceVertices:true},marker:{size:8,symbol:'diamond',color:'#24414c',line:{color:'#ffffff',width:1}},showlegend:false,
   text:anchors.map(([,vs])=>esc(vs[0].profileId)+'<br>'+vs.map(v=>esc(v.label)+': '+v.maximum+'% ('+v.ties+' maximizing composition(s))').join('<br>')+'<br>'+esc(model.scope==='neighborhood'?'Observed neighborhood maximum':'Observed full-collection maximum')),
   hovertemplate:'%{text}<extra></extra>'};
  return {annotations,trace,labelKeys};
+}
+// Plotly can report a stale closest point after replacing diamond traces with
+// several meshes. Resolve reference hits from their rendered screen positions.
+function familyReferenceAtPointer(plot,pointer,key,project=point=>graphScreenPoint(point,plot)){
+ if(!pointer)return null;
+ const hits=[];
+ for(const trace of plot.data||[]){
+  if(!trace.meta?.familyReference||trace.meta.familyKey!==key)continue;
+  const mesh=trace.meta.referenceSphere;
+  for(let n=0;n<(mesh?1:trace.x.length);n++){
+   const center=['x','y','z'].map(axis=>mesh?(Math.min(...trace[axis])+Math.max(...trace[axis]))/2:trace[axis][n]),screen=project(center);
+   if(!screen)continue;
+   let radius=Array.isArray(trace.marker?.size)?trace.marker.size[n]:trace.marker?.size||8;
+   if(mesh){
+    const r=(Math.max(...trace.x)-Math.min(...trace.x))/2,offsets=[0,1,2].map(j=>project(center.map((v,k)=>v+(j===k?r:0))));
+    if(offsets.some(v=>!v))continue;
+    radius=Math.sqrt(offsets.reduce((sum,v)=>sum+(v.x-screen.x)**2+(v.y-screen.y)**2,0)/2);
+   }
+   const distance=Math.hypot(pointer.x-screen.x,pointer.y-screen.y);
+   if(distance<=radius+3)hits.push({distance,z:screen.z,point:{data:trace,customdata:trace.customdata[n],text:trace.text?.[n]}});
+  }
+ }
+ hits.sort((a,b)=>a.z-b.z||a.distance-b.distance);return hits[0]?.point||null;
+}
+function installFamilyPicking(plot,selectPoint,state=()=>activeEmbeddingFamily?{key:familyContext().key,version:familyRenderVersion}:null){
+ let press=null,token=0;
+ plot.on('plotly_click',event=>{if(press&&!press.moved&&!press.pick)press.pick=event.points?.[0]});
+ plot.addEventListener('pointerdown',event=>{
+  ++token;const context=state();
+  press=context&&event.button===0&&!event.ctrlKey&&!event.altKey&&!event.shiftKey&&!event.metaKey?{...context,x:event.clientX,y:event.clientY,pointerId:event.pointerId,token,moved:false,pick:null}:null;
+ },true);
+ plot.addEventListener('pointermove',event=>{if(press&&event.pointerId===press.pointerId&&Math.hypot(event.clientX-press.x,event.clientY-press.y)>=5)press.moved=true},true);
+ plot.addEventListener('pointerup',event=>{
+  if(!press||event.pointerId!==press.pointerId)return;const click=press;press=null;
+  if(click.moved||Math.hypot(event.clientX-click.x,event.clientY-click.y)>=5)return;
+  const point=familyReferenceAtPointer(plot,{x:event.clientX,y:event.clientY},click.key)||click.pick;
+  setTimeout(()=>{const current=state();if(point&&click.token===token&&current?.key===click.key&&current.version===click.version)selectPoint(point)},0);
+ },true);
+ const cancel=()=>{press=null;++token};plot.addEventListener('pointercancel',cancel,true);plot.addEventListener('pointerleave',cancel,true);
 }
 function installFamilyLabelDragging(report){
  const plot=el('familyPlot');let drag=null;
@@ -282,6 +321,16 @@ function decodeFamilyCoordinates(view,n){
  }
  return xyz;
 }
+// Independent neighborhood appearance; older preferences gain the shared defaults.
+function familyReferenceAppearance(value={}){
+ const v=value&&typeof value==='object'?value:{};
+ const number=(key,min,max,fallback,step=1)=>typeof v[key]==='number'&&Number.isFinite(v[key])&&v[key]>=min&&v[key]<=max?Math.round(v[key]/step)*step:fallback;
+ return {spheres:v.spheres!==false,scale:number('scale',25,300,100,5),color:typeof v.color==='string'&&/^#[0-9a-f]{6}$/i.test(v.color)?v.color.toLowerCase():'#d62728',ambient:number('ambient',0,100,85),highlights:number('highlights',0,100,18)};
+}
+function validateFamilyReferenceAppearance(value){
+ if(value===undefined)return;
+ if(!value||typeof value!=='object'||Array.isArray(value)||typeof value.spheres!=='boolean'||typeof value.color!=='string'||!/^#[0-9a-f]{6}$/i.test(value.color)||[['scale',25,300],['ambient',0,100],['highlights',0,100]].some(([k,min,max])=>!Number.isFinite(value[k])||value[k]<min||value[k]>max))throw Error('Invalid saved neighborhood vertex appearance');
+}
 function familyDefaults(family,selection={}){
  const anchor=family.anchors.some(a=>a.id===selection.anchor)?selection.anchor:family.anchors[0].id;
  const candidates=family.neighborhoods.filter(h=>h.anchor===anchor);
@@ -289,7 +338,7 @@ function familyDefaults(family,selection={}){
  const hood=candidates.find(h=>h.collection===collection&&h.size===Number(selection.size))||candidates.find(h=>h.collection===collection&&h.size===4000&&anchor==='Li'&&collection==='comb-V3V4-tx')||candidates.find(h=>h.collection===collection);
  const view=hood.views.find(v=>v.id===selection.view)||hood.views.find(v=>v.metric==='abundance_euclidean'&&v.id.endsWith('_p1'))||hood.views[0];
  if(selection.colorMode?.startsWith('valencia2-')&&!(typeof familyValenciaAvailable==='function'&&familyValenciaAvailable(collection)))selection={...selection,colorMode:'abundance'};
- return {...(typeof principalDefaults==='function'?principalDefaults(hood,selection):{}),anchor,collection,size:hood.size,view:view.id,pointSize:Math.max(1,Math.min(8,Number(selection.pointSize)||3)),opacity:Math.max(.1,Math.min(1,Number(selection.opacity)||.8)),colorMode:familyColorModes.includes(selection.colorMode)?selection.colorMode:'abundance',colorCoverage:familyCoverages.includes(selection.colorCoverage)?selection.colorCoverage:'60',showVertices:selection.showVertices===true,vertexScope:selection.vertexScope==='collection'?'collection':'neighborhood',vertexLabelSize:Number.isInteger(selection.vertexLabelSize)&&selection.vertexLabelSize>=8&&selection.vertexLabelSize<=32?selection.vertexLabelSize:12,vertexLabelOffsets:familyLabelOffsets(selection.vertexLabelOffsets,family),graphBackground:selection.graphBackground!==false,graphMode:selection.graphMode==='pure'?'pure':'merged',graphCoverage:['60','70','80','90','100'].includes(selection.graphCoverage)?selection.graphCoverage:selection.colorCoverage||'60'};
+ return {...(typeof principalDefaults==='function'?principalDefaults(hood,selection):{}),anchor,collection,size:hood.size,view:view.id,pointSize:Math.max(1,Math.min(8,Number(selection.pointSize)||3)),opacity:Math.max(.1,Math.min(1,Number(selection.opacity)||.8)),colorMode:familyColorModes.includes(selection.colorMode)?selection.colorMode:'abundance',colorCoverage:familyCoverages.includes(selection.colorCoverage)?selection.colorCoverage:'60',showVertices:selection.showVertices===true,vertexAppearance:familyReferenceAppearance(selection.vertexAppearance),vertexScope:selection.vertexScope==='collection'?'collection':'neighborhood',vertexLabelSize:Number.isInteger(selection.vertexLabelSize)&&selection.vertexLabelSize>=8&&selection.vertexLabelSize<=32?selection.vertexLabelSize:12,vertexLabelOffsets:familyLabelOffsets(selection.vertexLabelOffsets,family),graphBackground:selection.graphBackground!==false,graphMode:selection.graphMode==='pure'?'pure':'merged',graphCoverage:['60','70','80','90','100'].includes(selection.graphCoverage)?selection.graphCoverage:selection.colorCoverage||'60'};
 }
 function familyCamera(){return el('familyPlot')?._fullLayout?liveViewCamera(el('familyPlot')):null}
 function familyBookmark(name='View',includeGraph=true){
@@ -308,7 +357,7 @@ function validateFamilyBookmark(bookmark){
  if(typeof principalValidateBookmark==='function')principalValidateBookmark(bookmark,hood);
  if(s.graphBackground!==undefined&&typeof s.graphBackground!=='boolean'||s.graphMode!==undefined&&!['pure','merged'].includes(s.graphMode)||s.graphCoverage!==undefined&&!['60','70','80','90','100'].includes(s.graphCoverage))throw Error('Invalid neighborhood graph settings');
  if(bookmark.graphView){if(bookmark.graphView.neighborhood||bookmark.graphView.dataset!==hood.collection||bookmark.graphView.cohort!=='all'||bookmark.graphView.selection?.participant?.active)throw Error('Saved graph does not match this neighborhood');validateNamedView(bookmark.graphView)}
- familyLabelOffsets(s.vertexLabelOffsets,family);
+ familyLabelOffsets(s.vertexLabelOffsets,family);validateFamilyReferenceAppearance(s.vertexAppearance);
  if(s.showVertices!==undefined&&typeof s.showVertices!=='boolean'||s.vertexScope!==undefined&&!['neighborhood','collection'].includes(s.vertexScope)||s.vertexLabelSize!==undefined&&(!Number.isInteger(s.vertexLabelSize)||s.vertexLabelSize<8||s.vertexLabelSize>32))throw Error('Invalid saved reference vertex settings');
  if(s.showVertices){const expected=familyVertexReference(hood.collection,s.vertexScope);if(bookmark.vertexReference?.policy!==expected.policy||bookmark.vertexReference?.revision!==expected.revision)throw Error('Saved reference vertices are unavailable or changed')}
  if(s.colorMode!==undefined&&!familyColorModes.includes(s.colorMode)||s.colorCoverage!==undefined&&!familyCoverages.includes(s.colorCoverage))throw Error('Invalid saved color settings');
@@ -348,6 +397,11 @@ function syncFamilySelectors(){
  el('familyShowVertices').checked=s.showVertices;el('familyVertexScope').value=s.vertexScope;el('familyVertexScope').disabled=!s.showVertices;
  el('familyVertexLabelSize').value=s.vertexLabelSize;el('familyVertexLabelSize').disabled=!s.showVertices;el('familyVertexLabelSizeValue').textContent=s.vertexLabelSize+' px';
  el('familyResetLabelPositions').disabled=!s.showVertices;
+ const appearance=familyReferenceAppearance(s.vertexAppearance);el('familyVertexSpheres').checked=appearance.spheres;el('familyVertexSpheres').disabled=!s.showVertices;
+ for(const [suffix,field] of [['Scale','scale'],['Color','color'],['Ambient','ambient'],['Highlights','highlights']]){
+  el('familyVertex'+suffix).value=String(appearance[field]);el('familyVertex'+suffix).disabled=!s.showVertices||(['ambient','highlights'].includes(field)&&!appearance.spheres);
+  if(field!=='color')el('familyVertex'+suffix+'Value').textContent=appearance[field]+'%';
+ }
  el('familyGraphBackground').checked=s.graphBackground;
  if(typeof syncPrincipalControls==='function')syncPrincipalControls();
  for(const id of ['datasetSelect','panelDatasetSelect'])el(id).value=f.id;
@@ -383,8 +437,10 @@ function renderFamily(camera=null){
   const vertices=selection.showVertices?familyVertexModel(hood,selection):null,overlay=vertices?familyVertexOverlay(vertices,xyz,selection.vertexLabelSize,key,selection.vertexLabelOffsets):null;
   if(overlay)traces.push(overlay.trace);
   const pinned=principal?principalProfileTrace(hood,selection,xyz,hover,key):null;if(pinned)traces.push(pinned);
-  await Plotly.react('familyPlot',traces,{margin:{l:0,r:0,t:5,b:0},uirevision:key,showlegend:false,
-   scene:{...(camera?{camera}:{}),annotations:overlay?.annotations||[],aspectmode:'data',dragmode:'orbit',...Object.fromEntries(['xaxis','yaxis','zaxis'].map((axis,j)=>{const lo=Math.min(...xyz[j]),hi=Math.max(...xyz[j]),pad=(hi-lo||1)*.05;return [axis,{visible:false,autorange:false,range:[lo-pad,hi+pad]}]}))}},
+  const layout={margin:{l:0,r:0,t:5,b:0},uirevision:key,showlegend:false,
+   scene:{...(camera?{camera}:{}),annotations:overlay?.annotations||[],aspectmode:'data',dragmode:'orbit',...Object.fromEntries(['xaxis','yaxis','zaxis'].map((axis,j)=>{const lo=Math.min(...xyz[j]),hi=Math.max(...xyz[j]),pad=(hi-lo||1)*.05;return [axis,{visible:false,autorange:false,range:[lo-pad,hi+pad]}]}))}};
+  const referenceSettings={...familyReferenceAppearance(selection.vertexAppearance),showVertices:selection.showVertices,coordinateSpan:Math.max(...xyz.map(axis=>Math.max(...axis)-Math.min(...axis)))};
+  await Plotly.react('familyPlot',sampleReferenceSphereTraces(traces,layout,referenceSettings),layout,
    {responsive:true,scrollZoom:true,displaylogo:false,displayModeBar:false});
   // A previously maximized or hidden canvas retains its old pixel width until resized.
   await Plotly.Plots.resize(el('familyPlot'));
@@ -392,12 +448,19 @@ function renderFamily(camera=null){
   familyLabelTargets=overlay?.labelKeys||[];
   if(familyGraphReady)familyInspectSelection();
   el('familyVertexNote').textContent=vertices?.note||'Labels use observed taxon maxima for the selected top-2 CST reference coverage. Enable to choose neighborhood or full-collection scope.';
+  el('familyHeaderColor').title=color.note;el('familyHeaderEmbedding').title=view.label;
   el('familyColorNote').textContent=color.note;el('familyLegendSection').hidden=false;
   el('familyLegendTitle').textContent=graphColorOverride?'Graph top-3 CST coloring':color.mode==='abundance'?'Reference abundance':'State colors · neighborhood counts';
   const anchorLabel=family.anchors.find(a=>a.id===hood.anchor)?.label||hood.anchor;
   el('familyColorLegend').innerHTML=color.mode==='abundance'&&!graphColorOverride?`<p>${esc(anchorLabel)} relative abundance</p><div class="familyAbundanceScale" role="img" aria-label="${esc(anchorLabel)} relative abundance: 0% (purple) to 100% (yellow)" style="background:${familyAbundanceGradient()}"></div><div class="familyAbundanceTicks" aria-hidden="true">${[0,25,50,75,100].map(v=>`<span>${v}%</span>`).join('')}</div><small>Whole-composition abundance · fixed 0–100% range.</small>`:countedFamilyLegend(hood,color,foreground,background,linked.active&&showBackground,graphColorOverride,linked);
+  if(typeof renderCstSphereSummary==='function'){
+   const population=legendPopulation(datasetRegistry.get(hood.collection));
+   renderCstSphereSummary(familyDisplayedEntries(hood,foreground,background,linked.active&&showBackground,population),population,{neighborhood:true});
+  }
+  for(const [id,source] of [['familyBackSelection','headerBackSelection'],['familyForwardSelection','headerForwardSelection'],['familyClearSelection','headerClearSelection']])if(el(id))el(id).disabled=el(source).disabled;
   renderFamilyStress(hood,view,xyz);
-  el('familyTitle').textContent=`${hood.anchor} · ${hood.collection} · ${hood.size/1000}k compositions · ${familyEmbeddingTitle(view,hood.anchor)}`;
+  el('familyTitle').textContent=`${hood.anchor} · ${hood.collection} · ${hood.size/1000}k compositions`;
+  el('familyTitle').title=el('familyTitle').textContent+' · '+familyEmbeddingTitle(view,hood.anchor);
   el('familySummary').textContent=`${hood.size.toLocaleString()} distinct compositions · ${hood.sourceRecords.toLocaleString()} source records · ${hood.views.length} saved embedding${hood.views.length===1?'':'s'}. Minimum ${hood.anchor} abundance: ${(Math.min(...hood.abundance)*100).toPrecision(5)}%. ${hood.nonDominant.toLocaleString()} compositions are dominated by another taxon.`;
   el('familyCaveats').textContent=family.limitations+(view.evaluation?' V4 fits are exploratory: a separate 64-query diagnostic per neighborhood found 33–69% mean retention of original-space ten-nearest neighbors after PCA-based neighbor search. This is a preparation diagnostic, not a measure of 3D embedding neighbor retention. No pivot-count or epoch-budget sensitivity study was performed.':'');
   const solver=view.solver,md=solver.metadata;
@@ -448,49 +511,55 @@ function familyInformationSize(width,preference){
  return {space,min,max,value:Math.max(min,Math.min(max,Number.isFinite(preference)?preference:.3))};
 }
 function installFamilyInformationSizing(){
- const area=el('familyBody'),divider=el('familyInfoDivider'),key='vme-neighborhood-information-width-v1';
- let preference=.3,drag=null;
- try{const saved=JSON.parse(localStorage.getItem(key));if(Number.isFinite(saved))preference=saved}catch{}
- const limits=()=>familyInformationSize(area.getBoundingClientRect().width,preference);
+ const area=el('familyBody'),divider=el('familyInfoDivider'),key='vme-neighborhood-information-width-v1',positionKey='vme-neighborhood-information-position-v1';
+ let width=.3,height=.4,position='right',drag=null;
+ try{const saved=JSON.parse(localStorage.getItem(key));if(Number.isFinite(saved))width=saved;const other=JSON.parse(localStorage.getItem(positionKey));if(other?.position==='bottom')position='bottom';if(Number.isFinite(other?.height))height=other.height}catch{}
+ const vertical=()=>position==='bottom';
+ const limits=()=>familyInformationSize(area.getBoundingClientRect()[vertical()?'height':'width'],vertical()?height:width);
+ const setPreference=value=>{if(vertical())height=value;else width=value};
  function apply(persist=false){
-  const l=limits();area.style.setProperty('--family-info-width',l.value+'fr');area.style.setProperty('--family-plot-width',(1-l.value)+'fr');
+  area.dataset.legendPosition=position;el('familyLegendPosition').value=position;
+  const l=limits(),axis=vertical()?'height':'width';area.style.setProperty('--family-info-'+axis,l.value+'fr');area.style.setProperty('--family-plot-'+axis,(1-l.value)+'fr');
+  divider.setAttribute('aria-orientation',vertical()?'horizontal':'vertical');
   divider.setAttribute('aria-valuemin',Math.ceil(l.min*100));divider.setAttribute('aria-valuemax',60);divider.setAttribute('aria-valuenow',Math.round(l.value*100));divider.setAttribute('aria-valuetext',Math.round(l.value*100)+'% for legend and information');
-  if(persist)try{localStorage.setItem(key,JSON.stringify(preference))}catch{}
+  if(persist)try{localStorage.setItem(key,JSON.stringify(width));localStorage.setItem(positionKey,JSON.stringify({position,height}))}catch{}
  }
  function finish(event){
   if(drag!==event.pointerId)return;drag=null;
   if(divider.hasPointerCapture(event.pointerId))divider.releasePointerCapture(event.pointerId);
-  document.body.classList.remove('resizingPanels','resizingColumns');apply(true);
+  document.body.classList.remove('resizingPanels','resizingColumns','resizingRows');apply(true);
  }
- divider.addEventListener('pointerdown',event=>{if(event.button!==0)return;event.preventDefault();drag=event.pointerId;divider.setPointerCapture(drag);divider.focus();document.body.classList.add('resizingPanels','resizingColumns')});
- divider.addEventListener('pointermove',event=>{if(drag!==event.pointerId)return;const r=area.getBoundingClientRect(),l=limits();preference=Math.max(l.min,Math.min(l.max,(r.right-event.clientX-7)/l.space));apply()});
+ el('familyLegendPosition').onchange=()=>{position=el('familyLegendPosition').value==='bottom'?'bottom':'right';apply(true);if(activeEmbeddingFamily)Plotly.Plots.resize(el('familyPlot'))};
+ divider.addEventListener('pointerdown',event=>{if(event.button!==0)return;event.preventDefault();drag=event.pointerId;divider.setPointerCapture(drag);divider.focus();document.body.classList.add('resizingPanels',vertical()?'resizingRows':'resizingColumns')});
+ divider.addEventListener('pointermove',event=>{if(drag!==event.pointerId)return;const r=area.getBoundingClientRect(),l=limits(),distance=vertical()?r.bottom-event.clientY:r.right-event.clientX;setPreference(Math.max(l.min,Math.min(l.max,(distance-7)/l.space)));apply()});
  for(const name of ['pointerup','pointercancel','lostpointercapture'])divider.addEventListener(name,finish);
  divider.addEventListener('keydown',event=>{
-  if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const l=limits(),step=event.shiftKey?.1:.02;
-  preference=event.key==='Home'?l.min:event.key==='End'?l.max:Math.max(l.min,Math.min(l.max,l.value+(event.key==='ArrowLeft'?step:-step)));apply(true);
+  const grow=vertical()?'ArrowUp':'ArrowLeft',shrink=vertical()?'ArrowDown':'ArrowRight';
+  if(![grow,shrink,'Home','End'].includes(event.key))return;event.preventDefault();const l=limits(),step=event.shiftKey?.1:.02;
+  setPreference(event.key==='Home'?l.min:event.key==='End'?l.max:Math.max(l.min,Math.min(l.max,l.value+(event.key===grow?step:-step))));apply(true);
  });
- const reset=()=>{preference=.3;apply(true)};divider.addEventListener('dblclick',reset);el('resetPanels')?.addEventListener('click',reset);
+ const reset=()=>{width=.3;height=.4;apply(true)};divider.addEventListener('dblclick',reset);el('resetPanels')?.addEventListener('click',reset);
  new ResizeObserver(()=>apply()).observe(area);apply();
 }
 function installEmbeddingFamilies(){
  if(typeof window==='undefined')return; // Headless contract fixtures test the pure helpers separately.
  if(!embeddingFamilyRegistry.size)return;
  const style=document.createElement('style');style.textContent=`
- body.embeddingFamilyActive #samplePanel,body.embeddingFamilyActive #sampleControls,body.embeddingFamilyActive #valenciaColorControls,body.embeddingFamilyActive #participantSection,body.embeddingFamilyActive label:has(>#cohortSelect){display:none!important}
+ body.embeddingFamilyActive #samplePanel,body.embeddingFamilyActive #sampleControls,body.embeddingFamilyActive #valenciaColorControls,body.embeddingFamilyActive #participantSection,body.embeddingFamilyActive #enrollmentExploreSection,body.embeddingFamilyActive label:has(>#cohortSelect){display:none!important}
  #familySidebarControls{display:none}body.embeddingFamilyActive #familySidebarControls{display:block}
  #familySidebarControls label{min-width:0;max-width:100%}#familySidebarControls input{box-sizing:border-box;width:100%;min-width:0}#familySidebarControls p{font-size:12px;white-space:normal}
  #familySidebarControls label:has(>input[type=checkbox]){display:flex;align-items:center;gap:6px;white-space:normal}#familySidebarControls input[type=checkbox]{width:auto;flex:0 0 auto}
  #familyColorLegend{max-height:min(36vh,320px);overflow:auto;font-size:12px}.familyLegendRow{display:flex;align-items:flex-start;gap:6px;margin:6px 0}.familyLegendRow .colorSwatch{margin-top:3px}
  .familyAbundanceScale{height:18px;border:1px solid #bacbd1;border-radius:3px}.familyAbundanceTicks{display:flex;justify-content:space-between;font-size:11px;margin-top:4px}
  #panelWorkspace>#familyPanel[hidden]{display:none}#familyPanel{grid-area:1/1/4/2;display:flex;flex-direction:column;flex:1;min-height:0;overflow:auto;box-sizing:border-box;padding:12px;gap:8px}
- #familyEmbedding{max-width:100%;width:100%}#familyBody{display:grid;grid-template-columns:minmax(0,var(--family-plot-width,.7fr)) 14px minmax(0,var(--family-info-width,.3fr));grid-template-rows:minmax(0,1fr);flex:1;min-height:0;min-width:0}#familyPlot{height:100%;min-height:120px;min-width:0;overflow:hidden}#familyInformation{overflow:auto;min-height:0;min-width:0;font-size:12px;border:1px solid #d1dce0;border-radius:5px;padding:8px;box-sizing:border-box;background:rgba(255,255,255,.96);overflow-wrap:anywhere}#familyReceipt{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}#familyInformation p{margin:8px 0}
+ #familyEmbedding,#familyColorMode{font-size:12px;padding:3px 5px;min-width:0;max-width:230px} #familyHeaderActions{margin-left:auto} #familyHeaderEmbedding,#familyHeaderColor{max-width:100%} #familyInformation .sectionControls{font-size:12px} #familyInformation input[type=range]{display:block;width:100%} #familyInformation label{white-space:normal} #familyInformation .controlSection{border:0;padding:0} #familyBody[data-legend-position=bottom]{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,var(--family-plot-height,.6fr)) 14px minmax(0,var(--family-info-height,.4fr))} #familyBody[data-legend-position=bottom] #familyPlot{grid-area:1/1} #familyBody[data-legend-position=bottom] #familyInformation{grid-area:3/1} #familyBody[data-legend-position=bottom] #familyInfoDivider{grid-area:2/1;cursor:row-resize} #familyBody[data-legend-position=bottom] #familyInfoDivider::after{width:auto;height:4px;top:5px;left:0;right:0}#familyBody{display:grid;grid-template-columns:minmax(0,var(--family-plot-width,.7fr)) 14px minmax(0,var(--family-info-width,.3fr));grid-template-rows:minmax(0,1fr);flex:1;min-height:0;min-width:0}#familyPlot{height:100%;min-height:120px;min-width:0;overflow:hidden}#familyInformation{overflow:auto;min-height:0;min-width:0;font-size:12px;border:1px solid #d1dce0;border-radius:5px;padding:8px;box-sizing:border-box;background:rgba(255,255,255,.96);overflow-wrap:anywhere}#familyReceipt{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}#familyInformation p{margin:8px 0}
  #familyInfoDivider{cursor:col-resize}#familyInfoDivider::after{width:4px;left:5px;top:0;bottom:0}#familyInformation details{padding:6px 0;border-bottom:1px solid #d1dce0}#familyInformation summary{font-weight:600;color:#244e5e}#familyInformation small{display:block;margin:6px 0}#familyInformation [hidden]{display:none!important}#familyInformation button{font-size:12px;margin:4px 0;max-width:100%}
  #familyBookmarkTools{display:flex;flex-direction:column;gap:8px}#familyStatus{display:block;min-height:1.5em;overflow-wrap:anywhere;background:#edf4f5;padding:6px;border-radius:5px}
- body.familyMaximized #panelWorkspace>#familyPanel{grid-area:1/1/4/4}body.familyMaximized #panelWorkspace>.card:not(#familyPanel),body.familyMaximized #panelWorkspace>.panelDivider{display:none}body.familyMaximized #familyBody{grid-template-rows:minmax(0,1fr)}
+ body.familyMaximized #panelWorkspace>#familyPanel{grid-area:1/1/4/4}body.familyMaximized #panelWorkspace>.card:not(#familyPanel),body.familyMaximized #panelWorkspace>.panelDivider{display:none}
  #familyGraphNote{display:block;font-size:12px;margin-bottom:6px}`;
  document.head.appendChild(style);
  const panel=document.createElement('section');panel.id='familyPanel';panel.className='card';panel.hidden=true;
- panel.innerHTML=`<div class="panelHeader"><div class="embeddingHeading"><h2 id="familyTitle">Embedding collection</h2><button id="familyStress" class="embeddingStress" type="button" aria-haspopup="dialog">RMS relative error: calculating…</button></div><button id="familyPNG">Save PNG</button><button id="familyMaximize" aria-expanded="false">⛶ Maximize</button></div>
+ panel.innerHTML=`<div class="panelHeader"><div class="embeddingHeading"><h2 id="familyTitle">Embedding collection</h2><button id="familyStress" class="embeddingStress" type="button" aria-haspopup="dialog">RMS relative error: calculating…</button></div><div id="familyHeaderActions" class="sampleHeaderActions"><div class="sampleHeaderNavigation" role="group" aria-label="Neighborhood selection navigation"><button id="familyBackSelection" class="maximizePanel" disabled>← Back</button><button id="familyForwardSelection" class="maximizePanel" disabled>Forward →</button><button id="familyClearSelection" class="maximizePanel" disabled>Clear selection</button></div><label id="familyHeaderEmbedding" class="sampleHeaderEmbedding">Sample embedding </label><label id="familyHeaderColor" class="sampleHeaderEmbedding">Color by </label><label class="legendPositionControl">Legend <select id="familyLegendPosition" aria-label="Neighborhood legend position"><option value="right">Right</option><option value="bottom">Bottom</option></select></label><button id="familyNamedViews" class="maximizePanel">Named views…</button><button id="familyPNG" class="maximizePanel">Save PNG…</button><button id="familyMaximize" class="maximizePanel" aria-expanded="false">⛶ Maximize</button></div></div>
  <div id="familyControls"><label>Anchor<select id="familyAnchor"></select></label><label>Collection<select id="familyCollection"></select></label><label>Neighborhood size<select id="familySize"></select></label><label>Embedding method<select id="familyEmbedding"></select></label></div>
  <small id="familyStatus" role="status"></small><div id="familyBody"><div id="familyPlot" aria-label="Neighborhood 3D embedding"></div><aside id="familyInformation"><p id="familySummary"></p><p id="familyMethod"></p><details><summary>Interpretation and limitations</summary><p id="familyCaveats"></p><p>Neighborhood membership is ordered by reference abundance, not by distance under each displayed metric. Colors show whole-composition abundance on a fixed 0–100% scale. Error values from different target metrics or weighting schemes are not a common ranking.</p></details><label>Point size<input id="familyPointSize" type="range" min="1" max="8" step="1" value="3"></label><label>Opacity<input id="familyOpacity" type="range" min="0.1" max="1" step="0.1" value="0.8"></label><button id="familyResetCamera">Reset camera</button><h3>Selected composition</h3><p id="familySelected"></p><button id="familyCSV">Export coordinates CSV</button><button id="familyProvenance">Export provenance JSON</button><details><summary>Solver receipt</summary><pre id="familyReceipt"></pre></details></aside></div>
  <details><summary>Saved neighborhood views</summary><p>These views retain the exact collection, neighborhood, embedding and camera. They require this same asset release; they do not contain sample data.</p><div id="familyBookmarkTools"><input id="familyViewName" maxlength="100" placeholder="View name" aria-label="Neighborhood view name"><button id="familySave">Save new view</button><select id="familySavedViews" aria-label="Saved neighborhood views"></select><button id="familyRestore">Restore</button><button id="familyExportView">Export current view JSON</button><button id="familyImportView">Import view JSON</button><input id="familyViewFile" type="file" accept=".json" hidden></div></details>`;
@@ -506,16 +575,20 @@ function installEmbeddingFamilies(){
  el('dataControls').after(sidebar);
  el('familyControls').className='sectionControls';el('familySelectionHost').appendChild(el('familyControls'));
  const colorSection=document.createElement('details');colorSection.className='controlSection';colorSection.open=true;
- colorSection.innerHTML='<summary>Sample colors</summary><div class="sectionControls"><label>Color by<select id="familyColorMode"><option value="abundance">Reference abundance</option><option value="dominance2">Assigned-pair abundance order</option><option value="merged2">Merged top-2 CST groups</option><option value="rank3">Original top-3 CSTs</option><option value="valencia2-cst">VALENCIA2 CST</option><option value="valencia2-subtype">VALENCIA2 subtype</option></select></label><label>Reference coverage<select id="familyColorCoverage"><option value="60">60%</option><option value="70">70%</option><option value="80">80%</option><option value="90">90%</option></select></label><details><summary>Coloring rules</summary><small id="familyColorNote"></small></details><details id="familyLegendSection" open hidden><summary>State colors · neighborhood counts</summary><div id="familyColorLegend"></div></details></div>';
+ colorSection.innerHTML='<summary>Sample colors</summary><div class="sectionControls"><label>Color by<select id="familyColorMode"><option value="abundance">Reference abundance</option><option value="dominance2">Assigned-pair abundance order</option><option value="merged2">Merged top-2 CST groups</option><option value="rank3">Original top-3 CSTs</option><option value="valencia2-cst">VALENCIA2 CSTs</option><option value="valencia2-subtype">VALENCIA2 subCSTs</option></select></label><label>Reference coverage<select id="familyColorCoverage"><option value="60">60%</option><option value="70">70%</option><option value="80">80%</option><option value="90">90%</option></select></label><details><summary>Coloring rules</summary><small id="familyColorNote"></small></details><details id="familyLegendSection" open hidden><summary>State colors · neighborhood counts</summary><div id="familyColorLegend"></div></details></div>';
  el('familySelectionHost').parentElement.after(colorSection);
  el('familyLegendSection').querySelector('summary').id='familyLegendTitle';
  for(const id of ['familyPointSize','familyOpacity'])el('familyAppearanceControls').appendChild(el(id).closest('label'));
  el('familyAppearanceControls').appendChild(el('familyResetCamera'));
  el('familyAppearanceControls').appendChild(graphBackground);
  const vertexControls=document.createElement('details');vertexControls.className='controlSection';vertexControls.open=true;
- vertexControls.innerHTML='<summary>Reference vertices</summary><div class="sectionControls"><label><input id="familyShowVertices" type="checkbox"> Show reference vertex labels</label><label>Reference scope<select id="familyVertexScope"><option value="neighborhood">Maxima within neighborhood</option><option value="collection">Full-collection reference samples</option></select></label><label>Label size · <output id="familyVertexLabelSizeValue">12 px</output><input id="familyVertexLabelSize" type="range" min="8" max="32" step="1" value="12"></label><small id="familyVertexNote"></small></div>';
+ vertexControls.innerHTML='<summary>Reference vertices</summary><div class="sectionControls"><label><input id="familyShowVertices" type="checkbox"> Show reference vertices</label><label>Reference scope<select id="familyVertexScope"><option value="neighborhood">Maxima within neighborhood</option><option value="collection">Full-collection reference samples</option></select></label><label>Label size · <output id="familyVertexLabelSizeValue">12 px</output><input id="familyVertexLabelSize" type="range" min="8" max="32" step="1" value="12"></label><small id="familyVertexNote"></small></div>';
  el('familyAppearanceControls').closest('details').before(vertexControls);
- const labelHelp=document.createElement('small');labelHelp.textContent='Drag a label to separate it from other labels; its reference diamond stays fixed. Drag the background to rotate. Escape cancels a label drag. Positions are saved per neighborhood, embedding and reference scope.';
+ const referenceAppearanceControls=document.createElement('div');
+ referenceAppearanceControls.innerHTML='<label title="Draw reference vertices as illuminated spheres instead of diamonds. Sample points keep their appearance. Spheres grow with zoom."><input id="familyVertexSpheres" type="checkbox" checked> Sphere vertices</label><label title="Fill light on the whole sphere. Lower values deepen shadows; higher values brighten the shaded side.">Ambient light · <output id="familyVertexAmbientValue">85%</output><input id="familyVertexAmbient" aria-label="Neighborhood reference ambient light" type="range" min="0" max="100" step="1" value="85"></label><label title="Strength of the shiny reflection. Lower values are matte; higher values add more shine.">Highlights · <output id="familyVertexHighlightsValue">18%</output><input id="familyVertexHighlights" aria-label="Neighborhood reference highlights" type="range" min="0" max="100" step="1" value="18"></label><label title="Scale reference markers only; sample points and embedding coordinates are unchanged.">Vertex size · <output id="familyVertexScaleValue">100%</output><input id="familyVertexScale" aria-label="Neighborhood reference vertex size" type="range" min="25" max="300" step="5" value="100"></label><label title="One base color for all reference vertices, in sphere and diamond modes. Sample colors and reference labels are unchanged.">Vertex color<input id="familyVertexColor" aria-label="Neighborhood reference vertex color" type="color" value="#d62728"></label>';
+ el('familyShowVertices').closest('label').after(referenceAppearanceControls);
+
+ const labelHelp=document.createElement('small');labelHelp.textContent='Drag a label to separate it from other labels; its reference marker stays fixed. Drag the background to rotate. Escape cancels a label drag. Positions are saved per neighborhood, embedding and reference scope.';
  const resetLabels=document.createElement('button');resetLabels.id='familyResetLabelPositions';resetLabels.textContent='Reset label positions';resetLabels.title='Reset manual label offsets for this neighborhood, embedding and reference scope, at all coverage levels.';
  vertexControls.querySelector('.sectionControls').append(labelHelp,resetLabels);
  const savedViews=el('familyBookmarkTools').closest('details');savedViews.classList.add('controlSection');sidebar.appendChild(savedViews);
@@ -535,6 +608,23 @@ function installEmbeddingFamilies(){
   section('Reference vertex labels',[el('familyVertexNote'),labelHelp]),interpretation,
   section('Exports',[el('familyCSV'),el('familyProvenance')]),receipt,
   section('About saved views',[savedViews.querySelector('p')]));
+ // Use the same header organization as ordinary datasets, preserving each
+ // neighborhood's existing method and coloring choices and event handlers.
+ for(const [id,host] of [['familyEmbedding','familyHeaderEmbedding'],['familyColorMode','familyHeaderColor']]){
+  const control=el(id),oldLabel=control.closest('label');el(host).appendChild(control);oldLabel.remove();
+ }
+ colorSection.hidden=true;
+ const appearance=section('Sample appearance',[vertexControls,el('familyAppearanceControls')],true);
+ information.insertBefore(appearance,el('familyStatus'));
+ el('familyColorCoverage').closest('label').firstChild.textContent='Largest 2-CSTs coverage';
+ colorRules.prepend(el('familyColorCoverage').closest('label'));
+ el('familyAppearanceControls').classList.add('familyAppearanceControls');
+ sidebar.querySelector('details:has(>#familyAppearanceControls)')?.remove();
+ // The now-empty Appearance section is not a second set of controls.
+ for(const details of sidebar.querySelectorAll('details'))if(details.querySelector('summary')?.textContent==='Appearance')details.remove();
+ information.appendChild(savedViews);
+ el('familyNamedViews').onclick=()=>el('namedSampleViews').click();
+ el('familyBackSelection').onclick=backSelection;el('familyForwardSelection').onclick=forwardSelection;el('familyClearSelection').onclick=clearSelection;
  installFamilyInformationSizing();
  new ResizeObserver(()=>{if(activeEmbeddingFamily)Plotly.Plots.resize(el('familyPlot'))}).observe(el('familyPlot'));
  const report=error=>{el('familyStatus').textContent=error.message||String(error)};
@@ -552,14 +642,18 @@ function installEmbeddingFamilies(){
  el('familyMaximize').onclick=()=>{const active=document.body.classList.toggle('familyMaximized');el('familyMaximize').textContent=active?'↙ Restore':'⛶ Maximize';el('familyMaximize').setAttribute('aria-expanded',String(active));Plotly.Plots.resize(el('familyPlot'))};
  window.addEventListener('resize',()=>{if(activeEmbeddingFamily)Plotly.Plots.resize(el('familyPlot'))});
  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('familyMaximized'))el('familyMaximize').click()});
- el('familyPNG').onclick=()=>Plotly.downloadImage('familyPlot',{format:'png',filename:familyContext().hood.key.replaceAll('|','-')}).catch(report);
+ for(const [suffix,field] of [['Spheres','spheres'],['Scale','scale'],['Color','color'],['Ambient','ambient'],['Highlights','highlights']]){
+  const control=el('familyVertex'+suffix);
+  control[field==='spheres'?'onchange':'oninput']=()=>{const camera=familyCamera();familySelection.vertexAppearance=familyReferenceAppearance({...familySelection.vertexAppearance,[field]:field==='spheres'?control.checked:field==='color'?control.value:Number(control.value)});syncFamilySelectors();renderFamily(camera).catch(report)};
+ }
+ el('familyPNG').onclick=()=>el('saveSampleView').click();
  el('familyCSV').onclick=()=>{
   const {family,hood,view}=familyContext(),xyz=decodeFamilyCoordinates(view,hood.size),color=familyColorModel(hood,familySelection),quote=x=>'"'+String(x).replaceAll('"','""')+'"';
   const rows=[['family_revision','collection','anchor','size','embedding','profile_id','source_records','reference_abundance','x','y','z','color_mode','reference_coverage','state_id','state_label','color_reference'],...hood.profileIds.map((id,i)=>[family.revision,hood.collection,hood.anchor,hood.size,view.id,id,hood.multiplicity[i],hood.abundance[i],xyz[0][i],xyz[1][i],xyz[2][i],color.mode,color.mode==='abundance'?'':color.coverage??'',color.states[i]??'',color.labels[i],color.reference?.revision||''])];
   if(hood.referenceEligibilityRevision){rows[0].push('reference_eligibility_revision');rows.slice(1).forEach(row=>row.push(hood.referenceEligibilityRevision))}
   familyDownload(hood.key.replaceAll('|','-')+'.csv',rows.map(r=>r.map(quote).join(',')).join('\n'),'text/csv');
  };
- el('familyProvenance').onclick=()=>{const {family,hood,view,key}=familyContext();const {coordinates,...metadata}=view;const {mode,coverage,note,reference}=familyColorModel(hood,familySelection);familyDownload('neighborhood-provenance.json',JSON.stringify({family:family.id,revision:family.revision,referenceEligibilityRevision:hood.referenceEligibilityRevision,principalPaths:typeof principalReference==='function'?{reference:principalReference(hood,familySelection),model:familySelection.principalModel,path:familySelection.principalPath}:null,selectionRule:family.selectionRule,limitations:family.limitations,collection:hood.collection,collectionRevision:family.collections[hood.collection].revision,anchor:hood.anchor,size:hood.size,profileIds:hood.profileIds,view:metadata,coloring:{mode,coverage:mode==='abundance'?null:coverage,note,reference},referenceVertices:familySelection.showVertices?{...familyVertexModel(hood,familySelection),labelSize:familySelection.vertexLabelSize,labelOffsets:familyViewLabelOffsets(familySelection,key)}:null},null,2))};
+ el('familyProvenance').onclick=()=>{const {family,hood,view,key}=familyContext();const {coordinates,...metadata}=view;const {mode,coverage,note,reference}=familyColorModel(hood,familySelection);familyDownload('neighborhood-provenance.json',JSON.stringify({family:family.id,revision:family.revision,referenceEligibilityRevision:hood.referenceEligibilityRevision,principalPaths:typeof principalReference==='function'?{reference:principalReference(hood,familySelection),model:familySelection.principalModel,path:familySelection.principalPath}:null,selectionRule:family.selectionRule,limitations:family.limitations,collection:hood.collection,collectionRevision:family.collections[hood.collection].revision,anchor:hood.anchor,size:hood.size,profileIds:hood.profileIds,view:metadata,coloring:{mode,coverage:mode==='abundance'?null:coverage,note,reference},referenceVertices:familySelection.showVertices?{...familyVertexModel(hood,familySelection),appearance:familyReferenceAppearance(familySelection.vertexAppearance),labelSize:familySelection.vertexLabelSize,labelOffsets:familyViewLabelOffsets(familySelection,key)}:null},null,2))};
  el('familySave').onclick=()=>{try{const name=el('familyViewName').value.trim();if(!name)throw Error('Enter a view name');const b=validateFamilyBookmark(familyBookmark(name)),list=readFamilyViews();list.push(b);localStorage.setItem(familyViewsKey,JSON.stringify(list));refreshFamilyBookmarks();el('familyStatus').textContent='Saved '+name}catch(error){report(error)}};
  el('familyRestore').onclick=()=>{try{if(el('familySavedViews').value==='')throw Error('Choose a saved view');const b=validateFamilyBookmark(readFamilyViews()[Number(el('familySavedViews').value)]);activateEmbeddingFamily(b.family,b).catch(report)}catch(error){report(error)}};
  el('familyExportView').onclick=()=>familyDownload('neighborhood-view.json',JSON.stringify(familyBookmark(el('familyViewName').value.trim()||el('familyTitle').textContent),null,2));
@@ -570,8 +664,8 @@ function installEmbeddingFamilies(){
  let clickInstalled=false;
  renderFamily=function(camera){return originalRender(camera).then(()=>{
   if(clickInstalled||!el('familyPlot').on)return;clickInstalled=true;
-  el('familyPlot').on('plotly_click',event=>{
-   if(!activeEmbeddingFamily)return;const p=event.points?.[0],ctx=familyContext();if(p?.data?.meta?.familyKey!==ctx.key)return;
+  installFamilyPicking(el('familyPlot'),p=>{
+   if(!activeEmbeddingFamily)return;const ctx=familyContext();if(p?.data?.meta?.familyKey!==ctx.key)return;
    const i=p.customdata;if(!Number.isInteger(i)||i<0||i>=ctx.hood.size)return;
    if(p.data.meta.familyReference){
     const vertices=familyVertexModel(ctx.hood,familySelection).vertices.filter(v=>v.index===i&&current().nodes.some(n=>n.id===v.feature));

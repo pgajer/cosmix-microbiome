@@ -16,7 +16,7 @@ function cohortControlHelp(){
 // Imported datasets need their own provenance; never infer their geometry from a name.
 function standardSampleEmbeddingTitle(method){
  if(typeof datasetMaxNormalizedAsset==='function'&&datasetMaxNormalizedAsset()&&maxNormalizedIds.includes(el('sampleEmbedding').value))return maxNormalizedMethodLabel()+' · '+method;
- const known=['comb-V3V4-tx','comb-V4-tx','umb-hmp-2019-panel','lsvf-v3v4-20241111','hmp-u01-2019','papclear-v3v4-provisional-20261017','zapps-pressmat-v4'].includes(META.id);
+ const known=['comb-V3V4-tx','comb-V4-tx','umb-hmp-2019-panel','lsvf-v3v4-20241111','hmp-u01-2019','papclear-v3v4-provisional-20261017','zapps-pressmat-v4','sante-16s'].includes(META.id);
  return (known?'Sum-normalized Euclidean':'Normalization/metric unspecified')+' · '+method;
 }
 function samplePanelTitle(method,selection='',cohortOverride=null){
@@ -33,7 +33,8 @@ function samplePanelTitle(method,selection='',cohortOverride=null){
   method.includes('(restricted)')?(method.includes('Local 3D')?'Local fit subset':'Global fit subset'):
   selection&&method.includes('Subject-state joint')?'Joint local fit':
   selection&&method.includes('Local 3D')?'Local fit':'';
- const unfolded=method.includes('Unfolded faces')?'Unfolded faces':'';
+ const unfolded=method.includes('Unfolded faces')?'Unfolded faces'+(selectedVertex===null&&typeof unfoldedAnchorFeatureId!=='undefined'&&unfoldedAnchorFeatureId!==null?' · Anchor: '+unfoldedAnchorLabel(unfoldedAnchorFeatureId):''):'';
+ if(unfolded&&selectedVertex===null)el('sampleTitle').title+=' · Anchor: '+unfoldedAnchorLabel(unfoldedAnchorFeatureId);
  return [cohort,selection,scope,unfolded].filter(Boolean).join(' · ');
 }
 function sampleEmbeddingTitle(overview=false){
@@ -61,6 +62,8 @@ function syncAnalysisControls(){
  const a=analysisExtension(),records=recordExtension();
  el('explorerDescription').textContent=activeStateMode==='merged'?'Vertices are features; edges name reference core groups. Merged groups retain every selected record. Select an edge or vertex to inspect samples; clear the selection for the overview.':'Vertices are features; edges group samples by their unordered leading pair. Coverage selects retained states. Select an edge or vertex to inspect samples; clear the selection for the overview.';
  const choices=a?Object.keys(a.populations).filter(c=>!a.eligibility||c!=='records'):records?['all',...Object.keys(records.populations)]:['all'];
+ const singleCohort=choices.length<=1||!!a&&new Set(a.records.map(r=>r.cohort).filter(Boolean)).size===1&&choices.filter(c=>c!=='all').length<=1;
+ el('cohortControl').hidden=singleCohort;el('panelCohortControl').hidden=singleCohort;
  for(const id of ['cohortSelect','panelCohortSelect']){
   el(id).innerHTML=choices.map(c=>`<option value="${esc(c)}">${esc(a?(c==='all'&&activeStateMode==='pure'&&a.combDisplay&&!a.eligibility?'Frozen distinct-profile view':cohortChoiceLabel(a.populations[c].title)):records?(c==='all'?'Frozen distinct-profile view':cohortChoiceLabel(records.populations[c].title)):'Full combined reference')}</option>`).join('');el(id).value=activeCohort;el(id).disabled=!a&&!records;el(id).title=cohortControlHelp();
  }

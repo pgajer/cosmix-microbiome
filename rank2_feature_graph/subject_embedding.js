@@ -20,7 +20,9 @@ function validateSubjectEmbeddingFit(fit,scope){
   return fit;
  }
  if(fit.historical&&fit.displayRevision===BUNDLE_PACK.combDisplay?.revision&&fit.provenance&&/^[a-f0-9]{64}$/.test(fit.receipt))return fit;
- if(fit.settings?.version!=='subject-union-mds-v1'||fit.settings.backend!=='sgd'||fit.settings.dimension!==3||!fit.solver||!fit.evaluation||!Number.isFinite(fit.evaluation.relativeRms)||!/^[a-f0-9]{64}$/.test(fit.receipt??''))throw Error('Invalid joint embedding solver receipt');
+ const error=fit.evaluation?.relativeRms,singleton=fit.evaluation?.profiles===1&&fit.solver?.backend==='analytic'&&fit.coords.length>0&&fit.coords.every(p=>p.every((x,j)=>x===fit.coords[0][j]));
+ const validError=error===null?singleton:Number.isFinite(error)&&error>=0;
+ if(fit.settings?.version!=='subject-union-mds-v1'||fit.settings.backend!=='sgd'||fit.settings.dimension!==3||!fit.solver||!fit.evaluation||!validError||!/^[a-f0-9]{64}$/.test(fit.receipt??''))throw Error('Invalid joint embedding solver receipt');
  return fit;
 }
 function savedSubjectEmbedding(scope){

@@ -11,6 +11,20 @@ import portable
 
 
 class PortableTests(unittest.TestCase):
+    def test_partial_edge_bank_rejected_before_output_creation(self):
+        from test_unfolded_edge_supplement import fixture, seal
+        bank,bundle,participants=fixture();bank['scope']['complete']=False;seal(bank)
+        dataset=bank['dataset']
+        manifest=dict(seed={},datasets={dataset:dict(parts=[dict(url='fixture')])})
+        part=dict(bundles=[bundle],participants={dataset:participants})
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);metadata=root/'metadata.json';output=root/'result'
+            metadata.write_text(json.dumps(dict(legendAbundanceTotals={},embeddingStressDiagnostics={},datasetUnfoldedEdgeEmbeddings={dataset:bank})))
+            with patch.object(portable,'package_manifest',return_value=manifest), patch.object(portable,'package_views',return_value={}), patch.object(portable,'validate_metadata'), patch.object(portable,'checked_bytes',return_value=json.dumps(part).encode()):
+                with self.assertRaisesRegex(ValueError,'partial pilot'):
+                    portable.prepare(root,metadata,output)
+            self.assertFalse(output.exists())
+
     def test_original_and_repackaged_launchers_follow_updated_instance(self):
         with tempfile.TemporaryDirectory() as temp:
             package=Path(temp);(package/'web').mkdir()
@@ -56,6 +70,45 @@ class PortableTests(unittest.TestCase):
         bad = copy.deepcopy(metadata); bad['embeddingStressDiagnostics']['v']['fingerprint']['scale'] = 1
         with self.assertRaisesRegex(ValueError, 'coordinates differ'):
             portable.validate_metadata(bad, manifest, views)
+
+    def test_optional_neighborhoods_isolate_duplicate_dataset_id_and_validate_assets(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp); mainweb=root/'main'; oldweb=root/'old'
+            mainweb.mkdir(); (oldweb/'vme-assets').mkdir(parents=True)
+            raw=b'{"reference":"historical"}'; digest=portable.sha(raw)
+            desc=dict(url='/vme-assets/'+digest+'.json',sha256=digest,bytes=len(raw))
+            (oldweb/desc['url'].lstrip('/')).write_bytes(raw)
+            current=dict(version=1,seed=dict(distributionDatasets=['comb']),families=[],
+                datasets={'comb':dict(dataset=dict(id='comb',title='Current',revision='new'),parts=[])},
+                application={},validator={},plotly={})
+            old=dict(version=1,seed={},families=[dict(id='li-lc-neighborhoods',title='Li / Lc neighborhoods')],
+                datasets={'comb':dict(dataset=dict(id='comb',title='Historical',revision='old'),parts=[desc])},
+                neighborhoods=dict(datasets=['comb'],parts=[desc]),sensitivity={'old':True})
+            def write(web,manifest):
+                (web/'index.html').write_text('<script id="vme-http-manifest" type="application/json">'+json.dumps(manifest)+'</script>')
+            write(mainweb,current);write(oldweb,old)
+            portable.attach_neighborhoods(mainweb/'index.html',oldweb)
+            main=portable.read_manifest(mainweb/'index.html')
+            self.assertEqual(main['datasets'],current['datasets'])
+            self.assertEqual(main['seed']['distributionDatasets'],['comb'])
+            import re
+            extra=json.loads(re.search(r'<script id="vme-optional-neighborhoods" type="application/json">(.*?)</script>',(mainweb/'index.html').read_text())[1])
+            self.assertEqual(extra['datasets']['comb']['dataset']['revision'],'old')
+            self.assertEqual(extra['seed']['distributionDatasets'],[])
+            self.assertEqual(extra['seed']['optionalDatasetLinks'],[dict(id='comb',title='Current')])
+            self.assertNotIn('sensitivity',extra)
+            self.assertEqual(portable.checked_bytes(mainweb,desc),raw)
+            self.assertEqual(portable.read_manifest(oldweb/'index.html'),old)
+            with self.assertRaisesRegex(ValueError,'already installed'):
+                portable.attach_neighborhoods(mainweb/'index.html',oldweb)
+            # A future local build can reuse the installed optional context.
+            preview=root/'preview';preview.mkdir();write(preview,current)
+            portable.attach_neighborhoods(preview/'index.html',mainweb)
+            write(mainweb,current)
+            (oldweb/desc['url'].lstrip('/')).write_bytes(b'corrupted')
+            with self.assertRaisesRegex(ValueError,'checksum'):
+                portable.attach_neighborhoods(mainweb/'index.html',oldweb)
+            self.assertEqual(portable.read_manifest(mainweb/'index.html'),current)
 
     def test_existing_output_is_preserved(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -186,6 +239,16 @@ class UpdateTests(unittest.TestCase):
         self.prepare(self.package, self.metadata, self.output / 'nested')
         with self.assertRaisesRegex(ValueError, 'outside the app'):
             portable.update(self.output / 'nested/data', self.metadata, self.output / 'nested')
+
+    def test_optional_inputs_survive_regular_update(self):
+        self.install_old()
+        receipt=self.output/'SOURCE_AND_DATA.json'
+        data=json.loads(receipt.read_text())
+        data['optionalNeighborhoods']=dict(dataPackage=str(self.package),metadataFile=str(self.metadata))
+        receipt.write_text(json.dumps(data))
+        with patch.object(portable,'prepare',side_effect=self.prepare), patch.object(portable,'validate_prepared'), patch.object(portable,'install_neighborhoods') as install:
+            portable.update(output=self.output)
+            self.assertEqual(install.call_args.args[1:],(self.package,self.metadata))
 
     def test_concurrent_updates_rejected(self):
         with portable.update_lock(self.output):

@@ -55,6 +55,13 @@ assert.equal(renders.at(-1).traces[0].visible,true);assert.equal(renders.at(-1).
 run("renderSamplePlot([{meta:{sampleView:'rank3'},marker:{size:2}}],{scene:{}},{})");
 assert.equal(el('participantShowVertices').disabled,true,'Views with no references explain why the control is unavailable');
 assert.equal(el('sampleReferenceNote').hidden,false);
+// Visit highlighting owns both marker sets, independently of ordinary sample controls.
+run('renderSamplePlot([{meta:{sampleView:"all",enrollmentContext:true},marker:{size:4,opacity:.15,color:"#a8adb2"}},{meta:{sampleView:"all",enrollmentExploration:true},marker:{size:[12,8],opacity:.9,color:["blue","blue"]}}],{scene:{}},{})');
+assert.deepEqual(plain(renders.at(-1).traces.map(t=>t.marker)),[{size:4,opacity:.15,color:'#a8adb2'},{size:[12,8],opacity:.9,color:['blue','blue']}]);
+context.explorationActive=()=>true;run('syncSampleAppearanceControls()');
+assert.equal(el('participantBackgroundSize').disabled,true);assert.equal(el('participantBackgroundOpacity').disabled,true);assert.equal(el('participantStateBackground').disabled,true);
+context.explorationActive=()=>false;run('syncSampleAppearanceControls()');
+assert.equal(el('participantBackgroundSize').disabled,false);assert.equal(el('participantBackgroundOpacity').disabled,false);
 // Participant rendering remains governed by its existing, independent appearance settings.
 run('participant.active=true;participant.showLabels=false;participant.showLines=false;participant.showArrows=true;syncSampleAppearanceControls();renderSamplePlot(traces,layout,{})');
 assert.equal(renders.at(-1).traces[0],traces[0]);assert.equal(renders.at(-1).traces[2],traces[2]);assert.equal(renders.at(-1).layout,layout);
@@ -70,6 +77,26 @@ assert.throws(()=>run('validateParticipantView({...participant,sampleOpacity:2},
 assert.throws(()=>run('validateParticipantView({...participant,sampleSize:0},{dataset:{id:"fixture"}})'),/sample point size/);
 assert.throws(()=>run('validateParticipantView({...participant,sampleColors:"yes"},{dataset:{id:"fixture"}})'),/visibility/);
 console.log('PASS: shared reference markers and labels, sample controls, installed events, preserved geometry/markers/camera, participant isolation, persistence and legacy saved settings.');
+
+// Hidden incident states remain available to restore from the States controls.
+{
+ const html=fs.readFileSync(new URL('viewer.html',import.meta.url),'utf8'),nodes=new Map();
+ const node=id=>{if(!nodes.has(id))nodes.set(id,{innerHTML:'',hidden:false,textContent:''});return nodes.get(id)};
+ const c=vm.createContext({el:node,participant:{active:false},rank3UsesSamples:()=>false,candidateActive:()=>false,pureCoverageActive:()=>false,
+  selectedVertex:1,hiddenEdges:new Set(),sampleStateColorEntries:[],edgeColors:{},edgeColor:()=>'#123456',esc:String,
+  incidentEdges:()=>[{id:'1,2'},{id:'1,3'}],pairColorEntries:ids=>ids.map(id=>({kind:'pair',id,label:id})),graph(){},inspect(){},table(){},refreshSamples(){}});
+ vm.runInContext(html.slice(html.indexOf('function renderStateColors('),html.indexOf('function setStateColor(')),c);
+ vm.runInContext(html.slice(html.indexOf('function setIncidentStateVisible('),html.indexOf("el('sampleStateColorRows').addEventListener('change'")),c);
+ c.renderStateColors([]);assert.equal((node('sampleStateColorRows').innerHTML.match(/data-state-visible=/g)||[]).length,2);
+ c.setIncidentStateVisible('1,2',false);c.setIncidentStateVisible('1,3',false);c.renderStateColors([]);
+ assert.equal(c.hiddenEdges.size,2);assert.equal((node('sampleStateColorRows').innerHTML.match(/data-state-visible=/g)||[]).length,2);
+ assert.ok(!node('sampleStateColorRows').innerHTML.includes(' checked'));
+ c.setIncidentStateVisible('1,2',true);c.renderStateColors([]);assert.equal(c.hiddenEdges.size,1);
+ c.setIncidentStateVisible('unknown',false);assert.equal(c.hiddenEdges.size,1);
+ c.participant.active=true;c.renderStateColors([{kind:'pair',id:'1,2',label:'pair'}]);
+ assert.ok(!node('sampleStateColorRows').innerHTML.includes('data-state-visible'));assert.equal(node('stateVisibilityNote').hidden,true);
+ console.log('PASS: incident-state controls retain hidden rows, restore visibility and stay isolated from participant mode.');
+}
 // Reference sphere mode does not touch samples, visit markers, counts or camera.
 context.sphereInput=[{type:'scatter3d',meta:{sampleView:'local'},ids:['sample'],x:[0,10],y:[0,10],z:[0,10],marker:{size:2,color:'red'}},
  {type:'scatter3d',meta:{referenceVertices:true},x:[2,7],y:[3,6],z:[4,5],customdata:['endpoint-vertices:1','endpoint-vertices:2'],hovertext:['first reference','second reference'],marker:{size:8,color:['#123456','#abcdef']},hovertemplate:'%{hovertext}<extra></extra>'}];

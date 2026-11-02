@@ -1,3 +1,11 @@
+# Current selectable dataset releases
+
+For new installations, follow [the simple setup guide](MEETING_SETUP.md).
+Download the starter and only the dataset ZIPs you need. Choose datasets during
+setup with `python3 scripts/portable.py update --catalog /path/to/release --select-datasets`.
+Later updates remember that choice. `--select-datasets` changes the installed set.
+The earlier package/metadata route below remains supported for existing users.
+
 # Run updated VME source with separately supplied data
 
 The interface source and research datasets are distributed separately. A Git

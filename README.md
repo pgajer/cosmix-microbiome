@@ -37,3 +37,5 @@ separately; this repository contains the application source, not sample data.
 If you use VME in your research, please cite the software using
 [CITATION.cff](CITATION.cff). Cite research datasets separately according to
 their providers' guidance.
+
+For installation and choosing separately supplied datasets, see [Setup](MEETING_SETUP.md).

@@ -98,6 +98,9 @@ function legendTraceIndices(traces){
  }return [...indices];
 }
 function renderCountedSampleLegend(){
+ if(typeof longitudinalLegend==='function'&&longitudinalLegend())return;
+ if(typeof syncCstSphereSummary==='function')syncCstSphereSummary();
+ if(typeof explorationLegend==='function'&&explorationLegend())return;
  const bundle=datasetRegistry.get(META.id),traces=el('samples').data||[],isParticipant=participant.active;
  const recordMode=isParticipant||!!DATA.records||bundle.cohortAnalysis?.populationVersion===2&&bundle.dataset.observationUnit!=='distinct-composition';
  const population=legendPopulation(bundle,recordMode),entries=[];
@@ -114,6 +117,7 @@ function renderCountedSampleLegend(){
   else entries.push({key:population.profileKey(profile),index,profile});
  }
  const eligible=entries.filter(e=>population.identities.has(e.key)),nonCore=pureCoverageActive()&&pureCoverageComparison.nonCore;
+ if(typeof renderCstSphereSummary==='function')renderCstSphereSummary(eligible,population);
  const valencia=valenciaActive()&&!nonCore,triples=!isParticipant&&!nonCore&&!valencia&&rank3.enabled&&rank3.color==='rank3';
  const components=!isParticipant&&!!mergedComponentKey(),candidates=!isParticipant&&candidateActive();
  const reference=new Map(displayGraph(bundle.data.graphs['100'],bundle.data).edges.map(e=>[e.id,e])),displayed=new Map(current().edges.map(e=>[e.id,e]));
@@ -153,10 +157,17 @@ function renderCountedSampleLegend(){
  }
  el('sampleLegend').hidden=false;el('sampleLegendItems').innerHTML=html;
 }
+// Match plotted neighborhood compositions, including visible background once.
+// Record multiplicities, reference markers and highlight-ring overlays do not count.
+function familyDisplayedEntries(hood,foreground,background,showBackground,population){
+ return [...foreground.map(i=>({i})),...(showBackground?background.map(i=>({i,background:true})):[])]
+  .map(e=>({...e,profile:hood.profileIndices[e.i],key:population.profileKey(hood.profileIndices[e.i])}))
+  .filter(e=>population.identities.has(e.key));
+}
 function countedFamilyLegend(hood,color,foreground,background,showBackground,graphColorOverride,linked){
  const bundle=datasetRegistry.get(hood.collection),population=legendPopulation(bundle);
  const base=graphColorOverride?rank3Base(datasetRegistry.get(hood.collection)):null,categories=new Map(color.legend.map(r=>[r.id,r]));
- const entries=[...foreground.map(i=>({key:population.profileKey(hood.profileIndices[i]),i})),...(showBackground?background.map(i=>({key:population.profileKey(hood.profileIndices[i]),i,background:true})):[])].filter(e=>population.identities.has(e.key));
+ const entries=familyDisplayedEntries(hood,foreground,background,showBackground,population);
  const counts=legendRows(entries,e=>{
   const i=e.i;if(e.background)return {id:'background',label:'Other displayed compositions',color:'#b9c2c7',group:'Dimmed background'};
   if(graphColorOverride){const id=linked.triples[i],r=base.byId.get(id);return {id,label:r?legendCstLabel(id,bundle,false,r.key+': '+r.label):null,color:rank3Color(id,hood.collection)}}

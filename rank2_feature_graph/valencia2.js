@@ -18,7 +18,7 @@ function valenciaUnavailableReason(){
 function sampleColorHelp(){
  if(sampleColorMode().startsWith('valencia2-')&&!valenciaAsset())return valenciaUnavailableReason();
  const help={default:'Color by merged 2-CST group at the chosen dataset coverage. This percentage does not describe taxon abundance.',pure:'Original, unmerged top-two-taxa assignments. Pure does not mean that a sample contains only two taxa.',cohorts:'Recorded cohort membership. Missing metadata is Unclassified. A composition shared across cohorts is labeled Multiple cohorts when records are represented by a single point.',visits:'Participant visit labels or order. Available during a participant trajectory; background samples retain their state colors or gray background setting.',rank3:'Original top-three-taxa assignments; coloring does not change the selected samples.', 'valencia2-cst':'Saved VALENCIA2 CST annotations; no classifications are recalculated.','valencia2-subtype':'Saved VALENCIA2 subCST annotations; no classifications are recalculated.'};
- return (help[sampleColorMode()]||help.default)+' Only colors change.';
+ return (help[sampleColorMode()]||help.default)+(sampleColorMode().startsWith('valencia2-')?' The graph panel summarizes displayed CST sizes. Samples and coordinates stay unchanged.':' Only colors change.');
 }
 function sampleCohortModel(){
  const bundle=sampleColorBundle();if(!bundle)return null;
@@ -174,3 +174,52 @@ el('exportValencia2').onclick=()=>{
  const link=document.createElement('a');link.href=url;link.download=valenciaAsset().datasetId+'_VALENCIA2_assignments.csv';link.click();
  setTimeout(()=>URL.revokeObjectURL(url),1000);
 };
+
+// A color-dependent summary of rendered observations, independent of graph state.
+function cstSphereSummaryModel(entries,profiles,subtype=false){
+ const palette=subtype?valenciaSubtypeColors:valenciaCstColors;
+ const rows=new Map(Object.entries(palette).map(([label,color])=>[label,{label,color,n:0}])),seen=new Set();
+ for(const entry of entries){
+  if(seen.has(entry.key))continue;seen.add(entry.key);
+  const label=profiles[entry.profile]?.[subtype?'subCST':'cst']||'Unclassified';
+  if(!rows.has(label))rows.set(label,{label,color:'#7c878d',n:0});rows.get(label).n++;
+ }
+ const N=seen.size,max=Math.max(1,...[...rows.values()].map(r=>r.n));
+ return {N,rows:[...rows.values()].map(r=>({...r,percent:N?100*r.n/N:null,radius:36*Math.sqrt(r.n/max)}))};
+}
+function cstSummaryNeighborhood(){return typeof activeEmbeddingFamily!=='undefined'&&!!activeEmbeddingFamily}
+function cstSummaryColorMode(){return cstSummaryNeighborhood()?familySelection.colorMode:sampleColorMode()}
+function cstSummaryTitle(){return cstSummaryColorMode()==='valencia2-subtype'?'VALENCIA2 subCSTs':'VALENCIA2 CSTs'}
+function cstSphereSummaryActive(){
+ if(cstSummaryNeighborhood())return cstSummaryColorMode().startsWith('valencia2-')&&familyValenciaAvailable(familySelection.collection);
+ return valenciaActive()&&!(typeof explorationActive==='function'&&explorationActive())&&
+  !(typeof pureCoverageActive==='function'&&pureCoverageActive()&&pureCoverageComparison.nonCore);
+}
+function cstSphereSummarySvg(model,title){
+ const width=Math.max(480,model.rows.length*80),step=width/model.rows.length;
+ return `<svg id="cstSummarySvg" xmlns="http://www.w3.org/2000/svg" width="${width}" height="184" viewBox="0 0 ${width} 184" role="img" aria-label="${esc(title)}: sample counts and percentages" style="font-family:Arial,sans-serif;font-size:13px;fill:#183743"><rect width="100%" height="100%" fill="white"/><defs>${model.rows.map((r,i)=>`<radialGradient id="cstSummaryGradient${i}" cx=".32" cy=".28" r=".72"><stop offset="0" stop-color="white"/><stop offset=".3" stop-color="${r.color}"/><stop offset=".7" stop-color="${r.color}"/><stop offset="1" stop-color="#303b42"/></radialGradient>`).join('')}</defs>${model.rows.map((r,i)=>{
+  const x=step*(i+.5),pct=r.percent==null?'—':r.percent>0&&r.percent<.01?'&lt;0.01%':r.percent.toFixed(2)+'%';
+  return `<g data-cst-summary-category="${esc(r.label)}" data-count="${r.n}"><title>${esc(r.label)}: n = ${r.n.toLocaleString()}, ${pct} of displayed observations</title><text x="${x}" y="23" text-anchor="middle" font-weight="bold">${esc(r.label)}</text>${r.n?`<circle cx="${x}" cy="77" r="${r.radius}" fill="url(#cstSummaryGradient${i})"/>`:`<text x="${x}" y="82" text-anchor="middle" fill="#7c878d">—</text>`}<text x="${x}" y="139" text-anchor="middle">n = ${r.n.toLocaleString()}</text><text x="${x}" y="162" text-anchor="middle">${pct}</text></g>`;
+ }).join('')}</svg>`;
+}
+function syncCstSphereSummary(){
+ if(typeof longitudinalActive==='function'&&longitudinalActive())return false;
+ const box=el('cstSummary');if(!box)return false;
+ if(typeof stateTransitionsActive==='function'&&stateTransitionsActive()){renderStateTransitions();return false}
+ const active=cstSphereSummaryActive(),changed=box.hidden===active;
+ box.hidden=!active;el('graphContent').hidden=active;
+ el('featurePanelTitle').textContent=active?cstSummaryTitle():'Features and states graph';
+ el('namedGraphViews').hidden=active;
+ if(typeof cstSummaryPanelLayoutSync==='function')cstSummaryPanelLayoutSync(active);
+ if(changed&&typeof window!=='undefined')window.requestAnimationFrame(()=>window.dispatchEvent(new Event('resize')));
+ return active;
+}
+function renderCstSphereSummary(entries,population,{neighborhood=false}={}){
+ // Hidden ordinary sample traces must never overwrite a neighborhood summary.
+ if(cstSummaryNeighborhood()!==neighborhood||!el('cstSummary')||!syncCstSphereSummary())return;
+ const asset=neighborhood?BUNDLE_PACK.valencia2[familySelection.collection]:valenciaAsset();
+ const model=cstSphereSummaryModel(entries,asset.profiles,cstSummaryColorMode()==='valencia2-subtype');
+ if(neighborhood)model.rows=model.rows.filter(r=>r.n>0);
+ el('cstSummaryRow').innerHTML=cstSphereSummarySvg(model,cstSummaryTitle());
+ el('cstSummaryNote').textContent=`n: ${population.unit}. Percentages use all ${model.N.toLocaleString()} displayed ${population.unit}, including visible background once; reference markers excluded. Sphere area is proportional to n within this view. A dash means no samples. Scroll sideways if needed.`;
+}

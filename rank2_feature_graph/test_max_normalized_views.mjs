@@ -120,3 +120,18 @@ run("selected=null;applyAutomaticEmbedding()");assert.equal(el('sampleEmbedding'
 assert.equal(run('preferredSampleEmbedding'),'local','Overview keeps a valid saved selection preference');
 assert.equal((html.match(/hidden aria-hidden="true">Saved fitting scope/g)||[]).length,2);
 console.log('PASS: automatic local selection, population fallback, method preservation, cohort/pure gates and hidden scope controls.');
+
+// Full-population markers must not rely on a smaller reviewed participant table.
+run(`META={id:'comb-V4-tx',revision:'v4'};
+ DATA={records:[{profile:7},{profile:3},{profile:7}],samples:{ids:['a','b','c']}};
+ BUNDLE_PACK.participants={'comb-V4-tx':{compositions:{3:[[0,.2],[1,.8]]}}};
+ const markerFit={indices:[0,1,2],coords:[[7,0,0],[3,0,0],[7,0,0]]};
+ BUNDLE_PACK.stressCompositions={'comb-V4-tx':{datasetRevision:'v4',compositions:{3:[[0,.2],[1,.8]],7:[[0,.9],[1,.1]]}}};`);
+assert.equal(run('maxNormalizedLocalReferences([1],markerFit)[0].row'),0);
+assert.equal(run('maxNormalizedLocalReferences([2],markerFit)[0].row'),1);
+assert.equal(JSON.stringify(run('maxNormalizedLocalReferences([1],markerFit)[0].coords')),'[7,0,0]');
+assert.equal(run('Object.keys(BUNDLE_PACK.participants[META.id].compositions).length'),1,'Do not expand the participant payload');
+run("BUNDLE_PACK.stressCompositions[META.id].datasetRevision='stale'");
+assert.throws(()=>run('maxNormalizedLocalReferences([1],markerFit)'),/Full compositions are missing/);
+assert.equal(run('maxNormalizedLocalReferences([2],{indices:[1],coords:[[3,0,0]]})[0].maximum'),.8,'Reviewed participant compositions remain the fallback');
+console.log('PASS: local reference markers use revision-matched full compositions, preserve participant scope and reject missing profiles.');

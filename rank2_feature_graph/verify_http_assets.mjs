@@ -20,14 +20,14 @@ if(!flags.includes('--hover-only')){
  assert(manifest.datasets['comb-V3V4-tx'].deferred?.combDisplay&&manifest.datasets['comb-V3V4-tx'].deferred?.combGraphLayouts,'Integration requires deferred comb-V3V4-tx display and graph-layout assets; see TESTING.md');
 }
 const read=d=>fs.readFileSync(path.join(base,d.url));
-class Element{constructor(id=''){this.id=id;this.value='';this.children=[];this.dataset={};this.style={};this.options=[{value:""},{value:""},{value:""},{value:""}];this.handlers={};this.textContent='';this.disabled=false;this.classList={add(){},remove(){},toggle(){},contains(){return false}}}setAttribute(k,v){this[k]=v}appendChild(c){this.children.push(c)}replaceChildren(){this.children=[]}addEventListener(k,f){this.handlers[k]=f}on(k,f){this.handlers[k]=f}}
+class Element{constructor(id=''){this.id=id;this.value='';this.children=[];this.dataset={};this.style={};this.options=[{value:""},{value:""},{value:""},{value:""}];this.handlers={};this.textContent='';this.disabled=false;this.classList={add(){},remove(){},toggle(){},contains(){return false}}}setAttribute(k,v){this[k]=v}appendChild(c){this.children.push(c)}after(){}closest(){return this.parentElement??=new Element()}replaceChildren(){this.children=[]}addEventListener(k,f){this.handlers[k]=f}on(k,f){this.handlers[k]=f}close(){this.open=false}}
 const elements=new Map(),el=id=>{if(!elements.has(id))elements.set(id,new Element(id));return elements.get(id)};
 for(const [id,value] of Object.entries({coverage:'60',dimension:'3',graphScope:'all',sampleEmbedding:'local',scope:'core',search:''}))el(id).value=value;
-for(const id of ['unfoldFaces','panelUnfoldFaces'])el(id).parentElement={title:''};
+for(const id of ['unfoldFaces','panelUnfoldFaces','unfoldAnchor'])el(id).parentElement={title:''};
 el('vertexLabels').checked=true;const saved=new Map([['vme-graph-embedding-method-v1','spring']]),errors=[],requests=[];
 let gate=null,failURL=null;
 const request=async url=>{requests.push(url);if(url===failURL)throw Error("Test-only interrupted asset transfer");if(gate&&gate.urls.has(url))await gate.promise;const bytes=read({url});return {ok:true,arrayBuffer:async()=>bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength)}};
-const ctx=vm.createContext({TextDecoder,Uint8Array,crypto:webcrypto,fetch:request,console:{error:e=>errors.push(String(e))},setTimeout,clearTimeout,Blob,URL,atob});
+const ctx=vm.createContext({TextDecoder,Uint8Array,crypto:webcrypto,fetch:request,console:{error:e=>errors.push(String(e))},setTimeout,clearTimeout,Blob,URL,atob,ResizeObserver:class{observe(){}unobserve(){}disconnect(){}}});
 vm.runInContext(fs.readFileSync(new URL('asset_loader.js',import.meta.url),'utf8'),ctx);
 vm.runInContext(read(manifest.validator).toString(),ctx);
 const loader=ctx.VMEAssetLoader.createLoader(manifest,request);loader.status=()=>{};loader.retry=()=>{};loader.releaseControls=()=>{};
@@ -336,12 +336,108 @@ assert.deepEqual(hashes(),before,'Core/non-core comparison preserves scientific 
 for(const fixture of [
  {id:'zapps-pressmat-v4',cohort:'PreSSMat',flag:'zappsMaxNormalized',views:[['all','merged','60','vertex'],['ZAPPS','pure','80','group'],['PreSSMat','merged','100','vertex']]},
  {id:'umb-hmp-2019-panel',cohort:'UMB-HMP',flag:'hmpPanelMaxNormalized',views:[['all','merged','60','vertex'],['all','pure','80','vertex'],['joint-omics','pure','80','group'],['MT','merged','90','vertex'],['qPCR-positive','merged','100','vertex']]},
- {id:'lsvf-v3v4-20241111',cohort:'LSVF',flag:'lsvfMaxNormalized',views:[['all','merged','60','vertex'],['all','pure','80','vertex'],['metabolite','pure','80','group'],['metabolite+immune','merged','100','vertex']]}
+ {id:'hmp-u01-2019',cohort:'HMP',flag:'hmpFullMaxNormalized',views:[['all','merged','60','vertex'],['all','pure','80','vertex'],['HMP','pure','80','group'],['HMP','merged','100','vertex']]},
+ {id:'hmp-u01-2019',cohort:'U01',flag:'hmpU01MaxNormalized',views:[['U01','pure','80','group'],['U01','merged','100','vertex']]},
+ {id:'lsvf-v3v4-20241111',cohort:'LSVF',flag:'lsvfMaxNormalized',views:[['all','merged','60','vertex'],['all','pure','80','vertex'],['metabolite','pure','80','group'],['metabolite+immune','merged','100','vertex']]},
+ {id:'comb-V4-tx',cohort:'ZAPPS',flag:'combV4MaxNormalized',views:[['all','merged','60','vertex'],['all','pure','80','group'],['PreSSMat','merged','90','vertex'],['ZAPPS+PreSSMat','pure','100','group']]},
+ {id:'papclear-v3v4-provisional-20261017',cohort:'PAPCLEAR',flag:'papclearMaxNormalized',views:[['all','merged','60','vertex'],['all','pure','80','group'],['PAPCLEAR','merged','90','vertex'],['PAPCLEAR','pure','100','group']]},
+ {id:'sante-16s',cohort:'SANTE',flag:'santeMaxNormalized',views:[['all','merged','60','vertex'],['all','pure','80','group'],['SANTE','merged','90','vertex'],['SANTE','pure','100','group']]}
 ]){
  if(!manifest.datasets[fixture.id])continue;
  ctx.maxnormDataset=fixture.id;ctx.maxnormCohort=fixture.cohort;
  await run('switchDataset(maxnormDataset)');await flush();
  optionalChecks[fixture.flag]=!!run('datasetMaxNormalizedAsset()');
+ if(fixture.id==='sante-16s'){
+  assert(optionalChecks[fixture.flag],'SANTE release promises both max-normalized methods');
+  assert.equal(run('BUNDLE_PACK.participants[META.id].records.length'),953);
+  if(run('!!BUNDLE_PACK.enrollmentHeatmap?.[META.id]')){
+   assert.equal(run('enrollmentHeatmapAsset().records.length'),320);
+   assert.equal(run('enrollmentHeatmapAsset().records.filter(r=>r.arm==="Azithromycin").length'),159);
+   assert.equal(run('el("openEnrollmentHeatmap").disabled'),false);
+   const heatmapBefore=run('JSON.stringify(selectionSnapshot())');
+   for(const metric of ['l1-euclidean','max-euclidean','max-linf']){
+    ctx.heatmapMetric=metric;
+    for(const linkage of ['none','average','complete','single']){
+     ctx.heatmapLinkage=linkage;
+     assert.equal(run('enrollmentHeatmapModel(enrollmentHeatmapAsset(),heatmapMetric,"fermat125",heatmapLinkage,true).panels.length'),3);
+     assert.equal(run('new Set(enrollmentHeatmapModel(enrollmentHeatmapAsset(),heatmapMetric,"ordinary",heatmapLinkage,false).rows.map(r=>r.subject)).size'),320);
+    }
+   }
+   assert.equal(run('JSON.stringify(selectionSnapshot())'),heatmapBefore,'Heatmap does not change 3D selection');
+   if(run('!!enrollmentHeatmapAsset().clustering')){
+    for(const metric of ['l1-euclidean','max-euclidean','max-linf'])for(const distance of ['ordinary','fermat11','fermat125'])for(const method of ['fixed','dynamic','hdbscan']){
+     ctx.clusterMetric=metric;ctx.clusterDistance=distance;ctx.clusterSettings={method,choice:'silhouette',k:4,minK:2,maxK:20,minSize:20,deepSplit:1,minSamples:10,densityChoice:'eom'};
+     assert.equal(run('heatmapClusterFit(enrollmentHeatmapAsset(),clusterMetric,clusterDistance,"average",clusterSettings).labels.length'),320);
+    }
+    run('enrollmentHeatmapCluster=heatmapClusterFit(enrollmentHeatmapAsset(),"l1-euclidean","ordinary","average",{method:"fixed",choice:"manual",k:4,minK:2,maxK:20})');
+    run('enrollmentHeatmapRows=enrollmentHeatmapAsset().records');
+    await run('selectHeatmapCluster(1)');
+    const selectedClusterN=run('enrollmentHeatmapCluster.sizes[0]');
+    assert.equal(run('enrollmentHeatmapSelection.subjects.size'),selectedClusterN);
+    await run('applyHeatmapGroup()');await flush();
+    assert.equal(run('explorationRendered.chosen.length'),selectedClusterN);
+    assert(run('explorationRendered.rows.every(r=>enrollmentHeatmapSelection.subjects.has(r.subject))'));
+    await run('clearSelection()');await flush();
+    optionalChecks.santeHeatmapClustering=true;
+   }
+   const displayMethod=run('maxNormalizedMethod()');
+   const coordsBeforeGroup=run('JSON.stringify([...explorationCoordinates()])');
+   run(`{const groups=explorationIndex(participantData().records),paired=groups.filter(g=>g.enrollment&&g.followup),missing=groups.find(g=>g.enrollment&&!g.followup);enrollmentHeatmapSelection.subjects=new Set([paired[0].subject,paired[1].subject,missing.subject])}`);
+   await run('applyHeatmapGroup()');await flush();
+   assert.equal(run('explorationRendered.chosen.length'),3);assert.equal(run('explorationRendered.rows.length'),5);
+   assert.equal(run('baselineExplore.treatment&&baselineExplore.lines&&!baselineExplore.nearby&&!baselineExplore.pairedOnly'),true);
+   assert(run('explorationRendered.rows.every(r=>enrollmentHeatmapSelection.subjects.has(r.subject)&&["enrollment_ANC","follow_up_ANC"].includes(r.originalVisit))'));
+   assert.equal(run('maxNormalizedMethod()'),displayMethod);assert.equal(run('JSON.stringify([...explorationCoordinates()])'),coordsBeforeGroup);
+   assert(run('el("samples").data.filter(t=>t.mode==="markers"&&t.meta?.enrollmentExploration).every(t=>t.marker.color.every((c,i)=>c===explorationArms[explorationMetadata().records[participantData().records.find(r=>String(r.index)===t.ids[i]).id].arm]))'));
+   ctx.heatmapBookmark=clone(await run('captureNamedView()'));run('validateNamedView(heatmapBookmark)');
+   ctx.invalidHeatmapBookmark=clone(ctx.heatmapBookmark);ctx.invalidHeatmapBookmark.selection.enrollmentExploration.subjects=['not-a-participant'];
+   assert.throws(()=>run('validateNamedView(invalidHeatmapBookmark)'));
+   await run('clearSelection()');await flush();await run('restoreSelection(heatmapBookmark.selection)');await flush();
+   assert.equal(run('explorationRendered.rows.length'),5,'Saved heatmap group restores exactly');
+   await run('updateExploration({subjects:null,visit:"enrollment"})');await flush();assert.equal(run('explorationRendered.rows.length'),320);
+   await run('clearSelection()');await flush();
+   optionalChecks.santeHeatmapTrajectories=true;
+   optionalChecks.santeEnrollmentHeatmap=true;
+  }
+
+  assert.equal(run('new Set(BUNDLE_PACK.participants[META.id].records.map(r=>r.subject)).size'),325);
+  assert.equal(run('Object.keys(BUNDLE_PACK.qualityReadDepths[META.id].records).length'),953);
+  assert(run('Object.values(BUNDLE_PACK.qualityReadDepths[META.id].records).every(r=>r.reads>=1000)'));
+  assert(run('BUNDLE_PACK.participants[META.id].records.every(r=>!/^Neg_EXT_|^Zymo_Pos/.test(r.id))'));
+  assert.equal(run('!!valenciaAsset()'),false,'Supplied unverified CSTs must not become VALENCIA2');
+  if(run('typeof explorationModel==="function"')){
+   await run('changeAnalysis("all","merged","60")');await flush();
+   await run('updateExploration({visit:"enrollment",nearby:false})');await flush();
+   assert.equal(run('plottedSampleIndices.length'),953);assert.equal(run('explorationRendered.rows.length'),320);assert.equal(run('explorationRendered.context.length'),633);
+   assert.equal(run('el("cohortControl").hidden&&el("panelCohortControl").hidden'),true);
+   assert.equal(run('el("enrollmentExploreSection").hidden'),false);
+   assert(run('explorationRendered.rows.every(r=>r.originalVisit==="enrollment_ANC")'));
+   await run('updateExploration({visit:"followup"})');await flush();assert.equal(run('plottedSampleIndices.length'),953);assert.equal(run('explorationRendered.rows.length'),321);
+   await run('updateExploration({visit:"paired",pairedOnly:true})');await flush();assert.equal(run('plottedSampleIndices.length'),953);assert.equal(run('explorationRendered.rows.length'),632);
+   await run('updateExploration({nearby:true,anchor:explorationIndex(participantData().records).find(g=>g.enrollment&&g.followup).subject,k:20})');await flush();
+   const neighborhood=run('JSON.stringify(explorationRendered.chosen.map(g=>g.key))');
+   for(const method of ['l1-euclidean','maxnorm-euclidean','maxnorm-linf']){
+    ctx.explorationMethod=method;await run('changeEmbeddingChoice(explorationMethod)');await flush();
+    assert.equal(run('JSON.stringify(explorationRendered.chosen.map(g=>g.key))'),neighborhood,'Display metric must not change enrollment neighbors');
+    const coords=run('JSON.stringify(explorationCoordinates().get(participantData().records[0].profile))');
+    await run('updateExploration({visit:"enrollment"})');await flush();
+    assert.equal(run('JSON.stringify(explorationCoordinates().get(participantData().records[0].profile))'),coords);
+    await run('updateExploration({visit:"followup"})');await flush();
+    assert.equal(run('JSON.stringify(explorationCoordinates().get(participantData().records[0].profile))'),coords);
+   }
+   await run('updateExploration({color:"#cc3399",treatment:false})');await flush();
+   assert(run('el("samples").data.filter(t=>t.meta?.enrollmentExploration).every(t=>t.marker.color.every(c=>c==="#cc3399"))'));
+   assert.equal(run('new Set(el("samples").data.filter(t=>t.meta?.sampleView).flatMap(t=>t.ids||[])).size'),953);
+   assert.equal(run('explorationRendered.rows.length+explorationRendered.context.length'),953);
+   ctx.explorationSaved=clone(await run('captureNamedView()'));run('validateNamedView(explorationSaved)');
+   await run('clearSelection()');await flush();assert.equal(run('explorationActive()'),false);
+   await run('restoreSelection(explorationSaved.selection)');await flush();assert.equal(run('explorationActive()'),true);
+   assert.equal(run('baselineExplore.color'),'#cc3399');
+   assert.equal(run('JSON.stringify(explorationRendered.chosen.map(g=>g.key))'),neighborhood);
+   await run('clearSelection()');await flush();optionalChecks.santeEnrollmentExploration=true;
+  }
+
+ }
  if(!optionalChecks[fixture.flag])continue;
  for(const [cohort,mode,q,kind] of fixture.views){
   Object.assign(ctx,{testCohort:cohort,testMode:mode,testQ:q,testKind:kind});
@@ -364,7 +460,10 @@ for(const fixture of [
   await run('clearSelection()');await flush();assert.equal(run('el("sampleEmbedding").value'),'maxnorm-linf');
   assert(run('el("sampleTitle").title.includes("MDS")'));
   if(cohort==='all'&&mode==='pure')assert.deepEqual(clone(run('maxNormalizedView().profiles')),clone(run('datasetRegistry.get(META.id).data.overviewEmbeddings[el("coverage").value].indices')).sort((a,b)=>a-b));
-  if(cohort!=='all'&&mode==='pure')assert(run('el("sampleTitle").title.includes("(restricted)")'),'Pure subset title tooltip identifies the population restriction');
+  if(cohort!=='all'&&mode==='pure'){
+   const restricted=run('(()=>{const shown=new Set(DATA.overviewEmbeddings[el("coverage").value].indices.map(i=>DATA.records?.[i]?.profile??i));return datasetMaxNormalizedPopulationView().profiles.some(p=>!shown.has(p))})()');
+   assert.equal(run('el("sampleTitle").title.includes("(restricted)")'),restricted,'Pure overview tooltip follows fitted versus displayed membership');
+  }
  }
  await run('changeAnalysis(maxnormCohort,"merged","70")');await flush();
  ctx.maxnormParticipant=run('[...participantGroups()].find(([key,rs])=>rs.length>1&&rs[0].cohort===maxnormCohort)[0]');
@@ -419,6 +518,76 @@ if(optionalChecks.unfoldedVertices){
  }
  await run('switchDataset("comb-V3V4-tx")');await flush();assert.equal(el('unfoldFaces').disabled,true);
  assert.deepEqual(hashes(),before,'Unfolding preserves frozen assignments and original coordinates');
+}
+await run("switchDataset('zapps-pressmat-v4')");await flush();
+optionalChecks.unfoldedEdges=!!run('typeof unfoldedEdgeAsset==="function"&&unfoldedEdgeAsset()');
+if(optionalChecks.unfoldedEdges){
+ for(const [cohort,mode,q] of [['all','merged','90'],['ZAPPS','pure','70'],['PreSSMat','merged','80'],['all','pure','100']]){
+  Object.assign(ctx,{uc:cohort,um:mode,uq:q});
+  await run('changeAnalysis(uc,um,uq)');await run('changeEmbeddingChoice("maxnorm-euclidean")');await flush();
+  ctx.ue=run('current().edges[0].id');
+  await run('select(ue)');await flush();
+  const signature=()=>clone(run('(()=>{const t=el("samples").data.find(t=>t.meta?.sampleView);return {ids:t.ids,colors:t.marker.color,selectedVertex,selected}})()'));
+  const original=signature();const meta=clone(run('unfoldedEdgeAsset().selections[unfoldedEdgeSelectionKey()]'));
+  assert.equal(run('unfoldedEnabled()'),true,`${cohort}/${mode}/${q}/${ctx.ue}: ${el('sampleStatus').textContent}`);assert.equal(run('unfoldedAnchorFeatureId'),meta.defaultAnchorFeatureId);
+  const other=meta.endpoints.find(id=>id!==meta.defaultAnchorFeatureId);el('unfoldAnchor').value=String(other);await el('unfoldAnchor').onchange();await flush();
+  assert.equal(run('unfoldedAnchorFeatureId'),other);assert.deepEqual(signature(),original);
+  ctx.edgeUnfoldBookmark=clone(await run('captureNamedView()'));assert.equal(ctx.edgeUnfoldBookmark.selection.unfoldAnchorFeatureId,other);
+  assert.equal(ctx.edgeUnfoldBookmark.unfoldedEdgeRevision,run('unfoldedEdgeAsset().revision'));
+  el('unfoldFaces').checked=false;await el('unfoldFaces').onchange();await flush();assert.equal(run('unfoldedEnabled()'),false);assert.deepEqual(signature(),original);
+  ctx.edgeOrdinaryBookmark=clone(await run('captureNamedView()'));
+  await run('clearSelection();select(ue)');await flush();assert.equal(run('unfoldedEnabled()'),false,'An explicit off choice survives reselection');
+  await run('restoreNamedView(edgeUnfoldBookmark)');await flush();assert.equal(run('unfoldedEnabled()'),true);assert.equal(run('unfoldedAnchorFeatureId'),other);assert.deepEqual(signature(),original);
+  await run('restoreNamedView(edgeOrdinaryBookmark)');await flush();assert.equal(run('unfoldedEnabled()'),false);assert.deepEqual(signature(),original);
+ }
+ assert.deepEqual(hashes(),before,'Edge unfolding preserves frozen assignments and original coordinates');
+}
+// Exercise every installed LSVF/HMP40/HMP152/SANTE/PAPCLEAR/combined-V4 population in both modes and all coverages.
+// This is a representative selection per context, not the exhaustive layout audit.
+optionalChecks.unfoldedDatasetRoutes={};
+for(const id of ['lsvf-v3v4-20241111','umb-hmp-2019-panel','hmp-u01-2019','sante-16s','papclear-v3v4-provisional-20261017','comb-V4-tx']){
+ if(!manifest.datasets[id])continue;
+ ctx.uid=id;await run('switchDataset(uid)');await flush();
+ const available=run('!!unfoldedAsset()&&!!unfoldedEdgeAsset()');
+ optionalChecks.unfoldedDatasetRoutes[id]={available,contexts:0};
+ if(!available)continue;
+ // Earlier ordinary-bookmark checks intentionally remember off. Start this
+ // default-policy check with no manual choices for the dataset under test.
+ run('for(const k of unfoldedEdgeChoices.keys())if(JSON.parse(k)[0]===uid)unfoldedEdgeChoices.delete(k)');
+ const cohorts=clone(run('Object.keys(datasetRegistry.get(META.id).cohortAnalysis.populations)'));
+ const coverages=clone(run('Object.keys(datasetRegistry.get(META.id).data.graphs)'));
+ for(const cohort of cohorts)for(const mode of ['pure','merged'])for(const q of coverages){
+  Object.assign(ctx,{uc:cohort,um:mode,uq:q});
+  await run('changeAnalysis(uc,um,uq)');await run('changeEmbeddingChoice("maxnorm-euclidean")');await flush();
+  ctx.ue=run('current().edges[0].id');await run('select(ue)');await flush();
+  const signature=()=>clone(run('(()=>{const t=el("samples").data.find(t=>t.meta?.sampleView);return {ids:t.ids,colors:t.marker.color,selectedVertex,selected}})()'));
+  const original=signature(),meta=clone(run('unfoldedEdgeAsset().selections[unfoldedEdgeSelectionKey()]'));
+  assert(meta,`${id}/${cohort}/${mode}/${q} edge context`);
+  assert.equal(run('unfoldedEnabled()'),true,`${id}/${cohort}/${mode}/${q}: ${el('sampleStatus').textContent}`);assert.equal(run('unfoldedAnchorFeatureId'),meta.defaultAnchorFeatureId);
+  assert.deepEqual(clone(run('unfoldedEntry().profiles')),meta.profiles);
+  const other=meta.endpoints.find(x=>x!==meta.defaultAnchorFeatureId);
+  el('unfoldAnchor').value=String(other);await el('unfoldAnchor').onchange();await flush();
+  assert.equal(run('unfoldedAnchorFeatureId'),other);assert.deepEqual(signature(),original);
+  await run('backSelection()');await flush();assert.equal(run('unfoldedAnchorFeatureId'),meta.defaultAnchorFeatureId);assert.equal(run('unfoldedEnabled()'),true);
+  await run('forwardSelection()');await flush();assert.equal(run('unfoldedAnchorFeatureId'),other);assert.deepEqual(signature(),original);
+  ctx.edgeBookmark=clone(await run('captureNamedView()'));
+  el('unfoldFaces').checked=false;await el('unfoldFaces').onchange();await flush();
+  ctx.offBookmark=clone(await run('captureNamedView()'));assert.equal(run('unfoldedEnabled()'),false);
+  await run('clearSelection();select(ue)');await flush();assert.equal(run('unfoldedEnabled()'),false);
+  await run('restoreNamedView(edgeBookmark)');await flush();assert.equal(run('unfoldedEnabled()'),true);assert.equal(run('unfoldedAnchorFeatureId'),other);assert.deepEqual(signature(),original);
+  await run('restoreNamedView(offBookmark)');await flush();assert.equal(run('unfoldedEnabled()'),false);assert.deepEqual(signature(),original);
+  ctx.uv=meta.endpoints[0];await run('selectVertex(uv)');await flush();
+  const vertexOriginal=signature();assert.equal(el('unfoldFaces').disabled,false);
+  el('panelUnfoldFaces').checked=true;await el('panelUnfoldFaces').onchange();await flush();
+  assert.equal(run('unfoldedEnabled()'),true);assert.deepEqual(signature(),vertexOriginal);
+  assert.equal(run('unfoldedEntry().anchor'),ctx.uv-1);
+  ctx.vertexBookmark=clone(await run('captureNamedView()'));
+  el('unfoldFaces').checked=false;await el('unfoldFaces').onchange();await flush();
+  await run('restoreNamedView(vertexBookmark)');await flush();assert.equal(run('unfoldedEnabled()'),true);assert.deepEqual(signature(),vertexOriginal);
+  await run('changeEmbeddingChoice("maxnorm-linf")');await flush();assert.equal(el('unfoldFaces').disabled,true);
+  optionalChecks.unfoldedDatasetRoutes[id].contexts++;
+ }
+ assert.deepEqual(hashes(),before,'Extended unfolding preserves frozen scientific bundles');
 }
 await run('switchDataset(initialView.dataset)');
 const count=requests.length;await run('ensureSensitivityLoaded("rebuilt");ensureEmbeddingFamiliesLoaded()');await run('switchDataset(initialView.dataset)');assert.equal(requests.length,count,'Loaded assets are reused');

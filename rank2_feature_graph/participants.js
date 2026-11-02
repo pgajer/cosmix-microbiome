@@ -345,6 +345,7 @@ function stepParticipant(direction){
 }
 async function openParticipant(key){
  const rows=participantRows(key);if(!rows.length)return;
+ if(typeof baselineExplore!=='undefined')baselineExplore.visit='off';
  participantBackgroundHighlight=null;
  const axis=participant.axis,allTaxa=participant.allTaxa,catalogue=participant.catalogue;
  const openedDataset=META.id,revision=++participantOpenRevision,camera=participant.active?readCamera('samples'):defaultCamera,graphCamera=readCamera('graph3d'),embeddingMode=!participantJointAvailable()?'reference':participant.embeddingMode,graphSmoothing=participant.graphSmoothing,graphBackground=participant.graphBackground,matchBackground=participant.matchBackground,colorBy=participant.colorBy,stateBackground=participant.stateBackground,sphereSize=participant.sphereSize,labelSize=participant.labelSize,vertexLabelSize=participant.vertexLabelSize,visitBoxSize=participant.visitBoxSize,tableSize=participant.tableSize,backgroundSize=participant.backgroundSize,lineWidth=participant.lineWidth,arrowScale=participant.arrowScale,selectedLabelOnly=participant.selectedLabelOnly,showLabels=participant.showLabels,showLines=participant.showLines,showArrows=participant.showArrows,showVertices=participant.showVertices,backgroundOpacity=participant.backgroundOpacity;
@@ -523,19 +524,19 @@ function renderParticipantComposition(rows){
 // Shared sample controls also apply outside Participant mode. Keep ordinary
 // sample settings separate from the dimmer background behind participant visits.
 function syncSampleAppearanceControls(referenceAvailable=true){
- const active=participant.active;
+ const active=participant.active,visitHighlighting=typeof explorationActive==='function'&&explorationActive();
  el('samplePointGroupTitle').textContent=active?'Background samples':'Samples';
  el('samplePointColorLabel').textContent=active?'Color background by top-2 CST':'Use sample colors';
  el('samplePointSizeLabel').textContent=active?'Background point size':'Sample point size';
  el('samplePointOpacityLabel').textContent=active?'Background opacity':'Sample opacity';
  el('participantVisitAppearanceNote').hidden=active;
- el('participantStateBackground').disabled=false;
- el('participantStateBackground').checked=active?participant.stateBackground:participant.sampleColors;
+ el('participantStateBackground').disabled=visitHighlighting;
+ el('participantStateBackground').checked=visitHighlighting|| (active?participant.stateBackground:participant.sampleColors);
  el('participantStateBackground').parentElement?.setAttribute('title',active?'Color background by community state. Uncheck for gray samples.':'Use the current sample color scheme. Uncheck for gray samples.');
  el('participantMatchBackground').parentElement?.setAttribute('title','Available when a participant is selected and background state colors are enabled.');
  el('participantMatchBackground').disabled=!active||!participant.stateBackground;
  for(const [id,key,scale] of [['participantBackgroundSize',active?'backgroundSize':'sampleSize',1],['participantBackgroundOpacity',active?'backgroundOpacity':'sampleOpacity',100]]){
-  el(id).disabled=false;el(id).value=participant[key]*scale;
+  el(id).disabled=visitHighlighting;el(id).title=visitHighlighting?'Use the separate highlighted-visit and gray-background controls in Visit and enrollment neighborhoods.':'';el(id).value=participant[key]*scale;
   el(id+'Value').textContent=Math.round(participant[key]*scale)+(scale===100?'%':' px');
  }
  el('participantShowVertices').disabled=!referenceAvailable;
@@ -555,7 +556,7 @@ function renderSamplePlot(traces,layout,config){
   syncSampleAppearanceControls(references);
   traces=traces.map(t=>{
    if(t.meta?.referenceVertices)return {...t,visible:participant.showVertices,textfont:{...t.textfont,size:participant.vertexLabelSize}};
-   if(!t.meta?.sampleView||!t.marker||t.meta.edgeFaceRings)return t;
+   if(!t.meta?.sampleView||!t.marker||t.meta.edgeFaceRings||t.meta.enrollmentExploration||t.meta.enrollmentContext)return t;
    const size=Array.isArray(t.marker.size)?t.marker.size.map(n=>n*participant.sampleSize/2):participant.sampleSize;
    return {...t,marker:{...t.marker,size,opacity:participant.sampleOpacity,...(!participant.sampleColors?{color:'#a8adb2'}:{})}};
   });

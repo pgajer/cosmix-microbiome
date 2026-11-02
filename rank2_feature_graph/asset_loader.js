@@ -4,7 +4,7 @@
 function mergePack(target,part,append=false){
  for(const [key,value] of Object.entries(part)){
   if(key==='bundles'){target.bundles??=[];for(const b of value){if(target.bundles.some(x=>x.dataset.id===b.dataset.id))throw Error('Duplicate dataset asset');target.bundles.push(b)}}
-  else if(['datasetMaxNormalizedEmbeddings','datasetUnfoldedEmbeddings'].includes(key)){
+  else if(['datasetMaxNormalizedEmbeddings','datasetUnfoldedEmbeddings','datasetUnfoldedEdgeEmbeddings'].includes(key)){
    target[key]??={};for(const [id,bank] of Object.entries(value)){const previous=target[key][id]||{};target[key][id]={...previous,...bank,fits:Object.assign(previous.fits||{},bank.fits||{})}}
   }
   else if(['subjectEmbeddings','graphLayouts','combDisplay'].includes(key)){
@@ -64,6 +64,7 @@ function createLoader(manifest,request=fetch,digest=bytes=>crypto.subtle.digest(
 root.VMEAssetLoader={createLoader,mergePack};
 if(typeof document==='undefined')return;
 const requested=new URLSearchParams(location.search).get('dataset');
+if(requested==='empty'){location.replace(new URL('empty.html',location.href).href);return}
 const optionalNode=document.getElementById('vme-optional-neighborhoods'),optional=optionalNode?JSON.parse(optionalNode.textContent):null;
 const manifest=optional?.families.some(f=>f.id===requested)?optional:JSON.parse(document.getElementById('vme-http-manifest').textContent),loader=createLoader(manifest);
 root.VME_ASSETS=loader;
@@ -73,7 +74,7 @@ loader.retry=action=>{retry.hidden=!action;retry.onclick=action?()=>Promise.reso
 const controls=[...document.querySelectorAll('input,select,button')].filter(e=>e!==retry),disabled=controls.map(e=>e.disabled);
 controls.forEach(e=>e.disabled=true);
 const selector=document.getElementById('datasetSelect');
-const choices=[...Object.values(manifest.datasets).filter(x=>!manifest.seed.distributionDatasets||manifest.seed.distributionDatasets.includes(x.dataset.id)).map(x=>({id:x.dataset.id,title:manifest.seed.datasetPresentation?.[x.dataset.id]?.title||x.dataset.title})),...manifest.families,...(manifest.seed.optionalDatasetLinks||[])];
+const choices=[{id:'empty',title:'Empty'},...Object.values(manifest.datasets).filter(x=>!manifest.seed.distributionDatasets||manifest.seed.distributionDatasets.includes(x.dataset.id)).map(x=>({id:x.dataset.id,title:manifest.seed.datasetPresentation?.[x.dataset.id]?.title||x.dataset.title})),...manifest.families,...(manifest.seed.optionalDatasetLinks||[])];
 for(const item of choices){const option=document.createElement('option');option.value=item.id;option.textContent=item.title;selector.appendChild(option)}
 let validationLibrary=null;
 let selected=choices.some(x=>x.id===requested)?requested:manifest.seed.default,revision=0,library=null;
@@ -97,6 +98,7 @@ loader.validateDataset=(value,id)=>{
  }
 };
 async function start(id){
+ if(id==='empty'){location.assign(new URL('empty.html',location.href).href);return}
  if(manifest.seed.optionalDatasetLinks?.some(item=>item.id===id)){const url=new URL(location.href);url.searchParams.set('dataset',id);location.assign(url.href);return}
  const attempt=++revision;selected=id;loader.retry(null);loader.status('Loading '+choices.find(x=>x.id===id).title+'…');
  const dataset=manifest.datasets[id]?id:manifest.neighborhoods.datasets[0];

@@ -67,6 +67,11 @@ produce a partial full-pass result. Prepared participant summaries and bundled
 neighborhoods are optional and their availability is reported in the result.
 Separately linked neighborhoods are not audited by this command.
 
+When SANTE is installed, integration also checks its 953 admitted samples,
+325 participants, verified analyzed depths, control exclusion and unavailable
+VALENCIA2 annotations, plus representative local and participant joint views
+for both max-normalized methods. These checks do not rerun scientific fits.
+
 Build or install the source revision you intend to validate first, following
 [the portable instructions](PORTABLE.md). The test checks the application stored
 in the entry page's manifest; editing the source clone alone does not update
@@ -173,6 +178,22 @@ revision/membership validation and incomplete-bank rejection. They require no
 scientific dataset. The full integration check exercises installed supplements
 when present; it never generates coordinates.
 
+For separately supplied unfolded-coordinate banks, run
+`python3 -m unittest discover -s scripts -p 'test_unfolded*py'` and
+`node rank2_feature_graph/test_unfolded_views.mjs`. The edge reader admits only
+reviewed ZAPPS, LSVF and HMP 40 releases. Assay record lists take precedence over
+source-cohort labels, and every frozen selection must match its recorded
+population. Banks retain both endpoint anchors and the full-dataset,
+observation-weighted original-abundance default.
+
+When both unfolded banks are installed, default HTTP integration tests one edge
+and vertex in every LSVF and HMP 40 population, pure/merged mode and coverage
+(70 and 50 contexts respectively). It checks both edge anchors, new-context
+defaults, explicit off, selection history, named views, sample/color preservation
+and unavailable L∞ unfolding. This is separate from the exhaustive saved-layout
+audit. Browser checks must additionally inspect rendered normal/maximized views
+and the stress dialog, including both tested-start errors.
+
 When their coordinate supplements are installed, the integration test also checks
 ZAPPS + PreSSMat, LSVF and HMP+U01 (40-participant panel) max-normalized
 Euclidean/L∞ population, local-selection,
@@ -192,14 +213,22 @@ remain on demand and are not invoked by the update command.
 
 See [association usage and methods](rank2_feature_graph/ASSOCIATIONS.md).
 
-Vertex association checks are also on demand, outside the update command:
-`python3 -m unittest discover -s rank2_feature_graph -p test_vertex_associations.py`
-(private preparation sources and ledgers). The public `test_associations.mjs`
-includes synthetic vertex unions, separate testing families, both display modes,
-all coverages/cohort choices, and compatibility with edge-only supplements.
 
-Run `node rank2_feature_graph/test_association_graphs.mjs` on demand after changes
-to enrollment graph controls, layout inputs or appearance. It checks synthetic
-2D/3D rendering inputs, shared style formulas, enrollment isolation, filters,
-serial job deduplication and portable saved fits. Browser checks additionally
-exercise toolbar return, cohort layouts, labels, cameras and PNG downloads.
+## Longitudinal viewer checks
+
+Run the following on demand, separately from installation and updates:
+
+```sh
+node rank2_feature_graph/test_participant_exploration.mjs
+node rank2_feature_graph/test_enrollment_heatmap.mjs
+node rank2_feature_graph/test_state_transitions.mjs
+node rank2_feature_graph/test_transition_bayes.mjs
+node rank2_feature_graph/test_longitudinal_clusters.mjs
+python3 -m unittest discover -s scripts -p test_meeting_release.py
+```
+
+These use synthetic examples and optionally available local assets. They do not
+refit models. Dataset-specific preparation checks remain with their scientific
+projects. The full HTTP integration test requires the four datasets listed in
+its help; use an all-dataset installation for release validation. A recipient
+with a smaller subset does not need to run these checks to install or update.

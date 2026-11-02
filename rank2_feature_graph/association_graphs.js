@@ -123,7 +123,10 @@ async function drawAssociationGraphs(revision){
  for(const existing of [...el('associationGraphs').children])if(!cohorts.includes(existing.dataset.cohort)){const plot=existing.querySelector('.associationPlot');if(plot){plot._associationObserver?.disconnect();Plotly.purge(plot)}existing.remove()}
  for(const cohort of cohorts){
   let plot=el('associationPlot'+cohort);if(!plot){el('associationGraphs').insertAdjacentHTML('beforeend',associationGraphCard(r,cohort));plot=el('associationPlot'+cohort)}
-  const card=plot.closest('article'),pop=r.cohorts[cohort],matched=associationView.mode==='matched';card.querySelector('p').textContent=`${matched?pop.matchedN:pop.n} women · ${matched?pop.matchedCases:pop.cases} cases${matched?' · original matched sets':''}`;
+  const card=plot.closest('article'),pop=r.cohorts[cohort],matched=associationView.mode==='matched';
+  // Reused cards must follow the declared cohort order after a single-cohort view.
+  el('associationGraphs').append(card);
+  card.querySelector('p').textContent=`${matched?pop.matchedN:pop.n} women · ${matched?pop.matchedCases:pop.cases} cases${matched?' · original matched sets':''}`;
   const content=associationGraphTraces(r,cohort,lookup,dimension),base={margin:{l:18,r:18,t:18,b:18},showlegend:false,paper_bgcolor:'#fff',plot_bgcolor:'#fff',hoverlabel:{bgcolor:'#fff',font:{color:'#173744'}},uirevision:associationGraphKey(r,dimension),images:content.images};
   const camera=associationGraphState.cameras.get(cohort);
   const layout=dimension===3?{...base,scene:{...(camera?{camera}:{}),dragmode:'orbit',aspectmode:'data',xaxis:{visible:false},yaxis:{visible:false},zaxis:{visible:false}}}:{...base,dragmode:'pan',xaxis:{visible:false},yaxis:{visible:false,scaleanchor:'x',scaleratio:1}};

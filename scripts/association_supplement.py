@@ -110,6 +110,34 @@ def validate(bank):
             by = min(by, (x['p'] if x['supported'] else 1)*m*h/(i+1), 1.)
             if x['supported']:
                 require(math.isclose(x['by'], by, abs_tol=1e-12), 'joint BY value differs')
+    joint_present = any('jointHolm' in e['results'][c]['exact'] or 'jointBy' in e['results'][c]['exact']
+                        for r in bank['coverages'].values() for e in r['edges'] for c in COHORTS)
+    require(not joint_present or 'edgeMultiplicity' in bank, 'joint edge values lack family provenance')
+    if 'edgeMultiplicity' in bank:
+        f = bank['edgeMultiplicity']
+        tests = [e['results'][c]['exact'] for r in bank['coverages'].values() for e in r['edges'] for c in COHORTS]
+        m = len(tests)
+        require(f.get('version') == 1 and f.get('scope') == 'all-coverages-edge-cohort'
+                and f.get('coverages') == [60,70,80,90] and f.get('deduplicated') is False,
+                'unknown joint edge scope')
+        require(f.get('familySize') == m == 140, 'joint edge family size differs')
+        require(f.get('unavailableTests') == sum(not x['supported'] for x in tests), 'joint edge unavailable count differs')
+        sha = f.get('sourceSha256', '')
+        require(len(sha) == 64 and all(c in '0123456789abcdef' for c in sha), 'missing joint edge source identity')
+        for x in tests:
+            for k in ['jointHolm', 'jointBy']:
+                require(k in x and (isinstance(x[k], (int,float)) and math.isfinite(x[k]) and 0 <= x[k] <= 1
+                        if x['supported'] else x[k] is None), 'invalid joint edge probability')
+        tests.sort(key=lambda x:x['p'] if x['supported'] else 1)
+        h = sum(1/i for i in range(1,m+1)); holm = 0.; by = 1.
+        for i,x in enumerate(tests):
+            holm = min(1., max(holm, (m-i)*(x['p'] if x['supported'] else 1)))
+            if x['supported']:
+                require(math.isclose(x['jointHolm'], holm, abs_tol=1e-12), 'joint edge Holm differs')
+        for i in range(m-1,-1,-1):
+            x = tests[i]; by = min(by, (x['p'] if x['supported'] else 1)*m*h/(i+1), 1.)
+            if x['supported']:
+                require(math.isclose(x['jointBy'], by, abs_tol=1e-12), 'joint edge BY differs')
     return bank
 
 

@@ -157,9 +157,9 @@ function syncSphereLightingControls(panel,available=true){
  }
 }
 function vertexSphereLighting(panel='graph'){
- const s=sphereLightingSettings(panel);
- return {ambient:s.ambient/100,diffuse:.35,specular:s.highlights/100,roughness:.6,fresnel:0};
+ return sphereMaterial(sphereLightingSettings(panel));
 }
+function sphereMaterial(s){return {ambient:s.ambient/100,diffuse:.35,specular:s.highlights/100,roughness:.6,fresnel:0}}
 async function updateSphereLighting(panel){
  syncSphereLightingControls(panel);
  if(typeof saveDatasetPanelSettings==='function')saveDatasetPanelSettings();
@@ -181,9 +181,9 @@ function graphSphereTraces(g,lookup,degrees,fade,style={}){
  });
 }
 // Only reference markers become meshes; observation and selection traces stay intact.
-function sampleReferenceSphereTraces(traces,layout){
- if(!participant.showVertices)return traces;
- const spheres=el('sampleReferenceSpheres')?.checked===true,appearance=sampleReferenceSettings();
+function sampleReferenceSphereTraces(traces,layout,settings=null){
+ if(!(settings?settings.showVertices:participant.showVertices))return traces;
+ const spheres=settings?settings.spheres:el('sampleReferenceSpheres')?.checked===true,appearance=settings||sampleReferenceSettings();
  const references=traces.filter(t=>t.meta?.referenceVertices),extra=[];
  if(!references.length){
   // Give annotation-only participant references the same marker controls.
@@ -196,7 +196,7 @@ function sampleReferenceSphereTraces(traces,layout){
  }
  const all=[...traces,...extra],lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
  for(const t of all)for(const [j,axis] of ['x','y','z'].entries())for(const v of t[axis]||[])if(Number.isFinite(v)){lo[j]=Math.min(lo[j],v);hi[j]=Math.max(hi[j],v)}
- const span=Math.max(...hi.map((v,j)=>v-lo[j])),unit=(Number.isFinite(span)&&span>0?span:1)/600,mesh=graphSphereMesh;
+ const span=settings?.coordinateSpan??Math.max(...hi.map((v,j)=>v-lo[j])),unit=(Number.isFinite(span)&&span>0?span:1)/600,mesh=graphSphereMesh;
  const at=(v,i,fallback)=>Array.isArray(v)?v[i]??fallback:v??fallback;
  return all.flatMap(t=>{
   if(!t.meta?.referenceVertices||t.visible===false||t.visible==='legendonly')return [t];
@@ -209,7 +209,7 @@ function sampleReferenceSphereTraces(traces,layout){
    const radius=at(t.marker?.size,n,8)*unit,points=mesh.points.map(p=>p.map((v,j)=>center[j]+radius*v)),hover=at(t.hovertext,n,at(t.text,n,t.name||'Reference vertex'));
    result.push({type:'mesh3d',meta:{...t.meta,referenceSphere:true},x:points.map(p=>p[0]),y:points.map(p=>p[1]),z:points.map(p=>p[2]),i:mesh.i,j:mesh.j,k:mesh.k,
     color:at(t.marker?.color,n,'#24414c'),opacity:(t.opacity??1)*at(t.marker?.opacity,n,1),flatshading:false,
-    lighting:vertexSphereLighting('sample'),lightposition:{x:100000,y:200000,z:300000},
+    lighting:settings?sphereMaterial(settings):vertexSphereLighting('sample'),lightposition:{x:100000,y:200000,z:300000},
     name:t.name,legendgroup:t.legendgroup,showlegend:n===0&&(t.showlegend??layout.showlegend===true),
     customdata:points.map(()=>at(t.customdata,n,null)),text:points.map(()=>hover),hoverinfo:t.hoverinfo,
     hovertemplate:(t.hovertemplate||'%{text}<extra></extra>').replaceAll('%{hovertext}','%{text}')});
@@ -382,6 +382,12 @@ async function trimGraphEdges(){
  const clone=x=>JSON.parse(JSON.stringify(x)),frame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
  function information(kind){
   const rows=[];const add=(text,color=null)=>{if(text?.trim())rows.push({text:text.trim(),color})};
+  if(kind==='samples'&&activeEmbeddingFamily){
+   add(el('familySummary').innerText);add(el('familyColorNote').innerText);
+   for(const note of el('familyColorLegend').querySelectorAll('.legendCountNote'))add(note.innerText);
+   for(const item of el('familyColorLegend').querySelectorAll('.legendItem'))add(item.innerText,getComputedStyle(item.querySelector('.colorSwatch')).backgroundColor);
+   return rows;
+  }
   if(kind==='samples'){
    add(el('sampleContext').innerText);if(edgeFacesActive())add(el('edgeFacesSummary').innerText);
    for(const note of el('sampleLegendItems').querySelectorAll('.legendCountNote'))add(note.innerText);
@@ -397,10 +403,22 @@ async function trimGraphEdges(){
  }
  async function imageFrom(url){const img=new Image();img.src=url;await img.decode();return img}
  async function capture(kind){
+  if(kind==='graph'&&typeof longitudinalActive==='function'&&longitudinalActive()){
+   const svg=el('longGraphPlot').querySelector('svg');if(!svg||longitudinalState.display!=='graph')throw Error('Choose Transition graph to export an image; use Export transition table for Bayesian results.');
+   const r=svg.getBoundingClientRect();return {kind,width:Math.round(r.width),height:Math.round(r.height),title:el('featurePanelTitle').textContent,rows:[{text:el('longGraphNote').textContent}],svg:svgSnapshot(svg),filename:`cluster-transitions-${META.id}-${Date.now()}`};
+  }
+  if(kind==='graph'&&typeof stateTransitionsActive==='function'&&stateTransitionsActive()){
+   const svg=el('stateTransitionSvg');if(!svg)throw Error('Transition graph is not ready');
+   return {kind,width:Number(svg.getAttribute('width')),height:Number(svg.getAttribute('height')),title:el('featurePanelTitle').textContent,rows:[{text:el('stateTransitionNote').textContent},{text:el('stateTransitionDisplay').value==='probabilities'?el('stateTransitionFitNote').textContent:'Blue: Azithromycin; orange: Placebo. Arrows: enrollment → follow-up.'}],svg:new XMLSerializer().serializeToString(svg),filename:`vaginal-microbiome-transitions-${META.id}-${el('coverage').value}-${Date.now()}`};
+  }
+  if(kind==='graph'&&typeof cstSphereSummaryActive==='function'&&cstSphereSummaryActive()){
+   await (activeEmbeddingFamily?familyRenderQueue:queue);const svg=el('cstSummarySvg');if(!svg)throw Error('CST summary is not ready');
+   return {kind,width:Number(svg.getAttribute('width')),height:Number(svg.getAttribute('height')),title:cstSummaryTitle(),rows:[{text:el('cstSummaryNote').textContent}],svg:new XMLSerializer().serializeToString(svg),filename:`vaginal-microbiome-cst-summary-${META.id}-${new Date().toISOString().replace(/[:.]/g,'-')}`};
+  }
   if(kind==='graph')await waitGraphEmbedding();
-  await (kind==='samples'?queue:graphQueue);await frame();await frame();
-  const plot=el(kind==='samples'?'samples':el('dimension').value==='3'?'graph3d':'graph'),r=plot.getBoundingClientRect();
-  const result={kind,width:Math.max(1,Math.round(r.width)),height:Math.max(1,Math.round(r.height)),title:kind==='samples'?(el('sampleTitle').title||el('sampleTitle').textContent):'Features and top-2 CSTs graph',rows:information(kind),filename:`vaginal-microbiome-${kind}-${META.id}-${new Date().toISOString().replace(/[:.]/g,'-')}`};
+  await (kind==='samples'?(activeEmbeddingFamily?familyRenderQueue:queue):graphQueue);await frame();await frame();
+  const plot=el(kind==='samples'?(activeEmbeddingFamily?'familyPlot':'samples'):el('dimension').value==='3'?'graph3d':'graph'),r=plot.getBoundingClientRect();
+  const result={kind,width:Math.max(1,Math.round(r.width)),height:Math.max(1,Math.round(r.height)),title:kind==='samples'?(activeEmbeddingFamily?(el('familyTitle').title||el('familyTitle').textContent):(el('sampleTitle').title||el('sampleTitle').textContent)):'Features and top-2 CSTs graph',rows:information(kind),filename:`vaginal-microbiome-${kind}-${META.id}-${new Date().toISOString().replace(/[:.]/g,'-')}`};
   if(plot.id==='graph')result.svg=svgSnapshot(plot);
   else{
    result.data=clone(plot.data);result.layout=clone(plot.layout);result.layout.scene=exportScene(plot);

@@ -193,3 +193,36 @@ exact vertices. Each cohort graph can be maximized and exported as a PNG.
 Dragging/zooming changes the view, never the association calculation.
 
 Additional on-demand check: `node rank2_feature_graph/test_association_graphs.mjs`.
+
+## Joint edge correction across coverage levels
+
+The optional `enrollment_associations_joint_edges_v3.json` supplement preserves
+all existing edge `holm`/`by` values (each coverage, both cohorts) and adds
+`jointHolm`/`jointBy` from the saved 90% report's `cross_coverage_exact.csv`.
+The `edgeMultiplicity` metadata identifies 140 cohort–state slots across 60%,
+70%, 80% and 90%, without deduplicating repeated edge tests. This is a different
+family from the 84 unique vertex–cohort analyses. Unavailable edge tests count as
+p=1 for correction but have null displayed/exported inference values.
+
+From the repository root, attach the existing corrections without refitting:
+
+```sh
+python3 rank2_feature_graph/prepare_enrollment_associations.py \
+  --results /path/to/anatomy_of_vaginal_microbiome/results \
+  --prior-supplement rank2_feature_graph/enrollment_associations_joint_vertices_v2.json \
+  --output rank2_feature_graph/enrollment_associations_joint_edges_v3.json
+```
+
+The output must not exist. The importer verifies all original reference-source
+hashes, keys, supported raw results and per-coverage corrections before attaching
+the saved joint values. Python and JavaScript validators independently check the
+joint arithmetic and full family. No participant-level data are exported.
+The ordinary build prefers this supplement when installed; older supplements
+continue to work and do not claim to contain the joint edge correction.
+
+The matched edge table shows both families side by side. CSV retains the original
+`holm_p`, `by_p`, `test_family_size` and `adjustment_scope` columns and adds
+`joint_holm_p`, `joint_by_p`, `joint_test_family_size`, `joint_adjustment_scope`.
+Descriptive rows leave these fields blank; vertex rows keep their existing joint
+vertex correction in the original columns. Coverage/cohort/search controls never
+change either family. Tests remain on demand and outside the update command.

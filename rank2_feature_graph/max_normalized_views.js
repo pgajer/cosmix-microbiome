@@ -85,9 +85,15 @@ function maxNormalizedStress(ordered,rows){
 function validateMaxNormalizedNamedView(view){
  const s=view.selection;
  if(s?.unfoldFaces){
-  const unfolded=BUNDLE_PACK.datasetUnfoldedEmbeddings?.[view.dataset];
-  const context=JSON.stringify([view.cohort,view.stateMode,String(view.coverage),'vertex',String(s.selectedVertex)]);
-  if(s.embedding!=='maxnorm-euclidean-local'||s.selectedVertex===null||!unfolded||unfolded.revision!==view.unfoldedRevision||!unfolded.contexts[context])throw Error('The saved unfolded view requires its matching vertex supplement.');
+  if(s.selectedVertex===null){
+   const bank=BUNDLE_PACK.datasetUnfoldedEdgeEmbeddings?.[view.dataset],key=JSON.stringify([view.cohort,view.stateMode,String(view.coverage),'group',String(s.selected)]),selection=bank?.selections[key];
+   const context=JSON.stringify([...JSON.parse(key),String(s.unfoldAnchorFeatureId)]);
+   if(s.embedding!=='maxnorm-euclidean-local'||!bank||bank.scope?.complete!==true||bank.baseRevision!==view.datasetRevision||bank.analysisRevision!==BUNDLE_PACK.participants?.[view.dataset]?.analysisRevision||bank.revision!==view.unfoldedEdgeRevision||!selection?.endpoints.includes(s.unfoldAnchorFeatureId)||!bank.fits[bank.contexts[context]])throw Error('The saved unfolded edge requires its matching supplement and endpoint anchor.');
+  }else{
+   const unfolded=BUNDLE_PACK.datasetUnfoldedEmbeddings?.[view.dataset];
+   const context=JSON.stringify([view.cohort,view.stateMode,String(view.coverage),'vertex',String(s.selectedVertex)]);
+   if(s.embedding!=='maxnorm-euclidean-local'||!unfolded||unfolded.revision!==view.unfoldedRevision||!unfolded.contexts[context])throw Error('The saved unfolded view requires its matching vertex supplement.');
+  }
  }
  if(!maxNormalizedIds.includes(s?.embedding))return;
  const bank=BUNDLE_PACK.datasetMaxNormalizedEmbeddings?.[view.dataset];
@@ -139,10 +145,11 @@ function maxNormalizedLocalFit(){
  cache.set(entry,fit);return fit;
 }
 function maxNormalizedLocalReferences(features,fit){
- const compositions=BUNDLE_PACK.participants[META.id].compositions;
+ const asset=BUNDLE_PACK.stressCompositions?.[META.id];
+ const compositions=(asset?.datasetRevision===META.revision?asset.compositions:null)||BUNDLE_PACK.participants[META.id].compositions;
  return features.map(feature=>{
   let best=0,maximum=-1;
-  fit.indices.forEach((i,k)=>{const abundance=compositions[(DATA.records?.[i]?.profile??i)].find(v=>v[0]===feature-1)?.[1]??0;if(abundance>maximum){best=k;maximum=abundance}});
+  fit.indices.forEach((i,k)=>{const row=compositions[DATA.records?.[i]?.profile??i];if(!row)throw Error('Full compositions are missing for a local reference profile.');const abundance=row.find(v=>v[0]===feature-1)?.[1]??0;if(abundance>maximum){best=k;maximum=abundance}});
   const row=fit.indices[best];return {feature,row,id:DATA.samples.ids[row],coords:fit.coords[best],member:true,maximum,
    method:'Observed maximum within this fitted selection',relative_error:null};
  });

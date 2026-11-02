@@ -38,3 +38,33 @@ run("selectedVertex=1;el('sampleEmbedding').value='local';syncUnfoldedControls()
 run("localScope='population-restriction';syncUnfoldedControls()");assert.equal(el('unfoldFaces').parentElement.hidden,true);
 run("localScope='local';participant.active=true;syncUnfoldedControls()");assert.equal(el('unfoldFaces').parentElement.hidden,true);
 console.log('PASS: header unfolding appears for local vertex and edge fits, hides on overview/global restrictions/participants, and explains missing edge fits or unsupported methods.');
+
+// Self-contained edge bank: default, explicit anchor, ordinary view, and old bookmark.
+ctx.esc=String;
+run(`participant.active=false;selectedVertex=null;selected='1,2';el('sampleEmbedding').value='maxnorm-euclidean-local';
+const edgeKey=datasetMaxNormalizedContext('group','1,2');
+BUNDLE_PACK.datasetMaxNormalizedEmbeddings.fixture.contexts[edgeKey]='ordinary';
+BUNDLE_PACK.datasetUnfoldedEdgeEmbeddings={fixture:{version:1,dataset:'fixture',baseRevision:'v1',analysisRevision:'a',revision:'e',scope:{complete:true},selections:{[edgeKey]:{endpoints:[1,2],defaultAnchorFeatureId:2}},contexts:{},fits:{}}};
+const edgeBank=BUNDLE_PACK.datasetUnfoldedEdgeEmbeddings.fixture;
+for(const id of [1,2]){edgeBank.contexts[JSON.stringify([...JSON.parse(edgeKey),String(id)])]='edge'+id+':euclidean';edgeBank.fits['edge'+id+':euclidean']={...normal,edge:'1,2',anchor:id-1,coordinates:[[0,0,0],[id+2,0,0]]};}
+syncUnfoldedControls();`);
+assert.equal(el('unfoldFaces').checked,true);assert.equal(run('unfoldedAnchorFeatureId'),2);
+assert.equal(run('maxNormalizedLocalFit().coords[1][0]'),4);
+el('unfoldAnchor').value='1';el('unfoldAnchor').onchange();run('syncUnfoldedControls()');
+assert.equal(run('unfoldedAnchorFeatureId'),1);assert.equal(run('maxNormalizedLocalFit().coords[1][0]'),3);
+el('unfoldFaces').checked=false;el('unfoldFaces').onchange();run('syncUnfoldedControls()');
+assert.equal(el('unfoldFaces').checked,false);assert.equal(run('maxNormalizedLocalFit().coords[1][0]'),1);
+run("selected=null;syncUnfoldedControls();selected='1,2';syncUnfoldedControls()");assert.equal(el('unfoldFaces').checked,false);
+run('restoreUnfoldedChoice({unfoldFaces:true,unfoldAnchorFeatureId:2});syncUnfoldedControls()');assert.equal(el('unfoldFaces').checked,true);assert.equal(run('unfoldedAnchorFeatureId'),2);
+run('restoreUnfoldedChoice({unfoldFaces:false});syncUnfoldedControls()');assert.equal(el('unfoldFaces').checked,false,'Legacy ordinary bookmarks must not adopt new default');
+run("edgeBank.scope.complete=false;syncUnfoldedControls()");assert.equal(el('unfoldFaces').disabled,true,'Offline pilots are not enabled in the viewer');
+console.log('PASS: edge defaults, both explicit anchors, repeated records, ordinary restoration, context preferences, legacy bookmarks and partial-bank disabling.');
+
+run(`edgeBank.scope.complete=true;restoreUnfoldedChoice({unfoldFaces:true,unfoldAnchorFeatureId:2});syncUnfoldedControls();
+const shown=unfoldedEntry();shown.validation={seeds:[{seed:17,relativeRms:.072162},{seed:29,relativeRms:.123572}]};shown.solver={backend:'sgd',seed:17,epochs:200};
+unfoldedStress(shown,[{profile:0,xyz:[0,0,0]},{profile:1,xyz:[4,0,0]}],[[[0,1]],[[1,1]]]);`);
+assert.match(el('sampleStress').title,/7.216%.*12.357%/);assert.match(el('sampleStress').title,/Initialization-sensitive/);
+run(`const savedEdge={dataset:'fixture',datasetRevision:'v1',cohort:'all',stateMode:'merged',coverage:'90',maxNormalizedRevision:undefined,maxNormalizedLocalRevision:undefined,unfoldedEdgeRevision:'e',selection:{selectedVertex:null,selected:'1,2',embedding:'maxnorm-euclidean-local',unfoldFaces:true,unfoldAnchorFeatureId:2}};validateMaxNormalizedNamedView(savedEdge)`);
+assert.throws(()=>run(`validateMaxNormalizedNamedView({...savedEdge,selection:{...savedEdge.selection,unfoldAnchorFeatureId:3}})`),/endpoint anchor/);
+assert.throws(()=>run(`validateMaxNormalizedNamedView({...savedEdge,unfoldedEdgeRevision:'stale'})`),/endpoint anchor/);
+console.log('PASS: both start errors and sensitivity are inspectable; named edge views reject stale banks and foreign anchors.');

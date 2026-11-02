@@ -1,9 +1,10 @@
 // Panel sizing is independent of selections, coordinates and camera history.
-var selectionPanelLayoutSync=null;
+var selectionPanelLayoutSync=null,cstSummaryPanelLayoutSync=null;
 (function installPanelSizing(){
  if(typeof window==='undefined')return;
  const workspace=document.getElementById('panelWorkspace'),column=document.getElementById('columnDivider'),row=document.getElementById('rowDivider');
  const storageKey='rank2-explorer-panel-layout-v2',defaults={left:.55,top:.68};
+ let graphTopBeforeSummary=null;
  let sizes={...defaults},active=null,resizePending=false,resizeAgain=false,maximized=null,refitSubjectAfterResize=false,refitJointSamplesAfterResize=false;
  try{
   const current=(typeof datasetPanelStorage==='undefined'?localStorage:datasetPanelStorage).getItem(storageKey),saved=JSON.parse(current||(typeof datasetPanelStorage==='undefined'?localStorage:datasetPanelStorage).getItem('rank2-explorer-panel-layout-v1')||(typeof datasetPanelStorage==='undefined'?localStorage:datasetPanelStorage).getItem('comb-V3V4-tx-panel-layout-v1'));
@@ -91,7 +92,7 @@ var selectionPanelLayoutSync=null;
    resizeAgain=false;
    try{
     await Promise.all([queue,graphQueue]);
-    for(const id of ['samples','graph3d']){const plot=document.getElementById(id);if((!maximized||maximized.id===(id==='samples'?'samplePanel':'featurePanel'))&&plot.data&&plot.clientWidth>0&&plot.clientHeight>0&&plot.style.display!=='none')await Plotly.Plots.resize(plot)}
+    for(const id of ['samples','graph3d','enrollmentHeatmapPlot','heatmapClusterScores']){const plot=document.getElementById(id);if((!maximized||maximized.id===(id==='samples'?'samplePanel':id==='graph3d'?'featurePanel':'cataloguePanel'))&&plot.data&&plot.clientWidth>0&&plot.clientHeight>0&&plot.style.display!=='none'){if(id==='enrollmentHeatmapPlot'&&typeof resizeEnrollmentHeatmap==='function')await resizeEnrollmentHeatmap();else await Plotly.Plots.resize(plot)}}
     if(refitJointSamplesAfterResize&&(!maximized||maximized.id==='samplePanel')){
      refitJointSamplesAfterResize=false;
      await fitSubjectSamples3d();
@@ -115,9 +116,15 @@ var selectionPanelLayoutSync=null;
   for(const [divider,value,min,max] of [[column,sizes.left,l.leftMin,1-l.leftMin],[row,sizes.top,l.topMin,l.topMax]]){
    divider.setAttribute('aria-valuenow',Math.round(value*100));divider.setAttribute('aria-valuemin',Math.ceil(min*100));divider.setAttribute('aria-valuemax',Math.floor(max*100));divider.setAttribute('aria-valuetext',Math.round(value*100)+'% '+(divider===column?'left':'upper'));
   }
-  if(persist)try{(typeof datasetPanelStorage==='undefined'?localStorage:datasetPanelStorage).setItem(storageKey,JSON.stringify(sizes))}catch{}
+  if(persist)try{(typeof datasetPanelStorage==='undefined'?localStorage:datasetPanelStorage).setItem(storageKey,JSON.stringify({...sizes,top:graphTopBeforeSummary??sizes.top}))}catch{}
   resizePlots();
  }
+ cstSummaryPanelLayoutSync=active=>{
+  // Compact only the right column; never shrink a visible subject trajectory.
+  active=active&&!workspace.classList.contains('subjectTrajectoryVisible');
+  if(active&&graphTopBeforeSummary===null){graphTopBeforeSummary=sizes.top;sizes.top=Math.min(sizes.top,340/limits().height);apply()}
+  else if(!active&&graphTopBeforeSummary!==null){sizes.top=graphTopBeforeSummary;graphTopBeforeSummary=null;apply()}
+ };
  function finish(event){
   if(!active||event.pointerId!==active.pointerId)return;
   const old=active;active=null;
@@ -185,11 +192,13 @@ var selectionPanelLayoutSync=null;
   if(maximized){const button=document.getElementById('maximize-'+maximized.id);maximized.classList.remove('maximized');button.textContent='⛶ Maximize';button.setAttribute('aria-expanded','false');button.setAttribute('aria-label','Maximize '+panelNames[maximized.id]);button.title='Fill window'}
   maximized=restoring?null:panel;
   // Move the existing controls so selection, handlers and disclosure state stay shared.
-  const participantSection=document.getElementById('participantSection');
   const participantHost=document.getElementById(maximized?.id==='samplePanel'?'sampleNavigation':'controlSections');
-  if(participantSection.parentElement!==participantHost){
-   if(maximized?.id==='samplePanel')participantHost.appendChild(participantSection);
-   else participantHost.insertBefore(participantSection,document.getElementById('layoutControls'));
+  for(const id of ['enrollmentExploreSection','participantSection']){
+   const section=document.getElementById(id);
+   if(section.parentElement!==participantHost){
+    if(maximized?.id==='samplePanel')participantHost.appendChild(section);
+    else participantHost.insertBefore(section,document.getElementById('layoutControls'));
+   }
   }
   const datasetLabel=document.getElementById(maximized?.id==='samplePanel'?'panelDatasetSelect':'datasetSelect').closest('label');
   datasetLabel.after(document.getElementById('populationComparisonControl'));
@@ -207,7 +216,7 @@ var selectionPanelLayoutSync=null;
    // Disable sibling branches, never a wrapper containing the maximized panel.
    for(let branch=maximized;branch&&branch!==document.body;branch=branch.parentElement){
     for(const node of branch.parentElement.children){
-     if(node===branch||node.tagName==='SCRIPT'||node.id==='viewExportDialog'||node.id==='namedViewsDialog'||node.id==='participantHelpPopover')continue;
+     if(node===branch||node.tagName==='SCRIPT'||node.id==='viewExportDialog'||node.id==='namedViewsDialog'||node.id==='embeddingStressDialog'||node.id==='neighborhoodDistanceDialog'||node.id==='participantHelpPopover')continue;
      backgroundState.push([node,node.inert]);node.inert=true;
     }
    }
@@ -220,20 +229,21 @@ var selectionPanelLayoutSync=null;
  }
  selectionPanelLayoutSync=show=>{
   workspace.classList.toggle('subjectTrajectoryVisible',show);
+  cstSummaryPanelLayoutSync(typeof cstSphereSummaryActive==='function'&&cstSphereSummaryActive());
   document.getElementById('inspector').hidden=show;document.getElementById('stateEdgeSelector').hidden=show;
   if(!show&&maximized?.id==='selectionPanel')maximizePanel(maximized);
  };
  selectionPanelLayoutSync(participant.active);
  for(const panel of panels)document.getElementById('maximize-'+panel.id).addEventListener('click',()=>maximizePanel(panel));
- window.addEventListener('keydown',event=>{if(event.key==='Escape'&&maximized){event.preventDefault();maximizePanel(maximized)}});
+ window.addEventListener('keydown',event=>{if(event.key==='Escape'&&maximized&&!document.querySelector('dialog[open]')){event.preventDefault();maximizePanel(maximized)}});
  if(typeof datasetPanelStorage!=='undefined'){
   datasetPanelLayout={
    save(){
-    for(const [key,value] of [[storageKey,sizes],[infoKey,infoSize],[graphInfoKey,graphInfoSize]])datasetPanelStorage.setItem(key,JSON.stringify(value));
+    for(const [key,value] of [[storageKey,{...sizes,top:graphTopBeforeSummary??sizes.top}],[infoKey,infoSize],[graphInfoKey,graphInfoSize]])datasetPanelStorage.setItem(key,JSON.stringify(value));
     saveSidebar();datasetPanelStorage.setItem('vme-panel-maximized-v1',maximized?.id||'');
    },
    restore(){
-    sizes={...defaults};infoSize={...infoDefaults};graphInfoSize=graphInfoDefault;collapsed=false;
+    graphTopBeforeSummary=null;sizes={...defaults};infoSize={...infoDefaults};graphInfoSize=graphInfoDefault;collapsed=false;
     try{const current=datasetPanelStorage.getItem(storageKey),v=JSON.parse(current||datasetPanelStorage.getItem('rank2-explorer-panel-layout-v1')||datasetPanelStorage.getItem('comb-V3V4-tx-panel-layout-v1'));if(v&&Number.isFinite(v.left)&&Number.isFinite(v.top))sizes={left:current?v.left:1-v.left,top:v.top}}catch{}
     try{const v=JSON.parse(datasetPanelStorage.getItem(infoKey));for(const axis of ['width','height'])if(Number.isFinite(v?.[axis]))infoSize[axis]=clamp(v[axis],0,.65);if(['right','bottom'].includes(v?.position))infoSize.position=v.position}catch{}
     try{const v=JSON.parse(datasetPanelStorage.getItem(graphInfoKey));if(Number.isFinite(v))graphInfoSize=clamp(v,0,.7)}catch{}

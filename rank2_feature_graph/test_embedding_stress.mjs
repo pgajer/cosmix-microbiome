@@ -36,7 +36,7 @@ console.log('PASS: analytic RMSRE, display scaling, target metrics, reproducible
 // Titles distinguish abundance normalization from target-distance construction.
 const titleSource=fs.readFileSync('rank2_feature_graph/cohort_views.js','utf8');
 vm.runInContext(titleSource.slice(titleSource.indexOf('function standardSampleEmbeddingTitle('),titleSource.indexOf('function syncAnalysisControls(')),c);
-Object.assign(c,{datasetMaxNormalizedAsset:()=>null,maxNormalizedIds:['maxnorm-euclidean','maxnorm-linf','maxnorm-euclidean-local','maxnorm-linf-local'],localSelectionFit:()=>({}),activeStateMode:'merged',META:{id:'comb-V3V4-tx'},DATA:{records:[{}]},activeCohort:'all',activeSensitivityMode:'rebuilt',maxNormalizedIsLocal:()=>el('sampleEmbedding').value.endsWith('-local')});
+Object.assign(c,{selectedVertex:1,datasetMaxNormalizedAsset:()=>null,maxNormalizedIds:['maxnorm-euclidean','maxnorm-linf','maxnorm-euclidean-local','maxnorm-linf-local'],localSelectionFit:()=>({}),activeStateMode:'merged',META:{id:'comb-V3V4-tx'},DATA:{records:[{}]},activeCohort:'all',activeSensitivityMode:'rebuilt',maxNormalizedIsLocal:()=>el('sampleEmbedding').value.endsWith('-local')});
 el('sampleEmbedding').value='overview';
 assert.equal(c.samplePanelTitle(c.sampleEmbeddingTitle(true)),'All cohorts');
 assert.equal(el('sampleTitle').title,'All cohorts · Rebuilt reference · Sum-normalized Euclidean · Population 3D MDS');
@@ -55,6 +55,7 @@ c.localSelectionFit=()=>({fittingScope:'population-restriction'});
 assert.equal(c.sampleEmbeddingTitle(),'Sum-normalized Euclidean · Population 3D MDS (restricted)');
 c.localSelectionFit=()=>({fittingScope:'local-restriction'});
 assert.equal(c.sampleEmbeddingTitle(),'Sum-normalized Euclidean · Local 3D MDS (restricted)');
+c.META.id='sante-16s';assert.equal(c.standardSampleEmbeddingTitle('Population 3D MDS'),'Sum-normalized Euclidean · Population 3D MDS');
 c.META.id='unreviewed-import';assert.match(c.standardSampleEmbeddingTitle('Saved embedding'),/^Normalization\/metric unspecified/);
 const familySource=fs.readFileSync('rank2_feature_graph/embedding_families.js','utf8');
 vm.runInContext(familySource.slice(0,familySource.indexOf('// Generic, versioned')),c);

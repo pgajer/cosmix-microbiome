@@ -49,7 +49,7 @@ console.log('PASS: rebuilt startup fit resolution, baseline immutability, cached
  const source=fs.readFileSync(new URL('datasets.js',import.meta.url),'utf8');
  const nodes=new Map(),el=id=>{if(!nodes.has(id))nodes.set(id,{value:'',textContent:''});return nodes.get(id)};
  let opened=0;const switches=[];
- const c=vm.createContext({el,esc:String,datasetDisplayTitle:m=>m.title,datasetRegistry:new Map([['a',{dataset:{id:'a',title:'A'}}]]),embeddingFamilyRegistry:new Map([['family',{id:'family',title:'Neighborhoods'}]]),activeEmbeddingFamily:null,META:{id:'a'}});
+ const c=vm.createContext({BUNDLE_PACK:{},URL,location:{href:"http://127.0.0.1:4173/?dataset=a",assign(url){this.assigned=url}},el,esc:String,datasetDisplayTitle:m=>m.title,datasetRegistry:new Map([['a',{dataset:{id:'a',title:'A'}}]]),embeddingFamilyRegistry:new Map([['family',{id:'family',title:'Neighborhoods'}]]),activeEmbeddingFamily:null,META:{id:'a'}});
  c.switchDataset=async id=>{switches.push(id);if(id==='bad')throw Error('Could not load dataset');c.META.id=id;c.updateDatasetChoices()};
  c.registerDataset=async b=>{c.datasetRegistry.set(b.dataset.id,b);await c.switchDataset(b.dataset.id)};
  el('datasetFile').click=()=>{opened++;assert.equal(el('datasetSelect').value,c.activeEmbeddingFamily?.id||c.META.id);assert.equal(el('panelDatasetSelect').value,el('datasetSelect').value)};
@@ -63,5 +63,29 @@ console.log('PASS: rebuilt startup fit resolution, baseline immutability, cached
  el('datasetFile').files=[{name:'invalid.json',text:async()=>'{invalid'}];await el('datasetFile').onchange();assert.equal(c.META.id,'a');assert(el('datasetMessage').textContent);assert.equal(el('datasetFile').value,'');
  el('datasetFile').files=[{name:'valid.json',text:async()=>JSON.stringify({dataset:{id:'b',title:'B'}})}];await el('datasetFile').onchange();assert.equal(c.META.id,'b');assert.equal(el('panelDatasetSelect').value,'b');assert.match(el('datasetSelect').innerHTML,/<option value="">Load dataset bundle…<\/option>$/);
  el('panelDatasetSelect').value='bad';await el('panelDatasetSelect').onchange();assert.equal(el('panelDatasetSelect').value,'b');assert.equal(el('datasetMessage').textContent,'Could not load dataset');
+ c.BUNDLE_PACK.distributionDatasets=['a'];c.BUNDLE_PACK.optionalDatasetLinks=[{id:'optional',title:'Optional neighborhoods'}];c.updateDatasetChoices();assert(!el('datasetSelect').innerHTML.includes('value="b"'));assert(el('datasetSelect').innerHTML.includes('Optional neighborhoods'));const count=switches.length;el('datasetSelect').value='optional';await el('datasetSelect').onchange();assert.equal(c.location.assigned,'http://127.0.0.1:4173/?dataset=optional');assert.equal(switches.length,count);
+ // Empty replaces the document before any dataset validation or loading.
+ for(const id of ['datasetSelect','panelDatasetSelect']){
+  el(id).value='empty';await el(id).onchange();
+  assert.equal(c.location.assigned,'http://127.0.0.1:4173/empty.html');
+  assert.equal(switches.length,count);assert.equal(c.META.id,'b');
+ }
  console.log('PASS: import action last in both selectors; picker/cancel preserves dataset or neighborhood; invalid files and failed switches retain selection; successful import updates both menus.');
+}
+
+{
+ const pack={};const left={datasetUnfoldedEdgeEmbeddings:{a:{revision:'edges',contexts:{first:'one',second:'two'},fits:{one:{anchor:0}}}}};
+ const right={datasetUnfoldedEdgeEmbeddings:{a:{fits:{two:{anchor:1}}}}};
+ mergePack(pack,left);mergePack(pack,right);
+ assert.deepEqual(plain(pack.datasetUnfoldedEdgeEmbeddings.a),{revision:'edges',contexts:{first:'one',second:'two'},fits:{one:{anchor:0},two:{anchor:1}}});
+ assert.deepEqual(Object.keys(left.datasetUnfoldedEdgeEmbeddings.a.fits),['one']);
+ console.log('PASS: chunked edge banks merge contexts and both anchors without mutating their sources.');
+}
+
+{
+ let target;
+ const c=vm.createContext({URL,URLSearchParams,document:{getElementById(){throw Error('Must not read a dataset manifest')}},location:{search:'?dataset=empty',href:'http://localhost:4173/?dataset=empty',replace(url){target=url}}});
+ vm.runInContext(fs.readFileSync(new URL('asset_loader.js',import.meta.url),'utf8'),c);
+ assert.equal(target,'http://localhost:4173/empty.html');
+ console.log('PASS: Empty startup bypasses dataset and plotting-library loading.');
 }

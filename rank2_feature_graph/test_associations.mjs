@@ -125,3 +125,38 @@ assert(!ctx.associationCSV().includes('all-coverages-unique-vertex-cohort'));
 const jointActual=new URL('enrollment_associations_joint_vertices_v2.json',import.meta.url);
 if(fs.existsSync(jointActual))ctx.validateAssociationBank(JSON.parse(fs.readFileSync(jointActual)));
 console.log('Joint-family validation, legacy compatibility, all coverage/cohort rendering and CSV scope checks passed.');
+
+// Joint edge corrections coexist with the unchanged per-coverage fields.
+const edgeJoint=structuredClone(joint);
+const edgeTests=Object.values(edgeJoint.coverages).flatMap(r=>r.edges.flatMap(e=>Object.values(e.results).map(r=>r.exact)));
+for(const x of edgeTests){x.jointHolm=x.supported?1:null;x.jointBy=x.supported?1:null;}
+edgeJoint.edgeMultiplicity={version:1,scope:'all-coverages-edge-cohort',coverages:[60,70,80,90],familySize:140,deduplicated:false,unavailableTests:edgeTests.filter(x=>!x.supported).length,sourceSha256:'a'.repeat(64)};
+ctx.validateAssociationBank(edgeJoint);
+for(const mutate of [b=>b.edgeMultiplicity.familySize--,b=>b.edgeMultiplicity.deduplicated=true,b=>delete b.edgeMultiplicity,b=>b.coverages['60'].edges[0].results.ZAPPS.exact.jointHolm=.01,b=>b.coverages['60'].edges[1].results.ZAPPS.exact.jointBy=1]){
+ const bad=structuredClone(edgeJoint);mutate(bad);assert.throws(()=>ctx.validateAssociationBank(bad));
+}
+ctx.edgeJoint=edgeJoint;vm.runInContext("associationView.bank=edgeJoint;associationView.level='edge'",ctx);
+const edgeBefore=JSON.stringify(edgeJoint);
+for(const q of ['60','70','80','90'])for(const cohort of ['both','ZAPPS','PreSSMat'])for(const mode of ['matched','all']){
+ ctx.q=q;ctx.cohort=cohort;ctx.mode=mode;
+ vm.runInContext("Object.assign(associationView,{coverage:q,cohort,mode,filter:''});renderAssociations()",ctx);
+ const csv=ctx.associationCSV();
+ if(mode==='matched'){
+  assert.match(el('associationTable').innerHTML,/Holm p · this coverage/);
+  assert.match(el('associationTable').innerHTML,/Holm p · all four coverages/);
+  assert.match(el('associationMethod').textContent,/all 140 cohort–state tests/);
+  assert.match(csv,/all-coverages-edge-cohort/);
+ }else{
+  assert(!el('associationTable').innerHTML.includes('Holm p'));
+  assert(!csv.includes('all-coverages-edge-cohort'));
+ }
+ const parsed=csv.split('\r\n').map(line=>[...line.matchAll(/"((?:[^"]|"")*)"/g)].map(m=>m[1]));
+ assert(parsed.every(row=>row.length===parsed[0].length));
+}
+vm.runInContext("associationView.level='vertex';associationView.mode='matched';renderAssociations()",ctx);
+assert(!el('associationTable').innerHTML.includes('all four coverages'));
+assert.match(el('associationMethod').textContent,/unique vertex–cohort/);
+assert.equal(JSON.stringify(edgeJoint),edgeBefore);
+const edgesActual=new URL('enrollment_associations_joint_edges_v3.json',import.meta.url);
+if(fs.existsSync(edgesActual))ctx.validateAssociationBank(JSON.parse(fs.readFileSync(edgesActual)));
+console.log('Joint edge validation, both correction families, descriptive/vertex isolation, CSV and immutable display passed.');

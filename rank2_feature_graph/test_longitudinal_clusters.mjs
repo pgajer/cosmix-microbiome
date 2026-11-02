@@ -1,0 +1,10 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
+const c={dataset:'d',datasetRevision:'r',analysisRevision:'a',stages:['E','F'],enrollment:[{subject:'a'},{subject:'b'}],visits:[{subject:'a',stage:'E'},{subject:'a',stage:'F'},{subject:'b',stage:'E'}],banks:{'l1-euclidean|ordinary':{fits:{'5|1':{labels:[1,2]}}}}};
+const ctx=vm.createContext({BUNDLE_PACK:{longitudinalClusters:{d:{cohorts:{C:c}}}},META:{id:'d'},hasSelection:()=>false,participant:{active:false},rank3UsesSamples:()=>false,atob:s=>Buffer.from(s,'base64').toString('binary')});
+vm.runInContext(fs.readFileSync(new URL('./longitudinal_clusters.js',import.meta.url),'utf8'),ctx);
+vm.runInContext("Object.assign(longitudinalState,{dataset:'d',enabled:true,cohort:'C',pair:'E → F'})",ctx);assert.equal(vm.runInContext('longitudinalActive()',ctx),true);
+assert.equal(vm.runInContext('longitudinalRows().length',ctx),3);vm.runInContext("longitudinalState.subjects=['a'];longitudinalState.visits='F'",ctx);assert.equal(vm.runInContext('longitudinalRows().length',ctx),1);
+vm.runInContext("longitudinalState.dataset='other'",ctx);assert.equal(vm.runInContext('longitudinalActive()',ctx),false);
+const buf=Buffer.alloc(16);[0,.75,.75,0].forEach((v,i)=>buf.writeFloatLE(v,i*4));ctx.bank={n:2,values:buf.toString('base64')};assert.equal(vm.runInContext('longitudinalDecode(bank)[0][1]',ctx),.75);
+const csv=vm.runInContext(`longitudinalCsv([{sample:'a,b',note:'a"b'}])`,ctx);assert.ok(csv.includes('"a,b"'));assert.ok(csv.includes('"a""b"'));
+console.log('Longitudinal selection, dataset isolation, float32 decoding and CSV checks passed.');

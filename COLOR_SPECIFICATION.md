@@ -1,6 +1,6 @@
 # VME color specification
 
-Specification version 25 · reviewed 27 October 2026.
+Specification version 29 · reviewed 31 October 2026.
 
 Canonical VME-wide reference for dataset authors and interface developers.
 Read this specification when preparing, adding or revising a VME dataset.
@@ -75,6 +75,38 @@ are excluded. A color switch restyles existing sample markers without changing
 coordinates, marker visibility, reference diamonds, camera, graph selection,
 component visibility, or fitting method. Existing gray-background and non-core
 inspection overrides remain in force. Preferences remain dataset-specific.
+
+When VALENCIA2 coloring is active, the Features and states graph panel shows a
+single row of CST or subCST spheres using the same fixed palette. Sphere area is
+proportional to count within the displayed view. Counts use the legend's eligible
+observation identities (records or distinct compositions as labeled), include
+visible background once, and exclude reference markers. Percentages in this
+summary always use that displayed total, independently of the legend's percentage
+checkbox. Missing calls appear as Unclassified; empty categories have a dash.
+The row scrolls horizontally when needed. The panel temporarily becomes shorter
+unless a participant trajectory is open, and switching colors restores its old
+height and graph. Samples, selection and coordinates are unchanged. PNG export
+captures the complete row, including categories outside the scrolled viewport.
+
+For Li/Lc neighborhoods, **Color by** and **Sample embedding** are in the sample
+panel header, alongside navigation, legend position, named views and PNG export.
+The CST sphere summary follows the neighborhood's own color selection and saved
+annotations. Its denominator is the number of displayed distinct neighborhood
+compositions, including dimmed background when visible, counting each composition
+once and excluding reference markers and rings. Source-record multiplicities do
+not change these counts. Only observed categories are shown in this summary;
+changing neighborhood, collection, selection or background visibility updates it.
+The full reference graph and its counts remain separate from this sample summary.
+No classification is inferred from the Li/Lc anchor label.
+
+Neighborhood reference vertices use the same red base color and sphere material
+as ordinary sample references. Their independent controls include sphere/diamond,
+size (25–300%), color, ambient light and highlights. Defaults are spheres, 100%,
+red `#d62728`, ambient 85% and highlights 18%; reference visibility is preserved.
+Appearance is saved in neighborhood preferences and both named-view formats;
+older views without these fields use the defaults. A common scale from the full
+saved neighborhood keeps marker sizes fixed when filtering samples. Appearance
+does not change reference identities, labels, sample colors, coordinates or counts.
 
 The original-pair component controls still describe membership within a selected
 merged group. Their color pickers edit the shared pair palette; select Pure
@@ -468,3 +500,35 @@ is on; unchecking Association colors restores both base colors. Selection uses
 a dark outline rather than overwriting effects. Lighting affects perceived sphere
 colors as in the main panel. Size fading can obscure small states; the unfaded
 results table and common color legend remain available.
+
+
+## SANTE enrollment exploration
+
+The optional treatment-assignment display uses blue `#0072b2` for azithromycin
+and orange `#d55e00` for placebo, consistently for samples and paired connecting
+lines. It requires source-bound treatment annotations for every released sample.
+This override is controlled in the separate Visit and enrollment neighborhoods
+section. Visit highlights default to blue `#0072b2`, with a configurable color.
+Treatment coloring overrides that single color; heatmap-selected trajectories
+turn treatment coloring on. Other samples remain visible in muted gray
+`#a8adb2`. The ordinary Color by selector is disabled during highlighting.
+Highlighted and gray context markers have independent size/opacity controls.
+Defaults are 6 px / 70% and 2 px / 28%; treatment coloring does not alter them.
+Connecting lines have independent thickness/opacity controls (3 px / 60% by
+default), retaining treatment colors or the chosen highlight color.
+Zero opacity hides markers or lines without changing membership or legend counts.
+The highlighted and context sets are disjoint; legend counts include each sample
+once. Visit identity uses shape: enrollment circles, follow-up diamonds, delivery
+squares. The anchor participant has larger markers. A treatment color denotes
+randomized assignment, not actual dose exposure before specimen collection.
+
+## Enrollment heatmap clustering
+
+Cluster colors are display annotations for one chosen partition, independent of
+CST/taxon and treatment colors. Positive cluster IDs are assigned by first
+occurrence in the fixed source participant order; their hues are spaced around
+the color wheel for the current cluster count. IDs/hues do not imply identity
+across parameter choices. Unassigned/noise is gray (`#999999`) and remains
+visible. Treatment retains its established blue/orange mapping in the adjacent
+strip and selected participants' 3D trajectories. Cluster number, table counts
+and hover text supplement color; color alone does not encode membership.
