@@ -68,3 +68,18 @@ run(`const savedEdge={dataset:'fixture',datasetRevision:'v1',cohort:'all',stateM
 assert.throws(()=>run(`validateMaxNormalizedNamedView({...savedEdge,selection:{...savedEdge.selection,unfoldAnchorFeatureId:3}})`),/endpoint anchor/);
 assert.throws(()=>run(`validateMaxNormalizedNamedView({...savedEdge,unfoldedEdgeRevision:'stale'})`),/endpoint anchor/);
 console.log('PASS: both start errors and sensitivity are inspectable; named edge views reject stale banks and foreign anchors.');
+
+// Bounded comb bank routes through the special rebuilt-reference ordinary bank.
+run(`let activeSensitivityMode='rebuilt';META={id:'comb-V3V4-tx',revision:'comb'};
+participant.active=false;selectedVertex=1;selected=null;activeCohort='all';activeStateMode='merged';
+BUNDLE_PACK.participants[META.id]={analysisRevision:'cp'};BUNDLE_PACK.combDisplay={revision:'cd'};
+BUNDLE_PACK.maxNormalizedEmbeddings={baseRevision:'comb',sensitivityRevision:'cd',localEmbeddings:{version:2,levels:{'60':{cohort:'all',stateMode:'merged',contexts:{'vertex:1':'plain'}}},fits:{'plain:euclidean':normal}}};
+BUNDLE_PACK.datasetUnfoldedEmbeddings[META.id]={version:1,dataset:META.id,baseRevision:'comb',analysisRevision:'cp',displayRevision:'cd',revision:'cu',scope:{complete:false},contexts:{'["all","merged","60","vertex","1"]':'unfold'},fits:{'unfold:euclidean':{...normal,anchor:0,coordinates:[[0,0,0],[2,0,0]]}}};
+el('coverage').value='60';el('unfoldFaces').checked=false;el('sampleEmbedding').value='maxnorm-euclidean-local';syncUnfoldedControls();`);
+assert.equal(el('unfoldFaces').disabled,false);assert.equal(run('maxNormalizedLocalFit().coords[1][0]'),1);
+run("el('unfoldFaces').checked=true");assert.equal(run('maxNormalizedLocalFit().coords[1][0]'),2);
+assert.deepEqual(plain('maxNormalizedLocalFit().indices'),[0,1,2]);
+run("el('coverage').value='80';syncUnfoldedControls()");assert.equal(el('unfoldFaces').disabled,true);
+run("el('coverage').value='60';activeCohort='one-cohort';syncUnfoldedControls()");assert.equal(el('unfoldFaces').disabled,true);
+run("activeCohort='all';BUNDLE_PACK.combDisplay.revision='stale';syncUnfoldedControls()");assert.equal(el('unfoldFaces').disabled,true);
+console.log('PASS: bounded comb unfolding preserves records and ordinary coordinates, rejecting unsupported coverage/cohorts and stale populations.');

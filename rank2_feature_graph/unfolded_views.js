@@ -3,7 +3,7 @@ function unfoldedAsset(){return matchingUnfoldedBank('datasetUnfoldedEmbeddings'
 function unfoldedEdgeAsset(){return matchingUnfoldedBank('datasetUnfoldedEdgeEmbeddings')}
 function matchingUnfoldedBank(field){
  const bank=BUNDLE_PACK[field]?.[META.id];
- return bank?.version===1&&bank.dataset===META.id&&bank.baseRevision===META.revision&&bank.analysisRevision===BUNDLE_PACK.participants?.[META.id]?.analysisRevision&&(field!=='datasetUnfoldedEdgeEmbeddings'||bank.scope?.complete===true)?bank:null;
+ return bank?.version===1&&bank.dataset===META.id&&bank.baseRevision===META.revision&&bank.analysisRevision===BUNDLE_PACK.participants?.[META.id]?.analysisRevision&&(META.id!=='comb-V3V4-tx'||bank.displayRevision===BUNDLE_PACK.combDisplay?.revision)&&(field!=='datasetUnfoldedEdgeEmbeddings'||bank.scope?.complete===true)?bank:null;
 }
 const unfoldedDecoded=new WeakMap(),unfoldedEdgeChoices=new Map();
 let unfoldedAnchorFeatureId=null;

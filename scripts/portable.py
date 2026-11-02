@@ -201,7 +201,7 @@ def prepare(package, metadata_path, output, announce=True):
             parts=[json.loads(checked_bytes(web,d)) for d in original['datasets'][dataset]['parts']]
             bundle=next(b for part in parts for b in part.get('bundles',[]) if b['dataset']['id']==dataset)
             participants=next(part['participants'][dataset] for part in parts if dataset in part.get('participants',{}))
-            validate_unfolded(bank,bundle,participants)
+            validate_unfolded(bank,bundle,participants,next((part['combDisplay'] for part in parts if 'combDisplay' in part),None))
     unfolded_edge_banks=metadata.get('datasetUnfoldedEdgeEmbeddings',{})
     if unfolded_edge_banks:
         from unfolded_edge_supplement import validate as validate_unfolded_edges

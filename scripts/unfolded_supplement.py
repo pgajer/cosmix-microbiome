@@ -1,5 +1,5 @@
 """Validate optional anchor-unfolded coordinates against frozen vertex selections."""
-import base64, math, struct
+import base64, json, math, struct
 from dataset_maxnorm_supplement import digest
 
 def vertex_contexts(bundle):
@@ -17,14 +17,37 @@ def vertex_contexts(bundle):
             add(spec['cohort'],spec['mode'],spec['q'],vertex,a['fits'][key]['profileIndices'])
     return expected
 
-def validate(asset,bundle,participants):
+def comb_vertex_contexts(display, participants, scope):
+    """A declared subset of the rebuilt population; membership from assignments."""
+    if (scope.get('kind')!='vertex-subset' or scope.get('cohorts')!=['all'] or
+            scope.get('modes')!=['merged'] or not scope.get('coverages') or
+            not scope.get('vertices') or scope.get('complete') is not False):
+        raise ValueError('Unfolded supplement: invalid bounded comb scope')
+    result={}
+    for q in scope['coverages']:
+        labels=display['merged'][q]['pairs']
+        for vertex in scope['vertices']:
+            pp=sorted({r['profile'] for r in participants['records']
+                if labels[r['profile']] not in display['rank1'] and
+                str(vertex) in labels[r['profile']].split(',')})
+            if not pp:raise ValueError('Unfolded supplement: empty requested vertex')
+            key=json.dumps(['all','merged',q,'vertex',str(vertex)],separators=(',',':'))
+            result[key]=dict(anchor=vertex-1,profiles=pp)
+    return result
+
+def validate(asset,bundle,participants,display=None):
     def require(ok,message):
         if not ok:raise ValueError('Unfolded supplement: '+message)
     require(asset.get('version')==1,'unsupported format')
     require((asset.get('dataset'),asset.get('baseRevision'),asset.get('analysisRevision'))==(bundle['dataset']['id'],bundle['dataset']['revision'],participants['analysisRevision']),'release identity differs')
     require(asset['revision']==digest({k:v for k,v in asset.items() if k!='revision'}),'content checksum differs')
     require(asset['settings']['targets']=='Euclidean distances after anchor-centered face rotation, without stretching','target geometry differs')
-    expected=vertex_contexts(bundle);require(set(expected)==set(asset['contexts']),'vertex contexts incomplete')
+    if asset['dataset']=='comb-V3V4-tx':
+        require(display is not None and asset.get('displayRevision')==display['revision'],'rebuilt display identity differs')
+        require(bundle['dataset'].get('fixedPopulation')=='rebuilt','requires rebuilt-only population')
+        expected=comb_vertex_contexts(display,participants,asset['scope'])
+    else:expected=vertex_contexts(bundle)
+    require(set(expected)==set(asset['contexts']),'vertex contexts incomplete')
     required=set()
     for context,identity in expected.items():
         key=digest(identity);require(asset['contexts'][context]==key,'anchor/membership identity differs');required.add(key+':euclidean')

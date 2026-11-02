@@ -24,4 +24,42 @@ class SupplementTest(unittest.TestCase):
     def test_bad_coordinates(self):
         fit=next(iter(self.asset['fits'].values()));fit['coordinates']=base64.b64encode(struct.pack('<6d',float('nan'),0,0,2,0,0)).decode();fit['receipt']=digest({k:v for k,v in fit.items() if k!='receipt'});self.seal()
         with self.assertRaisesRegex(ValueError,'coordinates'):validate(self.asset,self.bundle,self.participants)
+class BoundedCombTest(SupplementTest):
+    def setUp(self):
+        super().setUp()
+        self.bundle['dataset'].update(id='comb-V3V4-tx',fixedPopulation='rebuilt')
+        self.asset['dataset']='comb-V3V4-tx'
+        self.asset['scope']=dict(kind='vertex-subset',cohorts=['all'],modes=['merged'],coverages=['60'],vertices=[1],complete=False)
+        self.asset['displayRevision']='d'
+        self.asset['contexts']={'["all","merged","60","vertex","1"]':next(iter(self.asset['contexts'].values()))}
+        self.participants['records']=[{'profile':0},{'profile':1},{'profile':1}]
+        self.display=dict(revision='d',rank1={},merged={'60':{'pairs':['1,2','1,2']}})
+        self.seal()
+    def check(self):return validate(self.asset,self.bundle,self.participants,self.display)
+    def test_bounded_membership(self):self.check()
+    def test_valid(self):self.check()
+    def test_wrong_anchor_even_if_resealed(self):
+        next(iter(self.asset['fits'].values()))['anchor']=1;self.seal()
+        with self.assertRaisesRegex(ValueError,'identity'):self.check()
+    def test_missing_context(self):
+        self.asset['contexts']={};self.seal()
+        with self.assertRaisesRegex(ValueError,'contexts'):self.check()
+    def test_stale_release(self):
+        self.asset['baseRevision']='old';self.seal()
+        with self.assertRaisesRegex(ValueError,'release'):self.check()
+    def test_bad_coordinates(self):
+        fit=next(iter(self.asset['fits'].values()));fit['coordinates']='';fit['receipt']=digest({k:v for k,v in fit.items() if k!='receipt'});self.seal()
+        with self.assertRaisesRegex(ValueError,'coordinates'):self.check()
+    def test_changed_assignments(self):
+        self.display['merged']['60']['pairs'][1]='2,3'
+        with self.assertRaisesRegex(ValueError,'identity'):self.check()
+    def test_wrong_display(self):
+        self.display['revision']='old'
+        with self.assertRaisesRegex(ValueError,'display'):self.check()
+    def test_missing_display(self):
+        with self.assertRaisesRegex(ValueError,'display'):validate(self.asset,self.bundle,self.participants)
+    def test_cannot_claim_all_contexts(self):
+        self.asset['scope']['complete']=True;self.seal()
+        with self.assertRaisesRegex(ValueError,'scope'):self.check()
+
 if __name__=='__main__':unittest.main()

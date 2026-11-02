@@ -516,7 +516,7 @@ if(optionalChecks.unfoldedVertices){
   await run('restoreNamedView(unfoldedBookmark)');await flush();assert.equal(run('unfoldedEnabled()'),true);assert.deepEqual(signature(),original);
   await run('changeEmbeddingChoice("maxnorm-linf")');await flush();assert.equal(el('unfoldFaces').disabled,true);assert.equal(run('unfoldedEnabled()'),false);
  }
- await run('switchDataset("comb-V3V4-tx")');await flush();assert.equal(el('unfoldFaces').disabled,true);
+ await run('switchDataset("comb-V3V4-tx")');await run('clearSelection()');await flush();assert.equal(el('unfoldFaces').disabled,true);
  assert.deepEqual(hashes(),before,'Unfolding preserves frozen assignments and original coordinates');
 }
 await run("switchDataset('zapps-pressmat-v4')");await flush();
@@ -588,6 +588,31 @@ for(const id of ['lsvf-v3v4-20241111','umb-hmp-2019-panel','hmp-u01-2019','sante
   optionalChecks.unfoldedDatasetRoutes[id].contexts++;
  }
  assert.deepEqual(hashes(),before,'Extended unfolding preserves frozen scientific bundles');
+}
+await run('switchDataset("comb-V3V4-tx")');await flush();
+optionalChecks.combUnfoldedVertices=0;
+if(run('!!unfoldedAsset()')){
+ for(const [q,v] of [['60',528],['60',524],['60',429],['70',528],['70',524],['70',429]]){
+  Object.assign(ctx,{uq:q,uv:v});
+  await run('changeAnalysis("all","merged",uq)');await run('selectVertex(uv)');await run('changeEmbeddingChoice("maxnorm-euclidean")');await flush();
+  el('unfoldFaces').checked=false;await el('unfoldFaces').onchange();await flush();
+  const original=clone(run('maxNormalizedLocalFit()'));
+  assert.equal(el('unfoldFaces').disabled,false);
+  el('unfoldFaces').checked=true;await el('unfoldFaces').onchange();await flush();
+  assert.equal(run('unfoldedEnabled()'),true);
+  assert.deepEqual(clone(run('maxNormalizedLocalFit().indices')),original.indices);
+  assert.notDeepEqual(clone(run('maxNormalizedLocalFit().coords')),original.coords);
+  assert.match(el('sampleTitle').textContent,/Unfolded faces/);
+  ctx.combUnfoldBookmark=clone(await run('captureNamedView()'));
+  el('unfoldFaces').checked=false;await el('unfoldFaces').onchange();await flush();
+  assert.deepEqual(clone(run('maxNormalizedLocalFit().coords')),original.coords);
+  await run('restoreNamedView(combUnfoldBookmark)');await flush();assert.equal(run('unfoldedEnabled()'),true);
+  await run('changeEmbeddingChoice("maxnorm-linf")');await flush();assert.equal(el('unfoldFaces').disabled,true);
+  optionalChecks.combUnfoldedVertices++;
+ }
+ await run('changeAnalysis("all","merged","80")');await run('selectVertex(528)');await run('changeEmbeddingChoice("maxnorm-euclidean")');await flush();
+ assert.equal(el('unfoldFaces').disabled,true);
+ assert.deepEqual(hashes(),before,'Bounded comb unfolding preserves ordinary bundles');
 }
 await run('switchDataset(initialView.dataset)');
 const count=requests.length;await run('ensureSensitivityLoaded("rebuilt");ensureEmbeddingFamiliesLoaded()');await run('switchDataset(initialView.dataset)');assert.equal(requests.length,count,'Loaded assets are reused');
