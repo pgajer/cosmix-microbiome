@@ -17,19 +17,40 @@ def vertex_contexts(bundle):
             add(spec['cohort'],spec['mode'],spec['q'],vertex,a['fits'][key]['profileIndices'])
     return expected
 
+COMB_COVERAGES=['60','70','80','90','100']
+
+def comb_edge_selections(display,participants):
+    """All occupied merged pair states; single-taxon compatibility groups excluded."""
+    result={}
+    for q in COMB_COVERAGES:
+        labels=display['merged'][q]['pairs'];groups={}
+        for i,r in enumerate(participants['records']):
+            edge=labels[r['profile']]
+            if edge not in display['rank1']:
+                ends=list(map(int,edge.split(',')))
+                if len(ends)!=2 or ends!=sorted(set(ends)):raise ValueError('Invalid merged pair')
+                groups.setdefault(edge,[]).append(i)
+        for edge,ii in groups.items():
+            result[json.dumps(['all','merged',q,'group',edge],separators=(',',':'))]=ii
+    return result
+
 def comb_vertex_contexts(display, participants, scope):
-    """A declared subset of the rebuilt population; membership from assignments."""
-    if (scope.get('kind')!='vertex-subset' or scope.get('cohorts')!=['all'] or
-            scope.get('modes')!=['merged'] or not scope.get('coverages') or
-            not scope.get('vertices') or scope.get('complete') is not False):
+    """Declared rebuilt-reference scope; memberships come from assignments."""
+    full=scope.get('kind')=='vertex-all'
+    if (scope.get('cohorts')!=['all'] or scope.get('modes')!=['merged'] or
+            (scope.get('coverages')!=COMB_COVERAGES or scope.get('complete') is not True if full else
+             scope.get('kind')!='vertex-subset' or not scope.get('coverages') or not scope.get('vertices') or scope.get('complete') is not False)):
         raise ValueError('Unfolded supplement: invalid bounded comb scope')
     result={}
     for q in scope['coverages']:
-        labels=display['merged'][q]['pairs']
-        for vertex in scope['vertices']:
-            pp=sorted({r['profile'] for r in participants['records']
-                if labels[r['profile']] not in display['rank1'] and
-                str(vertex) in labels[r['profile']].split(',')})
+        labels=display['merged'][q]['pairs'];unions={}
+        for r in participants['records']:
+            edge=labels[r['profile']]
+            if edge in display['rank1']:continue
+            for vertex in map(int,edge.split(',')):unions.setdefault(vertex,set()).add(r['profile'])
+        vertices=sorted(unions) if full else scope['vertices']
+        for vertex in vertices:
+            pp=sorted(unions.get(vertex,[]))
             if not pp:raise ValueError('Unfolded supplement: empty requested vertex')
             key=json.dumps(['all','merged',q,'vertex',str(vertex)],separators=(',',':'))
             result[key]=dict(anchor=vertex-1,profiles=pp)
@@ -64,4 +85,9 @@ def validate(asset,bundle,participants,display=None):
         require(0<n<=len(pp),'invalid distinct count')
         require(score['relativeRms'] is None if n==1 else isinstance(score['relativeRms'],(float,int)) and math.isfinite(score['relativeRms']) and score['relativeRms']>=0,'invalid evaluation')
         require(solver['backend']=='analytic' if n<3 else solver['backend']=='sgd' and solver['epochs']==200 and solver['seed'] in (17,29),'solver receipt differs')
+    for revision,contexts in asset.get('compatibleRevisions',{}).items():
+        require(isinstance(revision,str) and len(revision)==64 and bool(contexts),'invalid compatible revision')
+        for context,receipt in contexts.items():
+            key=asset['contexts'].get(context)
+            require(key is not None and asset['fits'][key+':euclidean']['receipt']==receipt,'compatible saved view changed')
     return asset

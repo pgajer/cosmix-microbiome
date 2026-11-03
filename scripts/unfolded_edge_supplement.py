@@ -78,7 +78,7 @@ def rotated_row(row, anchor):
     return tuple(sorted(values.items()))
 
 
-def validate(asset, bundle, participants, *, allow_partial=False):
+def validate(asset, bundle, participants, *, allow_partial=False, display=None):
     def require(ok, message):
         if not ok:
             raise ValueError('Unfolded edge supplement: ' + message)
@@ -93,13 +93,20 @@ def validate(asset, bundle, participants, *, allow_partial=False):
     require(scope['complete'] or allow_partial, 'partial pilot bank is not a production supplement')
     for name in ('cohorts', 'modes', 'coverages'):
         require(isinstance(scope.get(name), list) and scope[name] and len(scope[name]) == len(set(scope[name])), 'invalid scope ' + name)
-    require(set(scope['cohorts']) <= set(bundle['cohortAnalysis']['populations']) and set(scope['modes']) <= {'pure','merged'} and set(scope['coverages']) <= set(bundle['data']['graphs']), 'unknown scope')
-    all_selections = selections(bundle)
+    is_comb=asset['dataset']=='comb-V3V4-tx'
+    if is_comb:
+        from unfolded_supplement import comb_edge_selections,COMB_COVERAGES
+        require(bundle['dataset'].get('fixedPopulation')=='rebuilt' and display is not None and asset.get('displayRevision')==display['revision'],'rebuilt display identity differs')
+        require(scope['cohorts']==['all'] and scope['modes']==['merged'] and scope['coverages']==COMB_COVERAGES,'unknown comb scope')
+        all_selections=comb_edge_selections(display,participants)
+    else:
+        require(set(scope['cohorts']) <= set(bundle['cohortAnalysis']['populations']) and set(scope['modes']) <= {'pure','merged'} and set(scope['coverages']) <= set(bundle['data']['graphs']), 'unknown scope')
+        all_selections = selections(bundle)
     expected = {k: v for k, v in all_selections.items() if all(x in scope[n] for x, n in zip(json.loads(k)[:3], ('cohorts','modes','coverages')))}
     require(not scope['complete'] or set(expected) == set(all_selections), 'complete bank omits supported source contexts')
     actual = asset['selections']
     require(bool(actual) and (set(actual) == set(expected) if scope['complete'] else set(actual) <= set(expected)), 'selection scope incomplete or foreign')
-    analysis_records = bundle['cohortAnalysis']['records']
+    analysis_records = participants['records'] if is_comb else bundle['cohortAnalysis']['records']
     records = participants['records']
     require(len({r['id'] for r in records}) == len(records) and len({r['id'] for r in analysis_records}) == len(analysis_records), 'duplicate source record IDs')
     require({r['id']: r['profile'] for r in records} == {r['id']: r['profile'] for r in analysis_records}, 'participant and analysis populations differ')
@@ -137,6 +144,7 @@ def validate(asset, bundle, participants, *, allow_partial=False):
             fit = asset['fits'][fit_key]
             require(fit['edge'] == edge and fit['anchor'] == endpoint-1 and fit['profiles'] == pp, 'fit edge/anchor/membership differs')
             receipt = {name: asset[name] for name in ('dataset','baseRevision','analysisRevision','inputs','featureOrderSha256','settings')}
+            if is_comb:receipt['displayRevision']=asset['displayRevision']
             receipt.update(context=fields+[str(endpoint)], selection=entry, fitKey=fit_key, fitReceipt=fit['receipt'])
             require(asset['contextReceipts'].get(ctx) == digest(receipt), 'context receipt differs')
     require(set(asset['contexts']) == required_contexts and set(asset['contextReceipts']) == required_contexts, 'extra or missing contexts')

@@ -92,7 +92,8 @@ function validateMaxNormalizedNamedView(view){
   }else{
    const unfolded=BUNDLE_PACK.datasetUnfoldedEmbeddings?.[view.dataset];
    const context=JSON.stringify([view.cohort,view.stateMode,String(view.coverage),'vertex',String(s.selectedVertex)]);
-   if(s.embedding!=='maxnorm-euclidean-local'||!unfolded||unfolded.revision!==view.unfoldedRevision||!unfolded.contexts[context])throw Error('The saved unfolded view requires its matching vertex supplement.');
+   const priorReceipt=unfolded?.compatibleRevisions?.[view.unfoldedRevision]?.[context];
+   if(s.embedding!=='maxnorm-euclidean-local'||!unfolded||!unfolded.contexts[context]||(unfolded.revision!==view.unfoldedRevision&&!(typeof priorReceipt==='string'&&priorReceipt===unfolded.fits[unfolded.contexts[context]+':euclidean']?.receipt)))throw Error('The saved unfolded view requires its matching vertex supplement.');
   }
  }
  if(!maxNormalizedIds.includes(s?.embedding))return;

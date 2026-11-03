@@ -83,3 +83,14 @@ run("el('coverage').value='80';syncUnfoldedControls()");assert.equal(el('unfoldF
 run("el('coverage').value='60';activeCohort='one-cohort';syncUnfoldedControls()");assert.equal(el('unfoldFaces').disabled,true);
 run("activeCohort='all';BUNDLE_PACK.combDisplay.revision='stale';syncUnfoldedControls()");assert.equal(el('unfoldFaces').disabled,true);
 console.log('PASS: bounded comb unfolding preserves records and ordinary coordinates, rejecting unsupported coverage/cohorts and stale populations.');
+
+run(`META={id:'fixture',revision:'v1'};activeCohort='all';activeStateMode='merged';selectedVertex=1;selected=null;el('coverage').value='90';
+const oldVertexContext=datasetMaxNormalizedContext('vertex',1),oldVertexBank=BUNDLE_PACK.datasetUnfoldedEmbeddings.fixture;
+oldVertexBank.fits['rotated:euclidean'].receipt='same-geometry-receipt';
+oldVertexBank.compatibleRevisions={'prior-bank':{[oldVertexContext]:'same-geometry-receipt'}};
+const oldVertexBookmark={dataset:'fixture',datasetRevision:'v1',cohort:'all',stateMode:'merged',coverage:'90',maxNormalizedRevision:undefined,maxNormalizedLocalRevision:undefined,unfoldedRevision:'prior-bank',selection:{selectedVertex:1,selected:null,embedding:'maxnorm-euclidean-local',unfoldFaces:true}};
+validateMaxNormalizedNamedView(oldVertexBookmark);`);
+assert.throws(()=>run(`validateMaxNormalizedNamedView({...oldVertexBookmark,unfoldedRevision:'foreign-bank'})`),/vertex supplement/);
+run(`oldVertexBank.fits['rotated:euclidean'].receipt='changed';`);
+assert.throws(()=>run('validateMaxNormalizedNamedView(oldVertexBookmark)'),/vertex supplement/);
+console.log('PASS: preserved vertex bookmarks require an explicit prior revision and an unchanged fit receipt.');
