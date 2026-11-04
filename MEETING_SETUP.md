@@ -118,6 +118,10 @@ its population file. Keep that file in place. To add a separately supplied AGP
 file for the first time, or after moving it, run
 `python3 scripts/portable.py update --agp-population /path/to/population.json`.
 
+For AGP component labels and the graph’s observed 3D reference positions, keep
+`component-references.json` beside `population.json`. The ordinary update picks
+it up automatically. The state diagram also works with the original population-only package.
+
 ## Add or change datasets
 
 Download any additional dataset ZIPs from the **same release** and extract them
