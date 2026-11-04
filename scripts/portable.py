@@ -315,7 +315,7 @@ def prepare(package, metadata_path, output, announce=True):
                    datasets=list(manifest['seed']['distributionDatasets']), application=manifest['application'],
                    diagnosticCount=len(metadata['embeddingStressDiagnostics']))
     (output / 'SOURCE_AND_DATA.json').write_text(json.dumps(receipt, indent=2) + '\n')
-    (output / 'READ ME FIRST.txt').write_text('Double-click Start CoSMiX.command. Keep its Terminal open.\nThis copy uses current GitHub interface source with your separately supplied data.\nNo fitting or data changes occurred. Port: 43818.\nFor another update: stop this viewer, then in ~/vme-source run git pull --ff-only followed by python3 scripts/portable.py update.\nThe original data package stays unchanged. SOURCE_AND_DATA.json records both identities.\n')
+    (output / 'READ ME FIRST.txt').write_text('Double-click Start CoSMiX.command. Keep its Terminal open.\nThis copy uses current GitHub interface source with your separately supplied data.\nNo fitting or data changes occurred. Port: 43818.\nFor another update: stop this viewer, then in your source clone run git pull --ff-only followed by python3 scripts/portable.py update.\nThe original data package stays unchanged. SOURCE_AND_DATA.json records both identities.\n')
     if announce:
         print('Ready: ' + str(output / 'Start CoSMiX.command'))
 
@@ -471,7 +471,7 @@ def update(package=None, metadata_path=None, output=None, neighborhood_package=N
     output = output.resolve()
     # Reject the source checkout before creating any locks or staging folders.
     if output == ROOT or output in ROOT.parents or ROOT in output.parents:
-        raise ValueError('Keep the source clone in ~/vme-source and the app in ~/vme')
+        raise ValueError('Keep the source clone (for example ~/cosmix-source) separate from the app (normally ~/vme)')
     output.parent.mkdir(parents=True, exist_ok=True)
     with update_lock(output), stopped_viewer(output):
         journal = output.parent / ('.' + output.name + '-update.json')

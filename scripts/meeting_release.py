@@ -157,7 +157,7 @@ def assemble(root, chosen, output):
     receipt = dict(sourceSha256=p.source_digest(p.HERE), application=manifest['application'], datasets=chosen,
                    meetingRelease=dict(path=str(root), release=catalog['release'], catalogSha256=p.sha((root / 'catalog.json').read_bytes())))
     (output / 'SOURCE_AND_DATA.json').write_text(json.dumps(receipt, indent=2) + '\n')
-    (output / 'READ ME FIRST.txt').write_text('Double-click Start CoSMiX.command. Keep its Terminal open.\nTo update: stop CoSMiX, then run in ~/vme-source:\ngit pull --ff-only && python3 scripts/portable.py update\nTo change datasets: python3 scripts/portable.py update --select-datasets\nKeep the original data release in place. Setup uses no scientific fitting.\n')
+    (output / 'READ ME FIRST.txt').write_text('Double-click Start CoSMiX.command. Keep its Terminal open.\nTo update: stop CoSMiX, then run in your source clone:\ngit pull --ff-only && python3 scripts/portable.py update\nTo change datasets: python3 scripts/portable.py update --select-datasets\nKeep the original data release in place. Setup uses no scientific fitting.\n')
 
 
 LAUNCHER = '''#!/bin/bash

@@ -51,14 +51,14 @@ and reuse terms and are excluded from CoSMiX's MIT software license.
 If this is your first installation:
 
 ```sh
-git clone https://github.com/pgajer/cosmix-microbiome.git "$HOME/vme-source"
-cd "$HOME/vme-source"
+git clone https://github.com/pgajer/cosmix-microbiome.git "$HOME/cosmix-source"
+cd "$HOME/cosmix-source"
 ```
 
-If you already have `~/vme-source`, use this instead:
+If you already have a clone, use its existing folder for this and later commands. For example, use `~/vme-source` wherever this guide shows `~/cosmix-source` if that is where you originally cloned it.
 
 ```sh
-cd "$HOME/vme-source"
+cd "$HOME/cosmix-source"
 git pull --ff-only
 ```
 
@@ -72,7 +72,7 @@ python3 scripts/portable.py update \
 
 Enter numbers separated by spaces, for example `3 7 8`, or `all` if you downloaded
 all dataset ZIPs. Read the displayed names rather than relying on the example
-numbers. The app is created at `~/vme`. The source stays in `~/vme-source`.
+numbers. The app is created at `~/vme`. The source stays in `~/cosmix-source`.
 A previous CoSMiX app is preserved in a backup folder printed by the installer.
 
 ## 3. Open CoSMiX
@@ -94,7 +94,7 @@ not rely on this to eliminate all extra storage.
 Stop CoSMiX with **Control-C** in its Terminal, then run:
 
 ```sh
-cd "$HOME/vme-source"
+cd "$HOME/cosmix-source"
 git pull --ff-only && python3 scripts/portable.py update
 ```
 
@@ -111,7 +111,7 @@ Download any additional dataset ZIPs from the **same release** and extract them
 into `~/vme-data` as above. Stop CoSMiX, then run:
 
 ```sh
-cd "$HOME/vme-source"
+cd "$HOME/cosmix-source"
 python3 scripts/portable.py update --select-datasets
 ```
 

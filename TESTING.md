@@ -36,7 +36,7 @@ To use the names from any directory, add the clone's `scripts` directory to
 your shell's PATH, for example in `~/.zshrc`:
 
 ```sh
-export PATH="$HOME/vme-source/scripts:$PATH"
+export PATH="$HOME/cosmix-source/scripts:$PATH"
 ```
 
 Open a new terminal after changing shell configuration. You can then type

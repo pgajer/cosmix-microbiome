@@ -39,17 +39,17 @@ account or collaborator invitation is required for this read-only download:
 
 ```sh
 cd "$HOME"
-git clone https://github.com/pgajer/cosmix-microbiome.git "$HOME/vme-source"
-cd "$HOME/vme-source"
+git clone https://github.com/pgajer/cosmix-microbiome.git "$HOME/cosmix-source"
+cd "$HOME/cosmix-source"
 ```
 
-If you already have this clone, enter it and run `git pull --ff-only` instead.
-Keep the source clone in `~/vme-source` and the runnable app in `~/vme`.
+If you already have a clone in `~/vme-source`, keep using that folder wherever this guide shows `~/cosmix-source`. Enter the existing clone and run `git pull --ff-only`.
+The commands below use `~/cosmix-source` for the clone and `~/vme` for the runnable app.
 If the earlier instructions put the source clone in `~/vme` (or `~/VME`),
-rename that clone to `vme-source` first; do not replace a clone with the app.
+rename that clone to `cosmix-source` first; do not replace a clone with the app.
 On typical Macs, capitalization does not distinguish two folder names.
 
-From inside the `vme-source` folder, run:
+From inside the `cosmix-source` folder, run:
 
 ```sh
 python3 scripts/portable.py update \
@@ -95,7 +95,7 @@ replace sample observations, memberships, fitted paths, or embedding coordinates
 Stop the running viewer with Control-C in its Terminal, then run:
 
 ```sh
-cd "$HOME/vme-source"
+cd "$HOME/cosmix-source"
 git pull --ff-only && python3 scripts/portable.py update
 ```
 
@@ -215,7 +215,7 @@ Reference diamonds use observed maxima within that local fit.
 After obtaining the matching supplement separately, stop CoSMiX and run:
 
 ```sh
-cd "$HOME/vme-source"
+cd "$HOME/cosmix-source"
 git pull --ff-only && python3 scripts/portable.py update \
   --metadata /path/to/VME-metadata-pure-local-2026-10-26.json
 ```
