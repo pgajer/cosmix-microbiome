@@ -377,9 +377,13 @@ def install_neighborhoods(output, package, metadata):
     receipt = json.loads(receipt_path.read_text())
     receipt['optionalNeighborhoods'] = dict(dataPackage=str(package), metadataFile=str(metadata), manifestSha256=digest)
     receipt_path.write_text(json.dumps(receipt, indent=2) + '\n')
+    extend_instance(output, 'neighborhoods', digest)
+
+
+def extend_instance(output, supplement, digest):
     identity_path=output/'web/vme-instance.txt'
     previous=identity_path.read_text().strip()
-    identity=sha(encoded(dict(base=previous,neighborhoods=digest)))
+    identity=sha(encoded({'base':previous, supplement:digest}))
     launcher=output/'Start VME.command'
     launcher.write_text(launcher.read_text().replace(previous,identity))
     identity_path.write_text(identity)
@@ -487,7 +491,7 @@ def app_destination(output=None):
 
 
 def update(package=None, metadata_path=None, output=None, neighborhood_package=None, neighborhood_metadata=None,
-           catalog=None, datasets=None, select_datasets=False):
+           catalog=None, datasets=None, select_datasets=False, agp_population=None):
     output = app_destination(output)
     # Reject the source checkout before creating any locks or staging folders.
     if output == ROOT or output in ROOT.parents or ROOT in output.parents:
@@ -514,6 +518,10 @@ def update(package=None, metadata_path=None, output=None, neighborhood_package=N
                 raise ValueError('Keep data outside the app folder')
             if catalog is None and sha((release_root / 'catalog.json').read_bytes()) != saved_release['catalogSha256']:
                 raise ValueError('The installed release catalogue changed; supply --catalog explicitly for a new release')
+            if meeting_release.read_catalog(release_root).get('synthetic'):
+                if output in (Path.home() / 'cosmix', Path.home() / 'vme') or (old_receipt and
+                        saved_release.get('catalogSha256') != sha((release_root / 'catalog.json').read_bytes())):
+                    raise ValueError('Use a separate test app folder for synthetic skin fixtures')
             chosen = meeting_release.selection(release_root, datasets,
                 old_receipt.get('datasets') if saved_release else None, select_datasets)
         else:
@@ -545,6 +553,18 @@ def update(package=None, metadata_path=None, output=None, neighborhood_package=N
                 prepare(package, metadata_path, candidate, announce=False)
                 if neighborhood_package:
                     install_neighborhoods(candidate, neighborhood_package, neighborhood_metadata)
+            agp_population = agp_population or old_receipt.get('agpPopulation')
+            if agp_population:
+                from agp_supplement import attach
+                population_path = Path(agp_population).expanduser().resolve()
+                if output == population_path or output in population_path.parents:
+                    raise ValueError('Keep the AGP population outside the app folder')
+                digest = attach(candidate/'web/index.html', population_path)
+                extend_instance(candidate, 'agp', digest)
+                receipt_path = candidate/'SOURCE_AND_DATA.json'
+                receipt = json.loads(receipt_path.read_text())
+                receipt['agpPopulation'] = str(population_path)
+                receipt_path.write_text(json.dumps(receipt, indent=2)+'\n')
             validate_prepared(candidate)
             # Write recovery information before either directory is moved.
             with journal.open('x') as stream:
@@ -585,11 +605,12 @@ def main():
     item.add_argument('--catalog', type=Path, help='Folder containing a selectable release catalog.json')
     item.add_argument('--datasets', nargs='+', help='Exact dataset IDs to install; replaces the installed selection')
     item.add_argument('--select-datasets', action='store_true', help='Choose datasets interactively')
+    item.add_argument('--agp-population', type=Path, help='Reviewed AGP SILVA population file (remembered locally)')
     args = parser.parse_args()
     try:
         if args.command == 'update':
             update(args.package, args.metadata, args.output, args.neighborhood_package, args.neighborhood_metadata,
-                   args.catalog, args.datasets, args.select_datasets)
+                   args.catalog, args.datasets, args.select_datasets, args.agp_population)
         elif args.command == 'prepare':
             prepare(args.package.resolve(), args.metadata.resolve(), args.output.resolve())
         else:

@@ -232,3 +232,12 @@ refit models. Dataset-specific preparation checks remain with their scientific
 projects. The full HTTP integration test requires the four datasets listed in
 its help; use an all-dataset installation for release validation. A recipient
 with a smaller subset does not need to run these checks to install or update.
+
+## AGP population
+
+Install the separate reviewed AGP population using
+`python3 scripts/portable.py update --agp-population /path/to/population.json`.
+Updates remember the supplied file. The on-demand browser check uses Playwright
+and Chrome. Run `node rank2_feature_graph/test_agp_population.cjs http://127.0.0.1:4173 /path/to/population.json`
+with the origin of the running installation. It checks all four coverage schemes,
+both assignment settings and the three saved population geometries.

@@ -66,8 +66,16 @@ if(typeof document==='undefined')return;
 const requested=new URLSearchParams(location.search).get('dataset');
 if(requested==='empty'){location.replace(new URL('empty.html',location.href).href);return}
 const optionalNode=document.getElementById('vme-optional-neighborhoods'),optional=optionalNode?JSON.parse(optionalNode.textContent):null;
-const manifest=optional?.families.some(f=>f.id===requested)?optional:JSON.parse(document.getElementById('vme-http-manifest').textContent),loader=createLoader(manifest);
+const primary=JSON.parse(document.getElementById('vme-http-manifest').textContent);
+if(optional && primary.datasets['agp-24k-silva'] && !optional.seed.optionalDatasetLinks.some(x=>x.id==='agp-24k-silva'))optional.seed.optionalDatasetLinks.push(primary.datasets['agp-24k-silva'].dataset);
+const manifest=optional?.families.some(f=>f.id===requested)?optional:primary,loader=createLoader(manifest);
 root.VME_ASSETS=loader;
+// A population-only view has its own initialization. Route changes before an older
+// graph viewer tries to validate the selected population as a graph bundle.
+document.addEventListener('change',event=>{
+ if(!['datasetSelect','panelDatasetSelect'].includes(event.target.id)||!primary.datasets[event.target.value]?.capability)return;
+ event.stopImmediatePropagation();const url=new URL(location.href);url.searchParams.set('dataset',event.target.value);location.assign(url.href);
+},true);
 const status=document.getElementById('vmeLoadStatus'),retry=document.getElementById('vmeLoadRetry');
 loader.status=message=>{status.textContent=message;status.hidden=!message};
 loader.retry=action=>{retry.hidden=!action;retry.onclick=action?()=>Promise.resolve().then(action).catch(error=>loader.status(error.message)):null};
@@ -104,6 +112,16 @@ async function start(id){
  const dataset=manifest.datasets[id]?id:manifest.neighborhoods.datasets[0];
  try{
   library??=script(manifest.plotly).catch(error=>{library=null;throw error});
+  const capability=manifest.datasets[id]?.capability;
+  if(capability==='skin-population-v1'||capability==='agp-population-v1'){
+   const skin=capability==='skin-population-v1';
+   const [part]=await Promise.all([loader.dataset(id),library,script(skin?manifest.skinViewer:manifest.agpViewer)]);
+   if(attempt!==revision)return;
+   const data=skin?part.skinPopulation:part.agpPopulation;
+   if(data?.id!==id||data.revision!==manifest.datasets[id].dataset.revision)throw Error('Population identity mismatch.');
+   await (skin?root.showSkinPopulation:root.showAgpPopulation)(data,choices);
+   loader.status('');return;
+  }
   validationLibrary??=script(manifest.validator).catch(error=>{validationLibrary=null;throw error});
   const [value]=await Promise.all([loader.dataset(dataset,async value=>{await validationLibrary;loader.validateDataset(value,dataset)}),library]);
   if(attempt!==revision)return;

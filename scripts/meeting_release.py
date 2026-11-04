@@ -124,6 +124,8 @@ def assemble(root, chosen, output):
         p.asset_path(outweb, desc).write_bytes(raw)
         return desc
     manifest['application'] = publish(('VME_ASSETS.releaseControls();\n' + application).encode())
+    if any(entry.get('capability') == 'skin-population-v1' for entry in manifest['datasets'].values()):
+        manifest['skinViewer'] = publish((p.HERE / 'skin_population.js').read_bytes())
     manifest['validator'] = publish((p.HERE / 'bundle_format.js').read_bytes())
     loader = publish((p.HERE / 'asset_loader.js').read_bytes())
     bootstrap = '<script id="vme-http-manifest" type="application/json">' + p.encoded(manifest).decode().replace('</', '<\\/') + '</script><script src="' + loader['url'] + '"></script>'
@@ -148,7 +150,7 @@ def assemble(root, chosen, output):
     (outweb / 'reports/index.html').write_text(p.resource_page('Analysis documents', '<p>Open an installed dataset and use its analysis Methods or PDF buttons for the accompanying documents. This copy does not include the separate development report dashboard or mutual-overlap research browser. Live R analysis services are not included.</p>', '../index.html'))
     (output / 'vme-server').write_bytes(server)
     (output / 'vme-server').chmod(0o755)
-    identity = p.sha(p.encoded(dict(application=manifest['application'], release=p.sha((root / 'catalog.json').read_bytes()), datasets=chosen)))
+    identity = p.sha(p.encoded(dict(application=manifest['application'], release=p.sha((root / 'catalog.json').read_bytes()), datasets=chosen, skinViewer=manifest.get('skinViewer'))))
     (outweb / 'vme-instance.txt').write_text(identity)
     launcher = LAUNCHER.replace('INSTANCE_ID', identity)
     (output / 'Start VME.command').write_text(launcher)

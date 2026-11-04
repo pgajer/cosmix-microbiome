@@ -531,3 +531,14 @@ across parameter choices. Unassigned/noise is gray (`#999999`) and remains
 visible. Treatment retains its established blue/orange mapping in the adjacent
 strip and selected participants' 3D trajectories. Cluster number, table counts
 and hover text supplement color; color alone does not encode membership.
+
+### American Gut Project
+
+The 24,421-sample SILVA population supports 70%-, 80%- and 90%-1-CSTs and
+40%-2-CSTs. Colors identify the retained original-taxon cores and stay
+consistent across coverage levels, checkbox settings and population embeddings.
+With assignment enabled, the legend separates original members from samples
+assigned by higher-rank support or neighbor vote. With it disabled, the plot
+shows the original core members in their saved population coordinates.
+Percentages use all 24,421 samples. Pair names put the taxon with greater total
+relative abundance across this population first.

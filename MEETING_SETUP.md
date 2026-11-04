@@ -113,6 +113,11 @@ selection and data location are remembered. This command does not run models or
 the optional integration/layout tests. A failed update keeps the previous app.
 Backups are retained, not automatically deleted.
 
+If AGP is already installed, the ordinary update command reads the saved path to
+its population file. Keep that file in place. To add a separately supplied AGP
+file for the first time, or after moving it, run
+`python3 scripts/portable.py update --agp-population /path/to/population.json`.
+
 ## Add or change datasets
 
 Download any additional dataset ZIPs from the **same release** and extract them
