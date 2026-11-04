@@ -7,6 +7,7 @@ const graph={nodes:[1,2,3,4].map(id=>({id})),edges:[{id:'a',from:1,to:2,frequenc
 const lookup=new Map([[1,[0,0,0]],[2,[20,0,0]],[3,[20,20,0]],[4,[0,20,0]]]);
 let selected=null;
 const c=vm.createContext({el,current:()=>graph,activeEdge:e=>e.id===selected,esc:String,fmt:String,graphLayoutHover:()=>'',console});
+vm.runInContext(fs.readFileSync(new URL('sphere_geometry.js',import.meta.url),'utf8'),c);
 vm.runInContext(fs.readFileSync(new URL('view_tools.js',import.meta.url),'utf8'),c);
 const run=s=>vm.runInContext(s,c),plain=x=>JSON.parse(JSON.stringify(x));
 const before=JSON.stringify({graph,lookup:[...lookup]});

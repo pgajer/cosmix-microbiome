@@ -120,7 +120,9 @@ file for the first time, or after moving it, run
 
 For AGP component labels and the graph’s observed 3D reference positions, keep
 `component-references.json` beside `population.json`. The ordinary update picks
-it up automatically. The state diagram also works with the original population-only package.
+it up automatically. For the 3D pair-graph layouts, also keep
+`graph-layouts-3d.json` in the same directory and run the ordinary update.
+The state diagram also works with the original population-only package.
 
 ## Add or change datasets
 

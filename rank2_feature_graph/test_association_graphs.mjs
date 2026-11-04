@@ -11,7 +11,7 @@ const r={coverage:90,graphId:'a'.repeat(64),partitionId:'b'.repeat(64),cohorts:{
 r.vertices=r.nodes.map(n=>({...n,incidentEdges:r.edges.filter(e=>e.from===n.id||e.to===n.id).map(e=>e.id),results:{ZAPPS:result(50,1),PreSSMat:result(50,-1)}}));
 const original=JSON.stringify(r),requests=[];
 const ctx=vm.createContext({console,el,esc:String,taxonDisplayLabel:s=>s.replaceAll('_',' '),fmt:String,setTimeout,clearTimeout,current:()=>({nodes:[],edges:[]}),fetch:async(url,options)=>{const b=JSON.parse(options.body);requests.push(b);return {ok:true,json:async()=>({...b,coords:b.initial,relativeRms:.2,geodesicNormalizedRmse:.3,runtimeId:'c'.repeat(64)})}}});
-for(const file of ['view_tools.js','graph_layout.js','associations.js','association_graphs.js'])vm.runInContext(fs.readFileSync(new URL(file,import.meta.url),'utf8'),ctx);
+for(const file of ['sphere_geometry.js','view_tools.js','graph_layout.js','associations.js','association_graphs.js'])vm.runInContext(fs.readFileSync(new URL(file,import.meta.url),'utf8'),ctx);
 ctx.r=r;vm.runInContext("associationView.bank={coverages:{'90':r}};associationView.level='vertex';associationView.selected='2'",ctx);
 const run=s=>vm.runInContext(s,ctx),plain=x=>JSON.parse(JSON.stringify(x));
 for(const dimension of [2,3])for(const mode of ['equal','proportion']){

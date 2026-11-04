@@ -44,6 +44,37 @@ const reference=JSON.parse(require('fs').readFileSync(population));
   }
   console.log('PASS',scheme);
  }
+ const layoutFile=path.join(path.dirname(population),'graph-layouts-3d.json');
+ if(fs.existsSync(layoutFile)){
+  const bank=JSON.parse(fs.readFileSync(layoutFile)).agpGraphLayouts;
+  assert.equal(await page.locator('#agpGraphLayout').inputValue(),'graph');
+  const verifyLayout=async fit=>{
+   const trace=await page.locator('#graph3d').evaluate(g=>g.data.find(t=>t.meta?.agpGraphVertices));
+   trace.customdata.forEach((v,i)=>assert.deepEqual([trace.x[i],trace.y[i],trace.z[i]],fit.coords[bank.nodes.indexOf(+v.id)]));
+  };
+  for(const merged of [false,true]){
+   await page.locator('#stateMode').setChecked(merged);
+   for(const length of ['reference','equal','proportion']){
+    await page.selectOption('#graphEdgeLengths',length);
+    if(length==='reference'){await verifyLayout(bank.reference);continue}
+    for(const method of ['spring','mds','grip','weighted_grip']){
+     await page.selectOption('#graphEmbeddingMethod',method);
+     await verifyLayout(bank.fits[length==='equal'?'equal/0/'+method:(merged?'merged':'pure')+'/16/'+method]);
+    }
+   }
+  }
+  const range=async(id,value)=>page.locator('#'+id).evaluate((c,v)=>{c.value=v;c.dispatchEvent(new Event('input',{bubbles:true}))},value);
+  await range('graphProportionStrength','10');await verifyLayout(bank.fits['merged/40/weighted_grip']);
+  const mesh=()=>page.locator('#graph3d').evaluate(g=>{const t=g.data.find(t=>t.type==='mesh3d');return t&&{radius:Math.max(...t.x)-Math.min(...t.x),color:t.color,lighting:t.lighting}});
+  const start=await mesh();assert.ok(start.radius>0);
+  await range('graphVertexScale','200');assert.ok(Math.abs((await mesh()).radius/start.radius-2)<1e-8);
+  await range('graphVertexColor','#cc6688');await range('graphSphereAmbient','42');await range('graphSphereHighlights','68');
+  const after=await mesh();assert.equal(after.color,'#cc6688');assert.equal(after.lighting.ambient,.42);assert.equal(after.lighting.specular,.68);
+  await page.uncheck('#graphSpheres');assert.equal(await mesh(),undefined);assert.ok(await page.locator('#graphSphereAmbient').isDisabled());
+  await page.check('#graphSpheres');assert.deepEqual(await mesh(),after);
+  console.log('PASS AGP 3D graph fits, target strengths, mesh size, color, lighting and flat-marker toggle');
+ }
+
  if(refs){
   await page.selectOption('#agpGraphLayout','reference');
   await page.waitForFunction(()=>document.getElementById('graph3d').data.at(-1).type==='scatter3d');

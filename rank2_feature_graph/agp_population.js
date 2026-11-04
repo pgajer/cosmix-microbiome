@@ -1,5 +1,5 @@
 // AGP colors and filters are assignments in abundance space. Coordinates come from the saved population fit.
-async function showAgpPopulation(data, choices, references){
+async function showAgpPopulation(data, choices, references, graphLayouts){
  const el=id=>document.getElementById(id), method=el('sampleMethod'),color=el('sampleColorScheme'),
        assign=el('stateMode'),plot=el('samples'),info=el('sampleContext'),selector=el('datasetSelect');
  const title=choices.find(item=>item.id===data.id).title;
@@ -63,7 +63,7 @@ async function showAgpPopulation(data, choices, references){
   if(!stateColors.has(state)){const i=stateColors.size;stateColors.set(state,palette[i]||('hsl('+Math.round(i*137.508%360)+',55%,'+(35+10*(i%3))+'%)'))}
  }
  const rows=new Map(data.ids.map((id,i)=>[id,i]));
- const graph=agpGraphPanel(data,references,rows);
+ const graph=agpGraphPanel(data,references,rows,graphLayouts);
  const ranges=new Map();
  const resize=()=>{Plotly.Plots.resize(plot);graph.resize()};
  for(const [panel,button] of [[el('featurePanel'),el('maximize-featurePanel')],[el('samplePanel'),document.createElement('button')]]){
@@ -139,18 +139,28 @@ async function showAgpPopulation(data, choices, references){
 }
 
 // State counts come from the same retained-state memberships as the sample panel.
-function agpGraphPanel(data,references,rows){
+function agpGraphPanel(data,references,rows,bank){
  const el=id=>document.getElementById(id);
  const plot=el('graph3d'),area=el('graphPlotArea'),toolbar=el('graphDetails').querySelector('.graphToolbar');
  const layout=document.createElement('select');
  layout.id='agpGraphLayout';
  layout.add(new Option('State diagram','diagram'));
  if(references)layout.add(new Option('Observed references · 3D','reference'));
+ const fitted=new Option('2-CST graph · 3D','graph');
+ if(bank)layout.add(fitted);
+ const lengths=el('graphEdgeLengths'),algo=el('graphEmbeddingMethod'),strength=el('graphProportionStrength');
+ const spheres=el('graphSpheres'),ambient=el('graphSphereAmbient'),highlights=el('graphSphereHighlights');
+ const fitControls=[lengths,strength,algo],sphereControls=[spheres,ambient,highlights];
+ let pairLayout=bank?'graph':'diagram',previousAlgorithm='weighted_grip',singleLayout='diagram';
+ lengths.disabled=spheres.disabled=false;lengths.value='proportion';algo.value=previousAlgorithm;
  const layoutLabel=document.createElement('label');
  layoutLabel.append('Graph layout',layout);
  const controls=['graphVertexScale','vertexLabels','graphVertexColor','graphEdgeColor','graphWidthBySize',
   'graphEdgeWidth','graphWidthStrength','graphFadeBySize','graphFadeStrength','graphDegreeFilter','graphMinimumDegree'];
- toolbar.replaceChildren(layoutLabel,...controls.map(id=>el(id).closest('label')));
+ const layoutNote=document.createElement('small');
+ toolbar.replaceChildren(layoutLabel,...fitControls.map(input=>input.closest('label')),layoutNote,
+  ...sphereControls.map(input=>input.closest('label')),...controls.map(id=>el(id).closest('label')));
+ if(!bank)layoutLabel.title='Add graph-layouts-3d.json beside population.json for the fitted 3D pair graph.';
  for(const id of controls)el(id).disabled=false;
  el('graphVertexScale').closest('label').title='Scale vertex markers. Area represents sample count for 1-CSTs and degree for 2-CSTs.';
  el('graphContent').replaceChildren(area,el('graphDetails'));
@@ -182,7 +192,20 @@ function agpGraphPanel(data,references,rows){
  clear.onclick=()=>select(null);
  function render(){
   if(!scheme)return;
-  const pair=scheme.k===2,spatial=layout.value==='reference',vertices=new Map(),edges=[];
+  const pair=scheme.k===2,useFit=pair&&layout.value==='graph',spatial=useFit||layout.value==='reference';
+  const vertices=new Map(),edges=[];
+  fitted.hidden=!pair;fitted.disabled=!pair;
+  for(const c of fitControls)c.closest('label').hidden=!useFit;
+  const saved=lengths.value==='reference';
+  if(saved && algo.value!=='reference'){previousAlgorithm=algo.value;algo.value='reference'}
+  if(!saved && algo.value==='reference')algo.value=previousAlgorithm;
+  algo.disabled=saved;strength.disabled=lengths.value!=='proportion';
+  el('graphProportionStrengthValue').textContent=strength.value;
+  const lit=pair&&spatial&&spheres.checked;
+  for(const c of sphereControls)c.closest('label').hidden=!pair||!spatial;
+  ambient.disabled=highlights.disabled=!lit;
+  el('graphSphereAmbientValue').textContent=ambient.value+'%';
+  el('graphSphereHighlightsValue').textContent=highlights.value+'%';
   for(const state of scheme.cores){
    const ids=state.split(','),n=counts.get(state);
    for(const id of ids){
@@ -216,7 +239,15 @@ function agpGraphPanel(data,references,rows){
    button.type='button';button.className='graphVertexName';button.textContent=v.name;button.onclick=()=>select({id:v.id,edge:false});
    tr.insertCell().append(button);for(const value of [v.degree,v.n.toLocaleString(),(100*v.n/data.ids.length).toFixed(2)])tr.insertCell().textContent=value;
   }
-  const pos=new Map(all.map((v,i)=>{
+  const tick=lengths.value==='proportion'?Math.round(4*Number(strength.value)):0;
+  const assignment=el('stateMode').checked?'merged':'pure';
+  const key=[tick?assignment:'equal',tick,algo.value].join('/');
+  const fit=useFit?(saved?bank.reference:bank.fits[key]):null;
+  layoutNote.hidden=!useFit;
+  if(useFit)layoutNote.textContent=(saved?'Saved MDS reference. Edge targets are Euclidean distances between the observed reference compositions.':
+   tick?'Edge target = 1 + '+strength.value+' × pair count / largest pair count.':'All edge targets are 1.')+
+   ' Relative RMS edge-length error: '+(fit.rms*100).toFixed(2)+'%.';
+  const pos=useFit?new Map(bank.nodes.map((id,i)=>[String(id),fit.coords[i]])):new Map(all.map((v,i)=>{
    return [v.id,spatial?data.fits[method].coordinates[rows.get(references[v.id].sample)]:
     [0,-i]];
   }));
@@ -249,14 +280,27 @@ function agpGraphPanel(data,references,rows){
   const opacities=nodes.map(v=>faded&&lower.has(v.id)?(v.support/max)**fadePower:1);
   // Plotly scatter3d only accepts scalar marker opacity. Apply the fade to each color.
   const rgba=(hex,alpha)=>'rgba('+hex.slice(1).match(/../g).map(h=>parseInt(h,16)).join(',')+','+alpha+')';
-  traces.push({type,mode:showLabels?'markers+text':'markers',...coord(nodes.map(v=>v.id)),
-   meta:{agpGraphVertices:true},marker:{size:sizes,color:nodes.map((v,i)=>rgba(selected?.id===v.id?'#d2691e':el('graphVertexColor').value,opacities[i]))},
+  const colorFor=v=>selected?.id===v.id?'#d2691e':el('graphVertexColor').value;
+  if(lit){
+   const centers=[...pos.values()];
+   const span=Math.max(...[0,1,2].map(d=>Math.max(...centers.map(p=>p[d]))-Math.min(...centers.map(p=>p[d]))))||1;
+   const material={ambient:Number(ambient.value),highlights:Number(highlights.value)};
+   for(const [i,v] of nodes.entries()){
+    const degree=visibleEdges.filter(e=>e.ids.includes(v.id)).length;
+    const radius=4*Math.sqrt(degree||.25)*scale*span/500;
+    const mesh=vertexSphereMesh(pos.get(v.id),radius,material);
+    traces.push({...mesh,meta:{graphSphere:v.id},color:colorFor(v),opacity:opacities[i],
+     customdata:mesh.x.map(()=>({id:v.id,edge:false})),hovertemplate:v.name+'<br>'+v.n.toLocaleString()+' samples<extra></extra>'});
+   }
+  }
+  traces.push({type,mode:lit?'text':showLabels?'markers+text':'markers',...coord(nodes.map(v=>v.id)),
+   visible:lit&&!showLabels?false:true,meta:{agpGraphVertices:true},marker:{size:sizes,color:nodes.map((v,i)=>rgba(colorFor(v),opacities[i]))},
    text:nodes.map(v=>v.name),textposition:spatial?'top center':'middle right',cliponaxis:false,
    customdata:nodes.map(v=>({id:v.id,edge:false,n:v.n,degree:v.degree})),
    hovertemplate:'%{text}<br>%{customdata.n} samples<extra></extra>'});
   const sceneAxis={visible:false},axis={visible:false,fixedrange:false};
   plot.style.height=spatial?'100%':Math.max(area.clientHeight,all.length*27+40)+'px';
-  const config={margin:{t:20,b:20,l:10,r:10},showlegend:false,uirevision:[scheme.q,layout.value,spatial?method:''].join('/'),
+  const config={margin:{t:20,b:20,l:10,r:10},showlegend:false,uirevision:[scheme.q,layout.value,layout.value==='reference'?method:''].join('/'),
    xaxis:{...axis,range:pair?[-.48,1]:[-.10,1]},yaxis:{...axis,range:[-all.length,1]},
    scene:{aspectmode:'data',xaxis:sceneAxis,yaxis:sceneAxis,zaxis:sceneAxis}};
   return Plotly.react(plot,traces,config,{responsive:true,displaylogo:false}).then(()=>{
@@ -264,7 +308,10 @@ function agpGraphPanel(data,references,rows){
    plot._agpClick=true;plot.on('plotly_click',ev=>{const item=ev.points[0]?.customdata;if(item?.id)select({id:item.id,edge:item.edge})});
   });
  }
- toolbar.oninput=render;
+ toolbar.oninput=event=>{
+  if(event.target===layout){if(scheme.k===2)pairLayout=layout.value;else singleLayout=layout.value}
+  render();
+ };
  return {begin(s){if(s!==scheme){selected=null;clear.hidden=true}},contains,onSelect:fn=>{notify=fn},resize:()=>{if(plot.data)Plotly.Plots.resize(plot)},
-  update(s,c,m){if(s!==scheme){selected=null;clear.hidden=true}scheme=s;counts=c;method=m;return render()}};
+  update(s,c,m){if(s!==scheme){selected=null;clear.hidden=true;layout.value=s.k===2?pairLayout:singleLayout}scheme=s;counts=c;method=m;return render()}};
 }

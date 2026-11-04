@@ -7,9 +7,8 @@ import portable as p
 
 ID = 'agp-24k-silva'
 PIN = 'ef01c7c98a7b262ee6f016d0c5248cdb485027d43d753772e043cb5098a0fd08'
-
-
 REFERENCE_PIN = '77f0276af8e7bffd2f1c433a518040fa81b4398fa37db469c0565093ce1ef499'
+LAYOUT_PIN = 'b4249fcdcbfa322ad301ff93840593db4b6541bfb8dab8fddfc9e9348dd756a0'
 
 
 def attach(page, source):
@@ -32,20 +31,29 @@ def attach(page, source):
                  revision='silva-340-epoch200-v1'),parts=[publish(b'{"agpPopulation":'+raw+b'}','.json')])
     # Older distributions have the population only. Their diagram still works.
     existing = manifest['datasets'].get(ID)
-    legacy_entry = {**entry, 'parts': entry['parts'].copy()}
+    accepted = [entry['parts'].copy()]
     references = source.with_name('component-references.json')
     if references.is_file():
         ref_bytes = references.read_bytes()
         if p.sha(ref_bytes) != REFERENCE_PIN:
             raise ValueError('AGP component references differ from the reviewed anchors')
         entry['parts'].append(publish(ref_bytes, '.json'))
-    if existing is not None and existing not in (legacy_entry, entry):
+    accepted.append(entry['parts'].copy())
+    layouts = source.with_name('graph-layouts-3d.json')
+    if layouts.is_file():
+        layout_bytes = layouts.read_bytes()
+        if p.sha(layout_bytes) != LAYOUT_PIN:
+            raise ValueError('AGP graph layouts differ from the reviewed revision')
+        entry['parts'].append(publish(layout_bytes, '.json'))
+    accepted.append(entry['parts'])
+    if existing is not None and not any(existing == {**entry, 'parts': parts} for parts in accepted):
         raise ValueError('Conflicting AGP dataset revision')
     manifest['datasets'][ID] = entry
     allowed = manifest['seed'].get('distributionDatasets')
     if allowed is not None and ID not in allowed:
         allowed.append(ID)
-    manifest['agpViewer'] = publish((p.HERE/'agp_population.js').read_bytes(),'.js')
+    viewer = b'(() => {\n' + (p.HERE/'sphere_geometry.js').read_bytes() + b'\n' + (p.HERE/'agp_population.js').read_bytes()
+    manifest['agpViewer'] = publish(viewer + b'\nwindow.showAgpPopulation = showAgpPopulation;\n})();', '.js')
     loader = publish((p.HERE/'asset_loader.js').read_bytes(),'.js')
     html = page.read_text()
     html, n = re.subn(p.PATTERN,lambda _: '<script id="vme-http-manifest" type="application/json">'+

@@ -118,18 +118,6 @@ function graphVertexExtent(id,degrees,lookup,project=graphScreenPoint){
  // Orthographic projected radius; a local perspective approximation for picking/gaps.
  return Math.sqrt(offsets.reduce((sum,q)=>sum+(q.x-center.x)**2+(q.y-center.y)**2,0)/2);
 }
-const graphSphereMesh=(()=>{
- const points=[[0,0,1]],i=[],j=[],k=[],rings=12,sectors=24;
- for(let r=1;r<rings;r++)for(let s=0;s<sectors;s++){const a=Math.PI*r/rings,b=2*Math.PI*s/sectors;points.push([Math.sin(a)*Math.cos(b),Math.sin(a)*Math.sin(b),Math.cos(a)])}
- const bottom=points.length;points.push([0,0,-1]);
- const face=(a,b,c)=>{i.push(a);j.push(b);k.push(c)};
- for(let s=0;s<sectors;s++){
-  const next=(s+1)%sectors;face(0,1+s,1+next);
-  for(let r=0;r<rings-2;r++){const a=1+r*sectors+s,b=1+r*sectors+next;face(a,a+sectors,b);face(b,a+sectors,b+sectors)}
-  face(bottom,1+(rings-2)*sectors+next,1+(rings-2)*sectors+s);
- }
- return {points,i,j,k};
-})();
 // Independent panel lighting, with the previous material as the backward-compatible default.
 function sphereLightingValue(value,fallback){
  const n=(typeof value==='number'||typeof value==='string'&&value.trim()!=='')?Number(value):NaN;
@@ -159,7 +147,6 @@ function syncSphereLightingControls(panel,available=true){
 function vertexSphereLighting(panel='graph'){
  return sphereMaterial(sphereLightingSettings(panel));
 }
-function sphereMaterial(s){return {ambient:s.ambient/100,diffuse:.35,specular:s.highlights/100,roughness:.6,fresnel:0}}
 async function updateSphereLighting(panel){
  syncSphereLightingControls(panel);
  if(typeof saveDatasetPanelSettings==='function')saveDatasetPanelSettings();
@@ -171,13 +158,12 @@ async function updateSphereLighting(panel){
  if(indices.length)await Plotly.restyle(plot,{lighting:[vertexSphereLighting(panel)]},indices);
 }
 function graphSphereTraces(g,lookup,degrees,fade,style={}){
- const unit=graphSphereUnit(lookup),mesh=graphSphereMesh;
+ const unit=graphSphereUnit(lookup);
  return g.nodes.map(n=>{
-  const center=lookup.get(n.id),radius=graphNodeSize(degrees.get(n.id))*unit,points=mesh.points.map(p=>p.map((v,j)=>center[j]+radius*v));
-  return {type:'mesh3d',meta:{graphSphere:n.id},x:points.map(p=>p[0]),y:points.map(p=>p[1]),z:points.map(p=>p[2]),i:mesh.i,j:mesh.j,k:mesh.k,
-   color:style.color?style.color(n):graphVertexColor(n.id===selectedVertex||rank3.enabled&&n.id===rank3.vertex),opacity:fade.node(n.id),flatshading:false,
-   lighting:vertexSphereLighting('graph'),lightposition:{x:100000,y:200000,z:300000},
-   customdata:points.map(()=>'vertex:'+n.id),text:points.map(()=>style.hover?style.hover(n):esc(graphNodeHover(n,degrees.get(n.id))).replaceAll('\n','<br>')),hovertemplate:'%{text}<extra></extra>',showlegend:false};
+  const radius=graphNodeSize(degrees.get(n.id))*unit;
+  return {...vertexSphereMesh(lookup.get(n.id),radius,sphereLightingSettings('graph')),meta:{graphSphere:n.id},
+   color:style.color?style.color(n):graphVertexColor(n.id===selectedVertex||rank3.enabled&&n.id===rank3.vertex),opacity:fade.node(n.id),
+   customdata:graphSphereMesh.points.map(()=>'vertex:'+n.id),text:graphSphereMesh.points.map(()=>style.hover?style.hover(n):esc(graphNodeHover(n,degrees.get(n.id))).replaceAll('\n','<br>')),hovertemplate:'%{text}<extra></extra>',showlegend:false};
  });
 }
 // Only reference markers become meshes; observation and selection traces stay intact.

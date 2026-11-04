@@ -52,6 +52,7 @@
 !/rank2_feature_graph/sample_inspector.js
 !/rank2_feature_graph/sensitivity_views.js
 !/rank2_feature_graph/skin_population.js
+!/rank2_feature_graph/sphere_geometry.js
 !/rank2_feature_graph/state_transitions.js
 !/rank2_feature_graph/subject_embedding.js
 !/rank2_feature_graph/subject_trajectory.js
