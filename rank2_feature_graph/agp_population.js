@@ -33,7 +33,12 @@ async function showAgpPopulation(data, choices, references, graphLayouts){
  @media(max-width:1050px){#panelWorkspace.agpWorkspace{display:flex;flex-direction:column;overflow:auto}.agpWorkspace>.card{flex:0 0 70vh}}
  `;
  document.head.append(sheet);workspace.classList.add('agpWorkspace');
- el('sampleSidePanels').replaceChildren(info);info.style.padding='8px';
+ const appearance=el('sampleAppearanceVertices'),side=el('sampleDetails');
+ const spheres=el('sampleReferenceSpheres'),scale=el('sampleReferenceScale'),tint=el('sampleReferenceColor'),
+       ambient=el('sampleReferenceSphereAmbient'),highlights=el('sampleReferenceSphereHighlights'),fontSize=el('participantVertexLabelSize');
+ const group=el('sampleAppearance');
+ group.replaceChildren(group.querySelector('summary'),appearance);side.replaceChildren(group);
+ el('sampleSidePanels').replaceChildren(side,info);info.style.padding='8px';
  el('sampleInfoDivider').remove();
  el('sampleContent').removeAttribute('data-legend-position');
 
@@ -75,6 +80,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts){
   };
  }
  new ResizeObserver(resize).observe(workspace);
+ let renderSamples;
  async function draw(){
   const s=data.schemes[color.value],bank=data.fits[method.value],coords=bank.coordinates;
   const xyz=[[],[],[]],colors=[],hover=[],ids=[],counts=new Map(s.cores.map(key=>[key,0]));
@@ -110,30 +116,47 @@ async function showAgpPopulation(data, choices, references, graphLayouts){
    return [lo-pad,hi+pad];
   }));
   const [xaxis,yaxis,zaxis]=ranges.get(method.value).map(range=>({range,visible:false}));
-  const traces=[{type:'scatter3d',mode:'markers',x:xyz[0],y:xyz[1],z:xyz[2],ids,
+  const samples={type:'scatter3d',mode:'markers',x:xyz[0],y:xyz[1],z:xyz[2],ids,
     marker:{size:2.5,color:colors,opacity:0.8},customdata:hover,text:ids,
-    hovertemplate:'%{text}<br>%{customdata[0]}<br>%{customdata[1]}<extra></extra>'}];
+    hovertemplate:'%{text}<br>%{customdata[0]}<br>%{customdata[1]}<extra></extra>'};
   const components=[...new Set(s.cores.flatMap(state=>state.split(',')))];
-  const annotations=[];
-  if(labels.checked && references){
-   const anchors=components.map(t=>references[t]);
-   const p=anchors.map(a=>coords[rows.get(a.sample)]);
-   anchors.forEach((a,i)=>annotations.push({x:p[i][0],y:p[i][1],z:p[i][2],text:a.label,
-    ax:i%2===0?18:-18,ay:i%3===0?16:-16,xanchor:i%2===0?'left':'right',
-    showarrow:true,arrowhead:0,arrowwidth:1,arrowcolor:'#78909c',bgcolor:'rgba(255,255,255,.85)',font:{size:11}}));
-   traces.push({type:'scatter3d',mode:'markers',meta:{componentReferences:true},
-    x:p.map(v=>v[0]),y:p.map(v=>v[1]),z:p.map(v=>v[2]),text:anchors.map(a=>a.label),
-    textposition:'top center',marker:{size:5,symbol:'diamond',color:'#a12d32'},
-    customdata:anchors.map(a=>[a.sample,(100*a.count/a.total).toFixed(2)]),
-    hovertemplate:'%{text}<br>Maximum relative abundance: %{customdata[1]}%<br>%{customdata[0]}<extra></extra>'});
-  }
-  const graphReady=graph.update(s,counts,method.value);
-  await Plotly.react(plot,traces,
+  const span=Math.max(...ranges.get(method.value).map(([lo,hi])=>(hi-lo)/1.1))||1;
+  renderSamples=()=>{
+   const visible=Boolean(labels.checked&&references),lit=visible&&spheres.checked;
+   for(const input of [spheres,scale,tint,fontSize])input.disabled=!visible;
+   for(const input of [ambient,highlights])input.disabled=!lit;
+   for(const input of [scale,ambient,highlights,fontSize])el(input.id+'Value').value=input.value+(input===fontSize?' px':'%');
+   const note=el('sampleReferenceNote');
+   note.hidden=visible;note.textContent=references?'Turn on Component labels to show reference vertices.':labelControl.title;
+   const traces=[samples],annotations=[];
+   if(visible){
+    const anchors=components.map(t=>references[t]),p=anchors.map(a=>coords[rows.get(a.sample)]);
+    const size=5*Number(scale.value)/100;
+    const hovertemplate='%{text}<br>Maximum relative abundance: %{customdata[1]}%<br>%{customdata[0]}<extra></extra>';
+    const hoverData=anchors.map(a=>[a.sample,(100*a.count/a.total).toFixed(2)]);
+    anchors.forEach((a,i)=>{
+     annotations.push({x:p[i][0],y:p[i][1],z:p[i][2],text:a.label,
+      ax:i%2===0?18:-18,ay:i%3===0?16:-16,xanchor:i%2===0?'left':'right',
+      showarrow:true,arrowhead:0,arrowwidth:1,arrowcolor:'#78909c',bgcolor:'rgba(255,255,255,.85)',font:{size:Number(fontSize.value)}});
+     if(lit){
+      const mesh=vertexSphereMesh(p[i],size*span/600,{ambient:Number(ambient.value),highlights:Number(highlights.value)});
+      traces.push({...mesh,meta:{componentReferences:true,component:components[i]},color:tint.value,
+       text:a.label,customdata:mesh.x.map(()=>hoverData[i]),hovertemplate});
+     }
+    });
+    if(!lit)traces.push({type:'scatter3d',mode:'markers',meta:{componentReferences:true},
+     x:p.map(v=>v[0]),y:p.map(v=>v[1]),z:p.map(v=>v[2]),text:anchors.map(a=>a.label),
+     marker:{size,symbol:'diamond',color:tint.value},customdata:hoverData,hovertemplate});
+   }
+   return Plotly.react(plot,traces,
     {showlegend:false,margin:{l:0,r:0,b:0,t:0},uirevision:method.value,scene:{aspectmode:'data',xaxis,yaxis,zaxis,annotations}},
     {responsive:true,displaylogo:false});
-  await graphReady;
+  };
+  await Promise.all([renderSamples(),graph.update(s,counts,method.value)]);
  }
- for(const control of [method,color,assign,labels])control.onchange=draw;
+ for(const control of [method,color,assign])control.onchange=draw;
+ for(const control of [labels,spheres])control.onchange=()=>renderSamples();
+ for(const control of [scale,tint,ambient,highlights,fontSize])control.oninput=()=>renderSamples();
  graph.onSelect(draw);
  await draw();
 }

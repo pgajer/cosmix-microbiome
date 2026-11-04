@@ -12,7 +12,36 @@ const reference=JSON.parse(require('fs').readFileSync(population));
   ['sampleColorScheme','stateMode','participantShowVertices','sampleMethod']);
  const fs=require('fs'),path=require('path'),refFile=path.join(path.dirname(population),'component-references.json');
  const refs=fs.existsSync(refFile)?JSON.parse(fs.readFileSync(refFile)).agpReferences:null;
- if(refs)await page.locator('#participantShowVertices').check();
+ const range=async(id,value)=>page.locator('#'+id).evaluate((c,v)=>{c.value=v;c.dispatchEvent(new Event('input',{bubbles:true}))},value);
+ if(refs){
+  assert.ok(await page.locator('#sampleReferenceScale').isDisabled());
+  await page.check('#participantShowVertices');
+  assert.ok(await page.locator('#sampleReferenceSpheres').isChecked());
+  const mesh=()=>page.locator('#samples').evaluate(g=>g.data.filter(t=>t.type==='mesh3d').map(t=>{
+   const center=['x','y','z'].map(k=>(Math.max(...t[k])+Math.min(...t[k]))/2);
+   return {id:t.meta.component,center,width:Math.max(...t.x)-Math.min(...t.x),color:t.color,lighting:t.lighting};
+  }));
+  for(const [method,fit] of Object.entries(reference.fits)){
+   await page.selectOption('#sampleMethod',method);
+   const markers=await mesh(),scheme=reference.schemes[await page.locator('#sampleColorScheme').inputValue()];
+   assert.deepEqual(markers.map(m=>m.id),[...new Set(scheme.cores.flatMap(state=>state.split(',')))]);
+   for(const m of markers){
+    const coord=fit.coordinates[reference.ids.indexOf(refs[m.id].sample)];
+    assert.ok(m.center.every((v,i)=>Math.abs(v-coord[i])<1e-10));
+   }
+  }
+  const width=(await mesh())[0].width;
+  await range('sampleReferenceScale','200');await range('sampleReferenceColor','#148050');
+  await range('sampleReferenceSphereAmbient','40');await range('sampleReferenceSphereHighlights','72');
+  const marker=(await mesh())[0];
+  assert.ok(Math.abs(marker.width/width-2)<1e-8);
+  assert.equal(marker.color,'#148050');assert.equal(marker.lighting.ambient,.4);assert.equal(marker.lighting.specular,.72);
+  await page.uncheck('#sampleReferenceSpheres');
+  assert.ok(await page.locator('#sampleReferenceSphereAmbient').isDisabled());
+  assert.equal((await mesh()).length,0);
+  assert.deepEqual(await page.locator('#samples').evaluate(g=>g.data[1].marker),{size:10,symbol:'diamond',color:'#148050'});
+  console.log('PASS AGP sample reference spheres in all embeddings, size, color, lighting and diamond mode');
+ }
  else assert.equal(await page.locator('#participantShowVertices').isDisabled(),true);
  for(const [scheme,s] of Object.entries(reference.schemes)){
   await page.selectOption('#sampleColorScheme',scheme);
@@ -63,7 +92,6 @@ const reference=JSON.parse(require('fs').readFileSync(population));
     }
    }
   }
-  const range=async(id,value)=>page.locator('#'+id).evaluate((c,v)=>{c.value=v;c.dispatchEvent(new Event('input',{bubbles:true}))},value);
   await range('graphProportionStrength','10');await verifyLayout(bank.fits['merged/40/weighted_grip']);
   const mesh=()=>page.locator('#graph3d').evaluate(g=>{const t=g.data.find(t=>t.type==='mesh3d');return t&&{radius:Math.max(...t.x)-Math.min(...t.x),color:t.color,lighting:t.lighting}});
   const start=await mesh();assert.ok(start.radius>0);
