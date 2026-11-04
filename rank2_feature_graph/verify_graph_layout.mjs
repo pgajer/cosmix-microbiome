@@ -7,7 +7,7 @@ assert(args.length<=1&&!args.some(x=>x.startsWith('--')),usage);
 const page=path.resolve(args[0]||process.env.EXPLORER_HTML||'index.http.html'),started=performance.now();
 assert(fs.existsSync(page),'Built HTTP entry not found: '+page+'; see TESTING.md');
 // Reject huge/offline inputs before allocating a JavaScript string.
-assert(fs.statSync(page).size<128*1024*1024,'Expected a small built HTTP entry, not the offline export; pass index.http.html or ~/vme/web/index.html');
+assert(fs.statSync(page).size<128*1024*1024,'Expected a small built HTTP entry, not the offline export; pass index.http.html or ~/cosmix/web/index.html');
 const html=fs.readFileSync(page,'utf8'),match=html.match(/id="vme-http-manifest" type="application\/json">([\s\S]*?)<\/script>/);
 assert(match,'Expected a built HTTP entry with vme-http-manifest; not an offline export or viewer.html');
 const manifest=JSON.parse(match[1]),base=path.dirname(page);

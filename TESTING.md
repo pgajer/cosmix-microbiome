@@ -23,7 +23,7 @@ From the source clone, run these only when you want to validate:
 
 The first runs integration checks; the second adds the exhaustive layout audit.
 The third runs only the standalone graph-layout checks.
-All three default to `~/vme/web/index.html`. Supply a built entry as the sole argument,
+All three use `~/cosmix/web/index.html` by default and fall back to `~/vme/web/index.html` on a legacy installation. Supply a built entry as the sole argument,
 or set `VME_TEST_PAGE` once in your shell configuration for a development build:
 
 ```sh
@@ -80,10 +80,10 @@ to work around a mismatched installation.
 
 ## Integration checks
 
-For an installed app at `~/vme`, run:
+For an installed app at `~/cosmix`, run:
 
 ```sh
-node rank2_feature_graph/verify_http_assets.mjs "$HOME/vme/web/index.html"
+node rank2_feature_graph/verify_http_assets.mjs "$HOME/cosmix/web/index.html"
 ```
 
 For a development build, pass its `index.http.html` instead. Absolute paths are
@@ -103,7 +103,7 @@ For focused graph-layout, camera, or named-view changes, run on demand:
 ```sh
 ./scripts/vme-test-layout
 # Or call the test directly:
-node rank2_feature_graph/verify_graph_layout.mjs "$HOME/vme/web/index.html"
+node rank2_feature_graph/verify_graph_layout.mjs "$HOME/cosmix/web/index.html"
 ```
 
 When calling the Node test directly, omitting the argument uses `index.http.html`
@@ -128,7 +128,7 @@ an R service, rebuild the app, audit every saved layout, or run during updates.
 Run explicitly when needed:
 
 ```sh
-node rank2_feature_graph/verify_http_assets.mjs "$HOME/vme/web/index.html" --audit-layouts
+node rank2_feature_graph/verify_http_assets.mjs "$HOME/cosmix/web/index.html" --audit-layouts
 ```
 
 This runs the integration checks plus the separate
@@ -151,7 +151,7 @@ more time and memory, so run it deliberately, not as part of ordinary updates.
 For a hover-only change, use:
 
 ```sh
-node rank2_feature_graph/verify_http_assets.mjs "$HOME/vme/web/index.html" --hover-only
+node rank2_feature_graph/verify_http_assets.mjs "$HOME/cosmix/web/index.html" --hover-only
 ```
 
 This runs dataset admission/switching and hover checks and exits before the

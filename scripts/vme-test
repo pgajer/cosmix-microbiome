@@ -3,7 +3,7 @@
 set -eu
 usage() {
     echo "Usage: vme-test [--audit-layouts] [built-entry.html]"
-    echo "Default entry: VME_TEST_PAGE, or ~/vme/web/index.html. See TESTING.md."
+    echo "Default entry: VME_TEST_PAGE, or ~/cosmix/web/index.html (legacy: ~/vme/web/index.html). See TESTING.md."
 }
 audit=false
 case "${1:-}" in
@@ -15,7 +15,11 @@ case "${1:-}" in
     -*) usage >&2; exit 2 ;;
 esac
 if [ "$#" -gt 1 ]; then usage >&2; exit 2; fi
-entry=${1:-${VME_TEST_PAGE:-$HOME/vme/web/index.html}}
+default_page="$HOME/cosmix/web/index.html"
+if [ ! -f "$default_page" ] && [ -f "$HOME/vme/web/index.html" ]; then
+    default_page="$HOME/vme/web/index.html"
+fi
+entry=${1:-${VME_TEST_PAGE:-$default_page}}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 if ! command -v node >/dev/null 2>&1; then
     echo "Node.js is required for VME validation; see TESTING.md." >&2

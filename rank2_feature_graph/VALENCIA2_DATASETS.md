@@ -57,7 +57,7 @@ any new app directory and refuses to replace existing annotations.
 Install a supplied metadata supplement using the usual update command:
 
 ```sh
-python3 ~/cosmix-source/scripts/portable.py update --output ~/vme --metadata /path/to/supplied-metadata.json
+python3 ~/cosmix-source/scripts/portable.py update --metadata /path/to/supplied-metadata.json
 ```
 
 The updater remembers that metadata path for subsequent updates. A Git update

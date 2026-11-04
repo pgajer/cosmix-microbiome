@@ -19,6 +19,14 @@ software route before proceeding. A Mac may ask for approval to open a downloade
 launcher or executable; follow your institution's normal approval procedure.
 Do not disable macOS security protections.
 
+New installations use `~/cosmix` for the app. The recommended data folder is
+`~/cosmix-data`. If you already use `~/vme` and `~/vme-data`, keep using those
+folders in the instructions below. The usual update command finds your existing
+app and remembers its data paths. If both app folders contain separate installations,
+choose one with `--output ~/cosmix` or `--output ~/vme`. After an intentional move,
+a direct link from `~/vme` to `~/cosmix` works for launchers and updates.
+Backups are named after the actual app folder.
+
 ## 1. Download just the data you need
 
 From the team's shared CoSMiX release folder, download **VME-starter.zip** and one
@@ -34,13 +42,13 @@ Extract them into the same location. The following commands avoid Finder's
 similarly named duplicate folders; run them after downloading the chosen ZIPs:
 
 ```sh
-mkdir -p "$HOME/vme-data"
+mkdir -p "$HOME/cosmix-data"
 for archive in "$HOME/Downloads/VME-downloads/"*.zip; do
-  ditto -x -k "$archive" "$HOME/vme-data"
+  ditto -x -k "$archive" "$HOME/cosmix-data"
 done
 ```
 
-This creates `~/vme-data/VME-meeting-2026-11-02`, containing `catalog.json`,
+This creates `~/cosmix-data/VME-meeting-2026-11-02`, containing `catalog.json`,
 `common`, and the dataset folders you downloaded. Keep this folder in place.
 Use only ZIPs from the supplied release; the installer checks file identities
 and rejects missing, mismatched or damaged data. Data retain their own access
@@ -66,18 +74,18 @@ Install the app and select your datasets from the numbered list:
 
 ```sh
 python3 scripts/portable.py update \
-  --catalog "$HOME/vme-data/VME-meeting-2026-11-02" \
+  --catalog "$HOME/cosmix-data/VME-meeting-2026-11-02" \
   --select-datasets
 ```
 
 Enter numbers separated by spaces, for example `3 7 8`, or `all` if you downloaded
 all dataset ZIPs. Read the displayed names rather than relying on the example
-numbers. The app is created at `~/vme`. The source stays in `~/cosmix-source`.
+numbers. The app is created at `~/cosmix`. The source stays in `~/cosmix-source`.
 A previous CoSMiX app is preserved in a backup folder printed by the installer.
 
 ## 3. Open CoSMiX
 
-Double-click **Start CoSMiX.command** in `~/vme`. Keep its Terminal window open.
+Double-click **Start CoSMiX.command** in `~/cosmix`. Keep its Terminal window open.
 Your browser opens at **http://127.0.0.1:43818/**. This is a server on your own
 computer, not an Internet service. Choose a dataset from the Dataset menu;
 **Empty** shows the interface without data.
@@ -100,7 +108,7 @@ git pull --ff-only && python3 scripts/portable.py update
 
 Existing clones of the former `pgajer/vme` repository can use this same update command. The original `Start VME.command` launcher also works.
 
-Reopen `~/vme/Start CoSMiX.command` and reload your browser tab. Your dataset
+Reopen `~/cosmix/Start CoSMiX.command` and reload your browser tab. Your dataset
 selection and data location are remembered. This command does not run models or
 the optional integration/layout tests. A failed update keeps the previous app.
 Backups are retained, not automatically deleted.
@@ -108,7 +116,7 @@ Backups are retained, not automatically deleted.
 ## Add or change datasets
 
 Download any additional dataset ZIPs from the **same release** and extract them
-into `~/vme-data` as above. Stop CoSMiX, then run:
+into `~/cosmix-data` as above. Stop CoSMiX, then run:
 
 ```sh
 cd "$HOME/cosmix-source"

@@ -191,6 +191,47 @@ class UpdateTests(unittest.TestCase):
         self.assertTrue(all(pair == (self.package, self.metadata) for pair in self.prepared_inputs))
         self.assertFalse((self.root / '.vme-update.json').exists())
 
+    def test_new_legacy_and_migrated_default_destinations(self):
+        current = self.root / 'cosmix'
+        with patch.object(Path, 'home', return_value=self.root):
+            self.assertEqual(portable.app_destination(), current)
+            self.install_old()
+            self.assertEqual(portable.app_destination(), self.output)
+            current.mkdir()
+            (current / 'SOURCE_AND_DATA.json').write_text('{}')
+            with self.assertRaisesRegex(ValueError, 'Choose --output'):
+                portable.app_destination()
+            self.assertEqual(portable.app_destination(self.output), self.output)
+            self.assertEqual(portable.app_destination(current), current)
+            (current / 'SOURCE_AND_DATA.json').unlink()
+            current.rmdir()
+            self.output.rename(current)
+            self.output.symlink_to(current.name)
+            for destination in (None, self.output, current):
+                self.assertEqual(portable.app_destination(destination), current)
+            with portable.update_lock(current), self.assertRaisesRegex(ValueError, 'Another update'):
+                portable.update(output=self.output)
+
+    def test_dangling_indirect_and_interrupted_app_paths(self):
+        current = self.root / 'cosmix'
+        with patch.object(Path, 'home', return_value=self.root):
+            journal = self.root / '.vme-update.json'
+            journal.touch()
+            self.assertEqual(portable.app_destination(), self.output)
+            journal.unlink()
+            self.output.symlink_to(current.name)
+            with self.assertRaisesRegex(ValueError, 'symbolic link'):
+                portable.app_destination()
+            (self.root / '.cosmix-update.json').touch()
+            self.assertEqual(portable.app_destination(), current)
+            current.symlink_to(self.package)
+            with self.assertRaisesRegex(ValueError, 'symbolic link'):
+                portable.app_destination(self.output)
+            self.output.unlink()
+            self.output.symlink_to(self.package)
+            with self.assertRaisesRegex(ValueError, 'symbolic link'):
+                portable.app_destination()
+
     def test_build_and_validation_failures_preserve_old_app(self):
         self.install_old()
         for failure in ('prepare', 'validate_prepared'):

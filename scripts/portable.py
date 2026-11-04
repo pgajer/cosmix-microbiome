@@ -463,15 +463,35 @@ def recover_update(output, journal):
     journal.unlink()
 
 
+def app_destination(output=None):
+    home = Path.home()
+    current, legacy = home / 'cosmix', home / 'vme'
+    if output is None:
+        # During an interrupted replacement the real folder can be temporarily absent.
+        legacy_install = (legacy / 'SOURCE_AND_DATA.json').is_file() or (home / '.vme-update.json').exists()
+        if legacy.is_symlink() or legacy_install:
+            if not legacy.is_symlink() and ((current / 'SOURCE_AND_DATA.json').is_file() or
+                                            (home / '.cosmix-update.json').exists()):
+                raise ValueError('Two CoSMiX installations found. Choose --output ~/cosmix or --output ~/vme.')
+            output = legacy
+        else:
+            output = current
+    output = Path(output).expanduser().absolute()
+    if output.is_symlink():
+        # Only the direct home-directory alias created by the CoSMiX migration is supported.
+        if (output != legacy or legacy.parent / legacy.readlink() != current or current.is_symlink()
+                or not (current.is_dir() or (home / '.cosmix-update.json').is_file())):
+            raise ValueError('The app folder must not be an unrelated or dangling symbolic link')
+        output = current
+    return output.resolve()
+
+
 def update(package=None, metadata_path=None, output=None, neighborhood_package=None, neighborhood_metadata=None,
            catalog=None, datasets=None, select_datasets=False):
-    output = Path(output or Path.home() / 'vme').expanduser().absolute()
-    if output.is_symlink():
-        raise ValueError('The app folder must not be a symbolic link')
-    output = output.resolve()
+    output = app_destination(output)
     # Reject the source checkout before creating any locks or staging folders.
     if output == ROOT or output in ROOT.parents or ROOT in output.parents:
-        raise ValueError('Keep the source clone (for example ~/cosmix-source) separate from the app (normally ~/vme)')
+        raise ValueError('Keep the source clone (for example ~/cosmix-source) separate from the app (normally ~/cosmix)')
     output.parent.mkdir(parents=True, exist_ok=True)
     with update_lock(output), stopped_viewer(output):
         journal = output.parent / ('.' + output.name + '-update.json')
@@ -556,10 +576,10 @@ def main():
         item.add_argument('--output', type=Path, required=True)
         if command == 'prepare':
             item.add_argument('--metadata', type=Path, required=True)
-    item = sub.add_parser('update', help='Safely install or replace ~/vme using the current source checkout')
+    item = sub.add_parser('update', help='Install CoSMiX or update the existing app')
     item.add_argument('--package', type=Path, help='Original data package (remembered after setup)')
     item.add_argument('--metadata', type=Path, help='Metadata supplement (remembered after setup)')
-    item.add_argument('--output', type=Path, default=Path.home() / 'vme')
+    item.add_argument('--output', type=Path, help='App folder (default: ~/cosmix, or an existing ~/vme installation)')
     item.add_argument('--neighborhood-package', type=Path, help='Optional historical Li/Lc data package (remembered locally)')
     item.add_argument('--neighborhood-metadata', type=Path, help='Matching neighborhood metadata (remembered locally)')
     item.add_argument('--catalog', type=Path, help='Folder containing a selectable release catalog.json')

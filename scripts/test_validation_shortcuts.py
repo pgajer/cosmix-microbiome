@@ -37,7 +37,7 @@ class ValidationShortcuts(unittest.TestCase):
                 with self.subTest(command=name):
                     result = run(name)
                     self.assertEqual(result.returncode, 17, 'Propagate the test exit status')
-                    self.assertEqual(json.loads(result.stdout), [runner, env['HOME'] + '/vme/web/index.html', *flags])
+                    self.assertEqual(json.loads(result.stdout), [runner, env['HOME'] + '/cosmix/web/index.html', *flags])
                     custom = {**env, 'VME_TEST_PAGE': '/custom build/index.http.html'}
                     result = run(name, environment=custom)
                     self.assertEqual(json.loads(result.stdout), [runner, custom['VME_TEST_PAGE'], *flags])

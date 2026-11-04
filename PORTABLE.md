@@ -16,6 +16,14 @@ The [MIT software license](LICENSE) does not cover the data package or metadata
 supplement. Their separate access and reuse terms continue to apply; see
 [licensing scope](LICENSING.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
+New installations use `~/cosmix` for the app. The recommended data folder is
+`~/cosmix-data`. If you already use `~/vme` and `~/vme-data`, keep using those
+folders in the instructions below. The usual update command finds your existing
+app and remembers its data paths. If both app folders contain separate installations,
+choose one with `--output ~/cosmix` or `--output ~/vme`. After an intentional move,
+a direct link from `~/vme` to `~/cosmix` works for launchers and updates.
+Backups are named after the actual app folder.
+
 ## Setup for the October 23 Mac package
 
 Requirements: macOS 11 or later, Git, Python 3.9 or later, and a WebGL browser.
@@ -44,7 +52,7 @@ cd "$HOME/cosmix-source"
 ```
 
 If you already have a clone in `~/vme-source`, keep using that folder wherever this guide shows `~/cosmix-source`. Enter the existing clone and run `git pull --ff-only`.
-The commands below use `~/cosmix-source` for the clone and `~/vme` for the runnable app.
+The commands below use `~/cosmix-source` for the clone and `~/cosmix` for the runnable app.
 If the earlier instructions put the source clone in `~/vme` (or `~/VME`),
 rename that clone to `cosmix-source` first; do not replace a clone with the app.
 On typical Macs, capitalization does not distinguish two folder names.
@@ -54,13 +62,12 @@ From inside the `cosmix-source` folder, run:
 ```sh
 python3 scripts/portable.py update \
   --package "$HOME/Downloads/VME-Mac-Meeting-2026-10-23" \
-  --metadata "$HOME/Downloads/VME-metadata-2026-10-24.json" \
-  --output "$HOME/vme"
+  --metadata "$HOME/Downloads/VME-metadata-2026-10-24.json"
 ```
 
 Use the actual input paths if the files are stored elsewhere. The same command
 installs the app initially or safely updates an existing prepared app. Stop the
-viewer with **Control-C in its Terminal** before updating. Open `~/vme` in Finder
+viewer with **Control-C in its Terminal** before updating. Open `~/cosmix` in Finder
 and double-click **Start CoSMiX.command**.
 Keep its Terminal window open while exploring. The new copy uses
 `http://127.0.0.1:43818/`; the original October 23 launcher uses port 43817.
@@ -99,10 +106,10 @@ cd "$HOME/cosmix-source"
 git pull --ff-only && python3 scripts/portable.py update
 ```
 
-This updates the source first and installs the resulting viewer at `~/vme`.
+This updates the source first and installs the resulting viewer at `~/cosmix`.
 The app remembers the data-package and metadata paths from setup, so keep those
 files in place. To change them, supply `--package` and `--metadata` again.
-Reopen `~/vme/Start CoSMiX.command` and reload an already open browser tab. Keeping
+Reopen `~/cosmix/Start CoSMiX.command` and reload an already open browser tab. Keeping
 the same port preserves browser preferences and saved views.
 
 The updater refuses concurrent updates and a running viewer. It validates the
@@ -112,11 +119,11 @@ it. If a process is killed between the two directory moves, the next update
 recovers the previous app before attempting another build.
 
 Each successful replacement keeps the old app under the printed
-`~/vme-update-<unique-id>/previous` path. Failed candidates and diagnostic files
-are retained in their own `vme-update-<unique-id>` folders. These folders are never removed automatically and can
+`~/cosmix-update-<unique-id>/previous` path. Failed candidates and diagnostic files
+are retained in their own `cosmix-update-<unique-id>` folders. These folders are never removed automatically and can
 use additional disk space. To restore an earlier copy manually, first stop CoSMiX,
-move the current `~/vme` to another unused name, and move the chosen `previous`
-folder back to `~/vme`. Do not delete the original data package.
+move the current `~/cosmix` to another unused name, and move the chosen `previous`
+folder back to `~/cosmix`. Do not delete the original data package.
 
 A data revision or incompatible metadata format requires a separately supplied
 new package or supplement. Preparation errors identify mismatches; do not bypass
@@ -223,7 +230,7 @@ git pull --ff-only && python3 scripts/portable.py update \
 Use the actual supplied path. The updater checks that the supplement belongs to
 your data package; the October 26 rebuilt-reference-only supplement cannot be
 installed over the older October 23 package. Later updates remember the new
-metadata path. Reopen `~/vme/Start CoSMiX.command` and reload the browser tab.
+metadata path. Reopen `~/cosmix/Start CoSMiX.command` and reload the browser tab.
 
 Local geometries are selected from saved coordinates; no fitting runs in the
 browser. Population overviews and explicit common-reference comparisons keep
