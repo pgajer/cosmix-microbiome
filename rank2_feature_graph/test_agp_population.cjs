@@ -119,7 +119,26 @@ const reference=JSON.parse(require('fs').readFileSync(population));
  await page.click('#graphVertexCharacteristics summary');
  await page.locator('#graphVertexRows button').first().click();
  assert.ok(await page.locator('#samples').evaluate(g=>g.data[0].marker.color.includes('#dedede')));
+ const sampleColors=()=>page.locator('#samples').evaluate(g=>g.data[0].marker.color.join(','));
+ const first=await sampleColors();
+ await page.locator('#graphVertexRows button').nth(1).click();const second=await sampleColors();assert.notEqual(first,second);
+ await page.click('#headerBackSelection');assert.equal(await sampleColors(),first);
+ await page.click('#headerForwardSelection');assert.equal(await sampleColors(),second);
+ await page.click('#headerClearSelection');assert.ok(!(await sampleColors()).includes('#dedede'));
+ await page.click('#headerBackSelection');assert.equal(await sampleColors(),second);
+ await page.locator('#graphVertexRows button').first().click();assert.ok(await page.locator('#headerForwardSelection').isDisabled());
  await page.getByRole('button',{name:'Clear graph selection'}).click();
+ await page.selectOption('#sampleColorScheme',{index:0});assert.ok(await page.locator('#headerBackSelection').isDisabled());
+ if(refs){await page.check('#participantShowVertices');await page.check('#sampleReferenceSpheres')}
+ await page.click('#saveSampleView');
+ await page.locator('#viewExportDownload').waitFor({state:'visible',timeout:60000});
+ await page.check('#viewExportInfo');await page.selectOption('#viewExportScale','2');
+ await page.locator('#viewExportDownload[download$="-2x.png"]').waitFor({state:'visible',timeout:60000});
+ const [download]=await Promise.all([page.waitForEvent('download'),page.click('#viewExportDownload')]);
+ const png=fs.readFileSync(await download.path());
+ assert.equal(png.subarray(1,4).toString(),'PNG');assert.ok(png.readUInt32BE(16)>600);
+ await page.click('#viewExportClose');
+ console.log('PASS AGP selection navigation, history reset, and PNG download with legend at 2×');
  assert.deepEqual(errors,[]);
  await page.selectOption('#datasetSelect','empty');await page.waitForURL('**/empty.html');await page.selectOption('#datasetSelect','agp-24k-silva');await page.waitForSelector('#samples canvas',{timeout:30000});
  }finally{await b.close()}

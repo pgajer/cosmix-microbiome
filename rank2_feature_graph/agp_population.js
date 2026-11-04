@@ -9,7 +9,8 @@ async function showAgpPopulation(data, choices, references, graphLayouts){
  labelControl.lastChild.textContent=' Component labels';
  labelControl.title=references?'Label each component at its highest observed relative abundance in the full AGP population.':'Install component-references.json beside the AGP population to enable observed reference positions.';
  labels.checked=false;labels.disabled=!references;
- header.replaceChildren(color.closest('label'),assign.closest('label'),labelControl,method.closest('label'));
+ const navigation=header.querySelector('.sampleHeaderNavigation'),save=el('saveSampleView');
+ header.replaceChildren(navigation,color.closest('label'),assign.closest('label'),labelControl,method.closest('label'),save);
  el('controlSections').replaceChildren(el('dataControls'));
  el('cohortControl').hidden=true;
  el('datasetMessage').textContent=data.ids.length.toLocaleString()+' fecal samples · 340 SILVA taxa';
@@ -69,6 +70,23 @@ async function showAgpPopulation(data, choices, references, graphLayouts){
  }
  const rows=new Map(data.ids.map((id,i)=>[id,i]));
  const graph=agpGraphPanel(data,references,rows,graphLayouts);
+ const openExport=installPngExportDialog(el,async()=>{
+  await sampleReady;
+  const clone=x=>JSON.parse(JSON.stringify(x)),layout=clone(plot.layout);
+  layout.scene=pngExportScene(plot,clone(plot._fullLayout.scene._scene.getCamera()));
+  const width=Math.max(1,plot.clientWidth),height=Math.max(1,plot.clientHeight);
+  Object.assign(layout,{width,height,autosize:false});
+  const s=data.schemes[color.value],selected=graph.selection();
+  const rows=[{text:color.selectedOptions[0].textContent+' · '+(assign.checked?'Assigned and core samples':'Core samples only')},
+   {text:plot.data[0].ids.length.toLocaleString()+' samples displayed'}];
+  if(selected)rows.push({text:'Selected '+(selected.edge?'state: ':'vertex: ')+selected.name});
+  for(const tr of Array.from(info.querySelector('table').rows).slice(1)){
+   const cells=tr.cells;rows.push({text:cells[0].textContent+' · '+cells[3].textContent+' samples ('+cells[4].textContent+'%)',color:cells[0].firstElementChild.style.backgroundColor});
+  }
+  return {width,height,layout,data:clone(plot.data),rows,title:title+' · '+method.selectedOptions[0].textContent,
+   filename:'cosmix-agp-samples-'+method.value+'-'+s.q+'pct-'+s.k+'cst-'+Date.now()};
+ });
+ el('viewExportClose').disabled=false;save.disabled=false;save.onclick=()=>openExport('samples');
  const ranges=new Map();
  const resize=()=>{Plotly.Plots.resize(plot);graph.resize()};
  for(const [panel,button] of [[el('featurePanel'),el('maximize-featurePanel')],[el('samplePanel'),document.createElement('button')]]){
@@ -80,7 +98,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts){
   };
  }
  new ResizeObserver(resize).observe(workspace);
- let renderSamples;
+ let renderSamples,sampleReady;
  async function draw(){
   const s=data.schemes[color.value],bank=data.fits[method.value],coords=bank.coordinates;
   const xyz=[[],[],[]],colors=[],hover=[],ids=[],counts=new Map(s.cores.map(key=>[key,0]));
@@ -148,7 +166,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts){
      x:p.map(v=>v[0]),y:p.map(v=>v[1]),z:p.map(v=>v[2]),text:anchors.map(a=>a.label),
      marker:{size,symbol:'diamond',color:tint.value},customdata:hoverData,hovertemplate});
    }
-   return Plotly.react(plot,traces,
+   return sampleReady=Plotly.react(plot,traces,
     {showlegend:false,margin:{l:0,r:0,b:0,t:0},uirevision:method.value,scene:{aspectmode:'data',xaxis,yaxis,zaxis,annotations}},
     {responsive:true,displaylogo:false});
   };
@@ -208,11 +226,21 @@ function agpGraphPanel(data,references,rows,bank){
  function contains(state){return !selected || (selected.edge?state===selected.id:state.split(',').includes(selected.id))}
  const clear=document.createElement('button');clear.type='button';clear.textContent='Clear graph selection';clear.hidden=true;
  el('graphSummary').append(clear);
- function select(item){
-  selected=selected?.id===item?.id && selected?.edge===item?.edge?null:item;
-  clear.hidden=!selected;notify();
+ const back=el('headerBackSelection'),forward=el('headerForwardSelection'),clearHeader=el('headerClearSelection');
+ let history=[null],cursor=0;
+ function syncNavigation(){
+  selected=history[cursor];clear.hidden=!selected;clearHeader.disabled=!selected;
+  back.disabled=cursor===0;forward.disabled=cursor===history.length-1;
  }
- clear.onclick=()=>select(null);
+ function resetNavigation(){history=[null];cursor=0;syncNavigation()}
+ function select(item){
+  const next=selected?.id===item?.id && selected?.edge===item?.edge?null:item;
+  if(!next&&!selected)return;
+  history.splice(cursor+1,Infinity,next);cursor++;syncNavigation();notify();
+ }
+ back.onclick=()=>{if(cursor>0){cursor--;syncNavigation();notify()}};
+ forward.onclick=()=>{if(cursor+1<history.length){cursor++;syncNavigation();notify()}};
+ clearHeader.onclick=clear.onclick=()=>select(null);
  function render(){
   if(!scheme)return;
   const pair=scheme.k===2,useFit=pair&&layout.value==='graph',spatial=useFit||layout.value==='reference';
@@ -335,6 +363,6 @@ function agpGraphPanel(data,references,rows,bank){
   if(event.target===layout){if(scheme.k===2)pairLayout=layout.value;else singleLayout=layout.value}
   render();
  };
- return {begin(s){if(s!==scheme){selected=null;clear.hidden=true}},contains,onSelect:fn=>{notify=fn},resize:()=>{if(plot.data)Plotly.Plots.resize(plot)},
-  update(s,c,m){if(s!==scheme){selected=null;clear.hidden=true;layout.value=s.k===2?pairLayout:singleLayout}scheme=s;counts=c;method=m;return render()}};
+ return {begin(s){if(s!==scheme)resetNavigation()},selection:()=>selected&&{...selected,name:selected.edge?scheme.labels[selected.id]:names.get(selected.id)},contains,onSelect:fn=>{notify=fn},resize:()=>{if(plot.data)Plotly.Plots.resize(plot)},
+  update(s,c,m){if(s!==scheme){layout.value=s.k===2?pairLayout:singleLayout}scheme=s;counts=c;method=m;return render()}};
 }

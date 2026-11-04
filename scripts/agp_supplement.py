@@ -52,7 +52,7 @@ def attach(page, source):
     allowed = manifest['seed'].get('distributionDatasets')
     if allowed is not None and ID not in allowed:
         allowed.append(ID)
-    viewer = b'(() => {\n' + (p.HERE/'sphere_geometry.js').read_bytes() + b'\n' + (p.HERE/'agp_population.js').read_bytes()
+    viewer = b'(() => {\n' + (p.HERE/'sphere_geometry.js').read_bytes() + b'\n' + (p.HERE/'png_export.js').read_bytes() + b'\n' + (p.HERE/'agp_population.js').read_bytes()
     manifest['agpViewer'] = publish(viewer + b'\nwindow.showAgpPopulation = showAgpPopulation;\n})();', '.js')
     loader = publish((p.HERE/'asset_loader.js').read_bytes(),'.js')
     html = page.read_text()
