@@ -238,6 +238,6 @@ with a smaller subset does not need to run these checks to install or update.
 Install the separate reviewed AGP population using
 `python3 scripts/portable.py update --agp-population /path/to/population.json`.
 Updates remember the supplied file. The on-demand browser check uses Playwright
-and Chrome. Run `node rank2_feature_graph/test_agp_population.cjs http://127.0.0.1:4173 /path/to/population.json`
+and Chrome. If `local-1cst-pilot.json` is installed beside the population, the same check also verifies all 12 local 70%-1-CST views. Run `node rank2_feature_graph/test_agp_population.cjs http://127.0.0.1:4173 /path/to/population.json`
 with the origin of the running installation. It checks all four coverage schemes,
 both assignment settings and the three saved population geometries.

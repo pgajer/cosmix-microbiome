@@ -1,5 +1,5 @@
 // AGP colors and filters are assignments in abundance space. Coordinates come from the saved population fit.
-async function showAgpPopulation(data, choices, references, graphLayouts){
+async function showAgpPopulation(data, choices, references, graphLayouts, localFits){
  const el=id=>document.getElementById(id), method=el('sampleMethod'),color=el('sampleColorScheme'),
        assign=el('stateMode'),plot=el('samples'),info=el('sampleContext'),selector=el('datasetSelect');
  const title=choices.find(item=>item.id===data.id).title;
@@ -50,7 +50,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts){
  stress.onclick=()=>{details.open=!details.open};
  const details=document.createElement('details');
  const summary=document.createElement('summary');summary.textContent='How the embedding was evaluated';
- const formula=document.createElement('p');formula.textContent='The reported error is 100 × √mean[((3D distance − original distance) / original distance)²] over 353,251 held-out pairs. All three maps use Euclidean distance on screen. The original distance follows the selected method. Each fit used 4,000 pivots and 200 epochs.';
+ const formula=document.createElement('p');const populationFormula='The reported error is 100 × √mean[((3D distance − original distance) / original distance)²] over 353,251 held-out pairs. All three maps use Euclidean distance on screen. The original distance follows the selected method. Each fit used 4,000 pivots and 200 epochs.';
  details.append(summary,formula);
  for(const control of [selector,color,method,assign,stress,el('toggleControls')])control.disabled=false;
  el('toggleControls').onclick=()=>{
@@ -83,7 +83,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts){
   for(const tr of Array.from(info.querySelector('table').rows).slice(1)){
    const cells=tr.cells;rows.push({text:cells[0].textContent+' · '+cells[3].textContent+' samples ('+cells[4].textContent+'%)',color:cells[0].firstElementChild.style.backgroundColor});
   }
-  return {width,height,layout,data:clone(plot.data),rows,title:title+' · '+method.selectedOptions[0].textContent,
+  return {width,height,layout,data:clone(plot.data),rows,title:el('sampleTitle').textContent+' · '+method.selectedOptions[0].textContent,
    filename:'cosmix-agp-samples-'+method.value+'-'+s.q+'pct-'+s.k+'cst-'+Date.now()};
  });
  el('viewExportClose').disabled=false;save.disabled=false;save.onclick=()=>openExport('samples');
@@ -100,55 +100,71 @@ async function showAgpPopulation(data, choices, references, graphLayouts){
  new ResizeObserver(resize).observe(workspace);
  let renderSamples,sampleReady;
  async function draw(){
-  const s=data.schemes[color.value],bank=data.fits[method.value],coords=bank.coordinates;
+  const s=data.schemes[color.value];
+  graph.begin(s);
+  const selected=graph.selection();
+  const localKey=[color.value,selected?.id,assign.checked?'merged':'pure',method.value].join('/');
+  const local=selected&&!selected.edge&&localFits?.[localKey];
+  const bank=data.fits[method.value],coords=local?local.coordinates:bank.coordinates;
+  const frame=local?localKey:method.value;
+  const localRows=local?new Map(local.indices.map((row,index)=>[row,index])):null;
+  el('sampleTitle').textContent=local?title+' · '+selected.name+' · Local 3D MDS':title;
+  formula.textContent=local?'RMS relative error compares Euclidean distances in the 3D map with original distances under the selected method. It is 100 × the square root of the mean squared relative difference. On the same '+local.metrics.pairs.toLocaleString()+' within-state pairs excluded from both fits, the local map scored '+local.metrics.localError.toFixed(2)+'% and the population map scored '+local.metrics.populationError.toFixed(2)+'%. Lower is better.':populationFormula;
   const xyz=[[],[],[]],colors=[],hover=[],ids=[],counts=new Map(s.cores.map(key=>[key,0]));
   const coreCounts=new Map(counts);
-  graph.begin(s);
-  let core=0;
+  let populationCore=0;
   for(let i=0;i<data.ids.length;i++){
    const isCore=s.assignment[i]==='core',state=s.merged[i];
-   if(isCore){core++;coreCounts.set(state,coreCounts.get(state)+1)}
+   if(isCore){populationCore++;coreCounts.set(state,coreCounts.get(state)+1)}
    if(!assign.checked&&!isCore)continue;
    counts.set(state,counts.get(state)+1);
+   if(local&&!localRows.has(i))continue;
+   const position=local?localRows.get(i):i;
    ids.push(data.ids[i]);colors.push(graph.contains(state)?stateColors.get(state):'#dedede');
-   for(let j=0;j<3;j++)xyz[j].push(coords[i][j]);
+   for(let j=0;j<3;j++)xyz[j].push(coords[position][j]);
    hover.push([s.labels[state],isCore?'Original core member':s.assignment[i]==='rank-support'?'Assigned by rank '+(s.k+1)+' support':'Assigned by neighbor vote']);
   }
   info.replaceChildren();
   function add(tag,value){const node=document.createElement(tag);node.textContent=value;info.append(node);return node}
   add('h3',color.selectedOptions[0].textContent);
-  add('p',core.toLocaleString()+' of '+data.ids.length.toLocaleString()+' samples are original core members ('+(100*core/data.ids.length).toFixed(2)+'%).');
+  if(localFits&&color.value==='70%-1-CST'){
+   if(local)add('p','Local fit of '+(assign.checked?'the merged state':'the pure state')+'. Clear selection to return to the population map.');
+   else add('p','Select Bacteroides dorei or Akkermansia muciniphila in the graph to open its local 3D fit.');
+  }
+  const core=local?coreCounts.get(selected.id):populationCore;
+  if(!local)add('p',core.toLocaleString()+' of '+data.ids.length.toLocaleString()+' samples are original core members ('+(100*core/data.ids.length).toFixed(2)+'%).');
   add('p',ids.length.toLocaleString()+' samples displayed · '+(ids.length-core).toLocaleString()+' assigned from other states');
   const table=document.createElement('table');table.style.width='100%';const head=table.createTHead().insertRow();
   for(const name of ['Retained state','Core','Assigned','n','%']){const th=document.createElement('th');th.textContent=name;head.append(th)}
-  for(const state of s.cores){
+  for(const state of local?[selected.id]:s.cores){
    const n=counts.get(state),c=coreCounts.get(state),tr=table.insertRow(),label=tr.insertCell();
    const swatch=document.createElement('span');swatch.style.cssText='display:inline-block;width:10px;height:10px;margin-right:4px;background:'+stateColors.get(state);
    label.append(swatch,s.labels[state]);
    for(const v of [c,n-c,n,(100*n/data.ids.length).toFixed(2)])tr.insertCell().textContent=v.toLocaleString();
   }
   info.append(table);add('small','Percentages use all 24,421 samples. A merged label names its retained core.');info.append(details);
-  stress.textContent='RMS relative error: '+bank.error.toFixed(2)+'% (held-out pairs)';
-  if(!ranges.has(method.value))ranges.set(method.value,[0,1,2].map(j=>{
+  stress.textContent='RMS relative error: '+(local?local.metrics.localError:bank.error).toFixed(2)+'% (held-out pairs)';
+  if(!ranges.has(frame))ranges.set(frame,[0,1,2].map(j=>{
    const column=coords.map(v=>v[j]),lo=Math.min(...column),hi=Math.max(...column),pad=(hi-lo)*0.05;
    return [lo-pad,hi+pad];
   }));
-  const [xaxis,yaxis,zaxis]=ranges.get(method.value).map(range=>({range,visible:false}));
+  const [xaxis,yaxis,zaxis]=ranges.get(frame).map(range=>({range,visible:false}));
   const samples={type:'scatter3d',mode:'markers',x:xyz[0],y:xyz[1],z:xyz[2],ids,
     marker:{size:2.5,color:colors,opacity:0.8},customdata:hover,text:ids,
     hovertemplate:'%{text}<br>%{customdata[0]}<br>%{customdata[1]}<extra></extra>'};
-  const components=[...new Set(s.cores.flatMap(state=>state.split(',')))];
-  const span=Math.max(...ranges.get(method.value).map(([lo,hi])=>(hi-lo)/1.1))||1;
+  const components=local?[selected.id].filter(id=>references&&localRows.has(rows.get(references[id].sample))):[...new Set(s.cores.flatMap(state=>state.split(',')))];
+  labels.disabled=!references||!components.length;
+  const span=Math.max(...ranges.get(frame).map(([lo,hi])=>(hi-lo)/1.1))||1;
   renderSamples=()=>{
-   const visible=Boolean(labels.checked&&references),lit=visible&&spheres.checked;
+   const visible=Boolean(labels.checked&&!labels.disabled),lit=visible&&spheres.checked;
    for(const input of [spheres,scale,tint,fontSize])input.disabled=!visible;
    for(const input of [ambient,highlights])input.disabled=!lit;
    for(const input of [scale,ambient,highlights,fontSize])el(input.id+'Value').value=input.value+(input===fontSize?' px':'%');
    const note=el('sampleReferenceNote');
-   note.hidden=visible;note.textContent=references?'Turn on Component labels to show reference vertices.':labelControl.title;
+   note.hidden=visible;note.textContent=local&&!components.length?'The observed reference sample is outside this local fit.':references?'Turn on Component labels to show reference vertices.':labelControl.title;
    const traces=[samples],annotations=[];
    if(visible){
-    const anchors=components.map(t=>references[t]),p=anchors.map(a=>coords[rows.get(a.sample)]);
+    const anchors=components.map(t=>references[t]),p=anchors.map(a=>coords[local?localRows.get(rows.get(a.sample)):rows.get(a.sample)]);
     const size=5*Number(scale.value)/100;
     const hovertemplate='%{text}<br>Maximum relative abundance: %{customdata[1]}%<br>%{customdata[0]}<extra></extra>';
     const hoverData=anchors.map(a=>[a.sample,(100*a.count/a.total).toFixed(2)]);
@@ -167,7 +183,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts){
      marker:{size,symbol:'diamond',color:tint.value},customdata:hoverData,hovertemplate});
    }
    return sampleReady=Plotly.react(plot,traces,
-    {showlegend:false,margin:{l:0,r:0,b:0,t:0},uirevision:method.value,scene:{aspectmode:'data',xaxis,yaxis,zaxis,annotations}},
+    {showlegend:false,margin:{l:0,r:0,b:0,t:0},uirevision:frame,scene:{aspectmode:'data',xaxis,yaxis,zaxis,annotations}},
     {responsive:true,displaylogo:false});
   };
   await Promise.all([renderSamples(),graph.update(s,counts,method.value)]);
