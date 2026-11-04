@@ -50,8 +50,8 @@ STYLE = '''body{margin:0;background:#f3f7f8;color:#193b49;font:16px/1.6 system-u
 def page(title, body, explorer):
     return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
-            f'<title>{escape(title)} · VME</title><style>{STYLE}</style></head><body><main>'
-            f'<nav aria-label="VME resources"><a class="button" href="{escape(explorer)}">Open explorer</a>'
+            f'<title>{escape(title)} · CoSMiX</title><style>{STYLE}</style></head><body><main>'
+            f'<nav aria-label="CoSMiX resources"><a class="button" href="{escape(explorer)}">Open explorer</a>'
             '<a href="about.html">About, datasets and methods</a><a href="quality.html">Quality preview rules</a>'
             '<a href="reports/index.html">Vaginal microbiome report dashboard</a></nav>'
             f'<h1>{escape(title)}</h1>{body}</main></body></html>')
@@ -102,7 +102,7 @@ def coverage_section(payload, report, identity=None):
             raise ValueError('About coverage must match the successfully validated build')
         intro = (f"Verified during this build: {report['contexts']:,} graph settings and "
                  f"{joint['selections']:,} participant selections, with no on-demand fitting. "
-                 'Counts apply to this copy of VME; rebuilding checks and refreshes this summary.')
+                 'Counts apply to this copy of CoSMiX; rebuilding checks and refreshes this summary.')
         comparisons = report.get('sensitivityComparisons', {})
         if payload.get('sensitivityComparisonsAvailable') and set(comparisons) != {'fixed','rebuilt'}:
             raise ValueError('Published sensitivity views require their own coverage verification')
@@ -225,7 +225,7 @@ STYLE += '.coverage-scroll{overflow-x:auto}.coverage{min-width:720px}.coverage c
 def resource_pages(here, payload, explorer='index.html', *, coverage=None, identity=None):
     identity = identity or build_identity(here)
     if source_digest(here) != identity['source_sha256']:
-        raise ValueError('VME sources changed during the build; rebuild before publishing')
+        raise ValueError('CoSMiX sources changed during the build; rebuild before publishing')
     cards = []
     for bundle in payload['bundles']:
         meta = display_metadata(bundle['dataset'])
@@ -271,7 +271,7 @@ def resource_pages(here, payload, explorer='index.html', *, coverage=None, ident
 <a class="button" href="{escape(explorer)}?dataset={quote(family['id'],safe='')}">Explore {escape(family['title'])}</a><small>Asset release: {escape(family['revision'])}</small></article>''')
     # Identify the actual source content, including uncommitted edits, rather than
     # labelling a working-tree build with a potentially stale Git commit alone.
-    body = '''<p>Vaginal Microbiome Explorer connects sample compositions, community states and participant observations. The explorer opens directly; this page provides context and dataset documentation.</p>
+    body = '''<p>CoSMiX connects sample compositions, community states and participant observations. The explorer opens directly; this page provides context and dataset documentation.</p>
 <section><h2>Start exploring</h2><p>Select a dataset, then a state or participant. Sample plots show composition geometry; feature graphs organize states by their taxa. Use named views to save the dataset, selection, highlighted background states and camera, or export those views as JSON for another browser with the same dataset release.</p><p>Default startup: UMB HMP when included, Merged groups, 60% largest 2-CSTs coverage, and weighted GRIP with scaled state-proportion edge lengths. Dataset availability is specific to this local build.</p></section>
 <h2>Datasets included in this build</h2><p>Counts below describe each released representation, before display filters. Records, distinct compositions and participants are different units. Datasets retain their own assay, taxonomy and population definitions; their coordinates are not a shared embedding.</p>
 <div class="datasets">'''+''.join(cards)+'''</div>
@@ -291,7 +291,7 @@ def resource_pages(here, payload, explorer='index.html', *, coverage=None, ident
 <li><strong>Subject trajectories:</strong> observations follow verified visit order or time within a fixed reference. Merged groups are the default where supported, density is off, and ≥95% single-taxon and separately identified within-pair endpoint rules are on. Interval endpoints name taxa; connecting lines do not establish unobserved intermediate states. Visit order spacing does not imply equal elapsed time.</li>
 <li><strong>Quality preview:</strong> flags identify read-depth or assignment-support concerns without removing observations or changing assignments. State-size counts refer to the trajectory reference population, not the participant’s number of visits.</li></ul>
 <p><a href="quality.html">Read the quality preview rules</a> for thresholds, count sources, missing evidence and interpretation.</p></section>
-<section><h2>Local access and reproducibility</h2><p>The loopback address opens VME on the computer running it. Share named-view JSON with someone who has the matching dataset release; a localhost link does not publish the application or datasets. Generated pages and scientific assets stay outside the source-only Git repository.</p><p>This page and the quality page are regenerated with the explorer. Reload after a rebuild to see updates; older standalone copies retain their bundled rules and dataset releases.</p>
+<section><h2>Local access and reproducibility</h2><p>The loopback address opens CoSMiX on the computer running it. Share named-view JSON with someone who has the matching dataset release; a localhost link does not publish the application or datasets. Generated pages and scientific assets stay outside the source-only Git repository.</p><p>This page and the quality page are regenerated with the explorer. Reload after a rebuild to see updates; older standalone copies retain their bundled rules and dataset releases.</p>
 <details><summary>Application build identity</summary><p>Source-content SHA256: <code>'''+identity['source_sha256']+'''</code>. Dataset release identifiers appear on each card. The quality page displays its rule version and includes the exact Markdown source.</p></details></section>'''
     default_title = next(display_metadata(b['dataset'])['title'] for b in payload['bundles'] if b['dataset']['id'] == payload['default'])
     body = body.replace('UMB HMP when included', escape(default_title))

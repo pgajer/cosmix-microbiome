@@ -47,7 +47,7 @@ Open a new terminal after changing shell configuration. You can then type
 Use Node.js (verified with 23.11.0); no npm dependencies are required. Run from
 the source repository. The test reads a **built HTTP entry page** and its local
 manifest assets, not a URL, offline export, or source `viewer.html`. No server
-needs to be running. Use a trusted local VME build: the test executes its
+needs to be running. Use a trusted local CoSMiX build: the test executes its
 application JavaScript in a simulated browser environment.
 
 The Git clone contains no scientific data. Obtain datasets and metadata
@@ -139,7 +139,7 @@ cohorts and coverage levels. It compares record membership and coordinates with
 the frozen fits, and reference anchors with independently scanned abundance
 maxima. On the current fixture this covers 225 views, 14,971 layouts, and 48,314
 anchors. Counts and elapsed seconds are reported for the package actually tested.
-This is an audit of stored results, not an exhaustive test of every VME interaction
+This is an audit of stored results, not an exhaustive test of every CoSMiX interaction
 or every embedding family.
 
 Neither mode fits new embeddings, changes datasets on disk, launches a browser,

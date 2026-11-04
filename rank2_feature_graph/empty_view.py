@@ -30,7 +30,7 @@ def render_empty_view(manifest, entry='index.html'):
     page = re.sub(r'<script\b[^>]*>.*?</script>', '', page, flags=re.S)
     page = re.sub(r'<dialog\b[^>]*>.*?</dialog>', '', page, flags=re.S)
     page = re.sub(r'\s+on\w+="[^"]*"', '', page)
-    page = re.sub(r'<title>.*?</title>', '<title>Vaginal Microbiome Explorer — Empty</title>', page)
+    page = re.sub(r'<title>.*?</title>', '<title>CoSMiX — Empty</title>', page)
     for identifier in ('populationComparisonControl', 'datasetMethodsPanel', 'sampleControls',
                        'panelSampleControls', 'participantProjectControl', 'participantSwitchHelp',
                        'selectionPanel', 'stateTransitions', 'legacyLinks'):

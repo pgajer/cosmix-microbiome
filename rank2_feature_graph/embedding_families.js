@@ -13,7 +13,7 @@ function familyEmbeddingTitle(view,anchor){
   :view.construction==='direct Euclidean targets'?'3D MDS':view.construction;
  return geometry+' · '+construction;
 }
-// Generic, versioned embedding collections share VME's dataset selector and Plotly runtime.
+// Generic, versioned embedding collections share CoSMiX's dataset selector and Plotly runtime.
 // They do not masquerade as rank-2 bundles or invent state/participant capabilities.
 const embeddingFamilyRegistry=new Map((BUNDLE_PACK.embeddingFamilies||[]).map(f=>[f.id,f]));
 let activeEmbeddingFamily=null,familySelection=null,familyRenderQueue=Promise.resolve(),familyRenderVersion=0;
@@ -408,7 +408,7 @@ function syncFamilySelectors(){
  el('datasetMethods').textContent=f.selectionRule+' '+f.limitations;
  el('datasetSummary').textContent=f.title+' · '+f.neighborhoods.length+' separately defined neighborhoods';
  el('legacyLinks').hidden=true;
- document.title='Vaginal Microbiome Explorer — '+f.title;
+ document.title='CoSMiX — '+f.title;
  try{localStorage.setItem(familyPreferenceKey,JSON.stringify({family:f.id,revision:f.revision,selection:s}))}catch{}
 }
 function renderFamily(camera=null){

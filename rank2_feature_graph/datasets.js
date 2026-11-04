@@ -27,7 +27,7 @@ function updateDatasetChoices(){
  for(const id of ['datasetSelect','panelDatasetSelect']){el(id).innerHTML=options;el(id).value=activeEmbeddingFamily?.id||META.id}
 }
 function datasetPresentation(coverage=META.defaultCoverage){
- document.title='Vaginal Microbiome Explorer — '+datasetDisplayTitle(META)+(META.analysisKey?' · '+META.populationName+' · '+(activeStateMode==='merged'?'Merged '+coverage+'% cores':'Pure states'):'');el('datasetTitle').textContent='Vaginal Microbiome Explorer';
+ document.title='CoSMiX — '+datasetDisplayTitle(META)+(META.analysisKey?' · '+META.populationName+' · '+(activeStateMode==='merged'?'Merged '+coverage+'% cores':'Pure states'):'');el('datasetTitle').textContent='CoSMiX';
  el('datasetSummary').textContent=`${META.description} · ${fmt(populationSize())} ${META.observationLabel} · ${fmt(META.featureCount)} features`;
  el('datasetMethods').textContent=datasetDisplayMethods(META);
  el('graphGeometryNote').textContent=META.graphGeometryDescription||(META.analysisKey?'Graph positions and Euclidean endpoint lengths retain the combined reference geometry. Edges without selected-cohort records are hidden; the displayed subgraph is not refitted. Sample embeddings are fitted independently.':'Initial positions: SGD metric MDS of shortest-path distances using assigned Euclidean edge lengths. Drawn lengths are approximate. Disconnected component placement is arbitrary; dragging changes only the display.');

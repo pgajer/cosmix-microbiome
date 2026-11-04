@@ -6,7 +6,7 @@ setup with `python3 scripts/portable.py update --catalog /path/to/release --sele
 Later updates remember that choice. `--select-datasets` changes the installed set.
 The earlier package/metadata route below remains supported for existing users.
 
-# Run updated VME source with separately supplied data
+# Run updated CoSMiX source with separately supplied data
 
 The interface source and research datasets are distributed separately. A Git
 clone contains no observations, embeddings, private data package, or metadata
@@ -39,7 +39,7 @@ account or collaborator invitation is required for this read-only download:
 
 ```sh
 cd "$HOME"
-git clone https://github.com/pgajer/vme.git "$HOME/vme-source"
+git clone https://github.com/pgajer/cosmix-microbiome.git "$HOME/vme-source"
 cd "$HOME/vme-source"
 ```
 
@@ -61,7 +61,7 @@ python3 scripts/portable.py update \
 Use the actual input paths if the files are stored elsewhere. The same command
 installs the app initially or safely updates an existing prepared app. Stop the
 viewer with **Control-C in its Terminal** before updating. Open `~/vme` in Finder
-and double-click **Start VME.command**.
+and double-click **Start CoSMiX.command**.
 Keep its Terminal window open while exploring. The new copy uses
 `http://127.0.0.1:43818/`; the original October 23 launcher uses port 43817.
 Stop another copy on port 43818 before starting a different update. Browser
@@ -102,7 +102,7 @@ git pull --ff-only && python3 scripts/portable.py update
 This updates the source first and installs the resulting viewer at `~/vme`.
 The app remembers the data-package and metadata paths from setup, so keep those
 files in place. To change them, supply `--package` and `--metadata` again.
-Reopen `~/vme/Start VME.command` and reload an already open browser tab. Keeping
+Reopen `~/vme/Start CoSMiX.command` and reload an already open browser tab. Keeping
 the same port preserves browser preferences and saved views.
 
 The updater refuses concurrent updates and a running viewer. It validates the
@@ -114,7 +114,7 @@ recovers the previous app before attempting another build.
 Each successful replacement keeps the old app under the printed
 `~/vme-update-<unique-id>/previous` path. Failed candidates and diagnostic files
 are retained in their own `vme-update-<unique-id>` folders. These folders are never removed automatically and can
-use additional disk space. To restore an earlier copy manually, first stop VME,
+use additional disk space. To restore an earlier copy manually, first stop CoSMiX,
 move the current `~/vme` to another unused name, and move the chosen `previous`
 folder back to `~/vme`. Do not delete the original data package.
 
@@ -212,7 +212,7 @@ other selections have newly fitted coordinates. Duplicate compositions share a
 point, while the sample count still includes their separate source records.
 Reference diamonds use observed maxima within that local fit.
 
-After obtaining the matching supplement separately, stop VME and run:
+After obtaining the matching supplement separately, stop CoSMiX and run:
 
 ```sh
 cd "$HOME/vme-source"
@@ -223,7 +223,7 @@ git pull --ff-only && python3 scripts/portable.py update \
 Use the actual supplied path. The updater checks that the supplement belongs to
 your data package; the October 26 rebuilt-reference-only supplement cannot be
 installed over the older October 23 package. Later updates remember the new
-metadata path. Reopen `~/vme/Start VME.command` and reload the browser tab.
+metadata path. Reopen `~/vme/Start CoSMiX.command` and reload the browser tab.
 
 Local geometries are selected from saved coordinates; no fitting runs in the
 browser. Population overviews and explicit common-reference comparisons keep

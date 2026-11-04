@@ -159,7 +159,7 @@ def updated_launcher(package, instance):
         if not re.fullmatch(r'[a-f0-9]{64}', identity):
             raise ValueError('Invalid packaged launcher identity')
         launcher = launcher.replace(identity, instance)
-    return launcher
+    return launcher.replace('Vaginal Microbiome Explorer', 'CoSMiX')
 
 
 def prepare(package, metadata_path, output, announce=True):
@@ -293,12 +293,12 @@ def prepare(package, metadata_path, output, announce=True):
     (outweb / 'index.html').write_text(page)
     write_empty_view(manifest, outweb / 'empty.html')
     for name in ('about.html', 'portable.html'):
-        (outweb / name).write_text(coverage_terminology((web / name).read_text()))
+        (outweb / name).write_text(coverage_terminology((web / name).read_text()).replace('Vaginal Microbiome Explorer', 'CoSMiX').replace(' · VME</title>', ' · CoSMiX</title>'))
     (outweb / 'QUALITY_PREVIEW_POLICY.md').write_bytes((HERE / 'QUALITY_PREVIEW_POLICY.md').read_bytes())
     (outweb / 'quality.html').write_text(resource_page('Quality preview rules', policy_html(HERE), 'index.html'))
     # Retain the data-package provenance, clearly separated from the new interface.
     about = outweb / 'about.html'
-    about.write_text(about.read_text().replace('<main>', '<main><p><strong>Interface updated from GitHub source.</strong> Source fingerprint: ' + source_digest(HERE)[:12] + '. The dataset and original build provenance below describe the separately supplied data package.</p>', 1))
+    about.write_text(about.read_text().replace('<main>', '<main><h1>CoSMiX</h1><p>Microbiome Community State Space Explorer</p><p><strong>Interface updated from GitHub source.</strong> Source fingerprint: ' + source_digest(HERE)[:12] + '. The dataset and original build provenance below describe the separately supplied data package.</p>', 1))
     for name in ('mutual-overlap', 'reports'):
         if (web / name).is_dir():
             shutil.copytree(web / name, outweb / name, copy_function=copy_file)
@@ -308,15 +308,16 @@ def prepare(package, metadata_path, output, announce=True):
     launcher = updated_launcher(package, instance)
     (output / 'Start VME.command').write_text(launcher)
     (output / 'Start VME.command').chmod(0o755)
+    (output / 'Start CoSMiX.command').symlink_to('Start VME.command')
     receipt = dict(sourceSha256=source_digest(HERE), baseManifestSha256=sha(encoded(original)),
                    metadataSha256=sha(metadata_path.read_bytes()), dataPackage=str(package),
                    metadataFile=str(metadata_path),
                    datasets=list(manifest['seed']['distributionDatasets']), application=manifest['application'],
                    diagnosticCount=len(metadata['embeddingStressDiagnostics']))
     (output / 'SOURCE_AND_DATA.json').write_text(json.dumps(receipt, indent=2) + '\n')
-    (output / 'READ ME FIRST.txt').write_text('Double-click Start VME.command. Keep its Terminal open.\nThis copy uses current GitHub interface source with your separately supplied data.\nNo fitting or data changes occurred. Port: 43818.\nFor another update: stop this viewer, then in ~/vme-source run git pull --ff-only followed by python3 scripts/portable.py update.\nThe original data package stays unchanged. SOURCE_AND_DATA.json records both identities.\n')
+    (output / 'READ ME FIRST.txt').write_text('Double-click Start CoSMiX.command. Keep its Terminal open.\nThis copy uses current GitHub interface source with your separately supplied data.\nNo fitting or data changes occurred. Port: 43818.\nFor another update: stop this viewer, then in ~/vme-source run git pull --ff-only followed by python3 scripts/portable.py update.\nThe original data package stays unchanged. SOURCE_AND_DATA.json records both identities.\n')
     if announce:
-        print('Ready: ' + str(output / 'Start VME.command'))
+        print('Ready: ' + str(output / 'Start CoSMiX.command'))
 
 
 def attach_neighborhoods(page_path, optional_web):
@@ -541,7 +542,7 @@ def update(package=None, metadata_path=None, output=None, neighborhood_package=N
                     journal.unlink()
             print('Update did not finish. Diagnostic files retained at: ' + str(transaction), file=sys.stderr)
             raise
-        print('Ready: ' + str(output / 'Start VME.command'))
+        print('Ready: ' + str(output / 'Start CoSMiX.command'))
         if previous.exists():
             print('Previous app retained at: ' + str(previous))
 
@@ -574,7 +575,7 @@ def main():
         else:
             export_metadata(args.package.resolve(), args.output.resolve())
     except (ValueError, KeyError, OSError, EOFError, subprocess.SubprocessError) as error:
-        parser.exit(1, 'VME setup: ' + str(error) + '\n')
+        parser.exit(1, 'CoSMiX setup: ' + str(error) + '\n')
 
 
 if __name__ == '__main__':

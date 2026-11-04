@@ -252,7 +252,7 @@ async function restoreNamedView(view){
  el('namedViewSave').onclick=()=>save(false);el('namedViewUpdate').onclick=()=>save(true);
  function download(views){
   const json=exportNamedViewsJson(views),url=URL.createObjectURL(new Blob([json],{type:'application/json'})),a=document.createElement('a');
-  a.href=url;a.download='vaginal-microbiome-explorer-views.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  a.href=url;a.download='cosmix-views.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   message.textContent=`Exported ${views.length} named view(s). Import this JSON in another explorer using the same dataset revisions.`;
  }
  el('namedViewsExport').onclick=()=>action(async()=>download(readNamedViews()));

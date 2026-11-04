@@ -1,10 +1,10 @@
 cff-version: 1.2.0
-message: "If you use VME in your research, please cite this software. Cite the datasets you use separately."
+message: "If you use CoSMiX in your research, please cite this software. Cite the datasets you use separately."
 type: software
-title: "Vaginal Microbiome Explorer"
+title: "CoSMiX — Microbiome Community State Space Explorer"
 authors:
   - family-names: "Gajer"
     given-names: "Pawel"
 license: MIT
-repository-code: "https://github.com/pgajer/vme"
-url: "https://github.com/pgajer/vme"
+repository-code: "https://github.com/pgajer/cosmix-microbiome"
+url: "https://github.com/pgajer/cosmix-microbiome"

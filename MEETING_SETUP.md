@@ -1,6 +1,6 @@
-# Get VME and choose your datasets
+# Get CoSMiX and choose your datasets
 
-VME is developing quickly. Install the software once from GitHub; keep your
+CoSMiX is developing quickly. Install the software once from GitHub; keep your
 separately supplied data in place so later software updates are one command.
 Data are not downloaded from GitHub or uploaded by setup.
 
@@ -21,7 +21,7 @@ Do not disable macOS security protections.
 
 ## 1. Download just the data you need
 
-From the team's shared VME release folder, download **VME-starter.zip** and one
+From the team's shared CoSMiX release folder, download **VME-starter.zip** and one
 or more dataset ZIPs listed in **DATASETS.md**. Keep the ZIPs from the same release
 together in a folder, for example `~/Downloads/VME-downloads`.
 
@@ -44,14 +44,14 @@ This creates `~/vme-data/VME-meeting-2026-11-02`, containing `catalog.json`,
 `common`, and the dataset folders you downloaded. Keep this folder in place.
 Use only ZIPs from the supplied release; the installer checks file identities
 and rejects missing, mismatched or damaged data. Data retain their own access
-and reuse terms and are excluded from VME's MIT software license.
+and reuse terms and are excluded from CoSMiX's MIT software license.
 
 ## 2. Get the software and choose datasets
 
 If this is your first installation:
 
 ```sh
-git clone https://github.com/pgajer/vme.git "$HOME/vme-source"
+git clone https://github.com/pgajer/cosmix-microbiome.git "$HOME/vme-source"
 cd "$HOME/vme-source"
 ```
 
@@ -73,11 +73,11 @@ python3 scripts/portable.py update \
 Enter numbers separated by spaces, for example `3 7 8`, or `all` if you downloaded
 all dataset ZIPs. Read the displayed names rather than relying on the example
 numbers. The app is created at `~/vme`. The source stays in `~/vme-source`.
-A previous VME app is preserved in a backup folder printed by the installer.
+A previous CoSMiX app is preserved in a backup folder printed by the installer.
 
-## 3. Open VME
+## 3. Open CoSMiX
 
-Double-click **Start VME.command** in `~/vme`. Keep its Terminal window open.
+Double-click **Start CoSMiX.command** in `~/vme`. Keep its Terminal window open.
 Your browser opens at **http://127.0.0.1:43818/**. This is a server on your own
 computer, not an Internet service. Choose a dataset from the Dataset menu;
 **Empty** shows the interface without data.
@@ -91,14 +91,16 @@ not rely on this to eliminate all extra storage.
 
 ## Update the software
 
-Stop VME with **Control-C** in its Terminal, then run:
+Stop CoSMiX with **Control-C** in its Terminal, then run:
 
 ```sh
 cd "$HOME/vme-source"
 git pull --ff-only && python3 scripts/portable.py update
 ```
 
-Reopen `~/vme/Start VME.command` and reload your browser tab. Your dataset
+Existing clones of the former `pgajer/vme` repository can use this same update command. The original `Start VME.command` launcher also works.
+
+Reopen `~/vme/Start CoSMiX.command` and reload your browser tab. Your dataset
 selection and data location are remembered. This command does not run models or
 the optional integration/layout tests. A failed update keeps the previous app.
 Backups are retained, not automatically deleted.
@@ -106,7 +108,7 @@ Backups are retained, not automatically deleted.
 ## Add or change datasets
 
 Download any additional dataset ZIPs from the **same release** and extract them
-into `~/vme-data` as above. Stop VME, then run:
+into `~/vme-data` as above. Stop CoSMiX, then run:
 
 ```sh
 cd "$HOME/vme-source"
@@ -124,10 +126,10 @@ with its new `--catalog` path. Software updates alone do not fetch new data.
   release folder as the starter.
 - **Checksum or revision mismatch:** obtain matching files again; do not edit
   checksums or bypass validation.
-- **Port already in use:** stop the other VME launcher before installing/starting.
+- **Port already in use:** stop the other CoSMiX launcher before installing/starting.
 - **Blank/loading browser:** reload the page; check the launcher's Terminal for
   errors and confirm you opened port 43818. Send Pawel the exact error and browser.
-- **Existing directory is not a VME app:** preserve it; choose another output path
+- **Existing directory is not a CoSMiX app:** preserve it; choose another output path
   using `--output /path/to/new/app`. Do not overwrite a source clone with the app.
 
 Available analyses depend on the dataset. In-app Methods/PDF buttons carry the
