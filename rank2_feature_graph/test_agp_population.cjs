@@ -140,7 +140,8 @@ const reference=JSON.parse(require('fs').readFileSync(population));
  await page.click('#viewExportClose');
  console.log('PASS AGP selection navigation, history reset, and PNG download with legend at 2×');
  const localPath=path.join(path.dirname(population),'local-1cst-pilot.json');
- const fullPath=path.join(path.dirname(population),'local-1cst-all.json');
+ const reviewedPath=path.join(path.dirname(population),'local-1cst-through-5006.json');
+ const fullPath=fs.existsSync(reviewedPath)?reviewedPath:path.join(path.dirname(population),'local-1cst-all.json');
  if(fs.existsSync(fullPath)||fs.existsSync(localPath)){
   const bank=fs.existsSync(fullPath)?JSON.parse(fs.readFileSync(fullPath)).agpLocalBank:null;
   const fits=bank?Object.fromEntries(Object.entries(bank.views).map(([key,cell])=>[key,bank.fits[cell]])):JSON.parse(fs.readFileSync(localPath)).agpLocalFits;
@@ -151,6 +152,7 @@ const reference=JSON.parse(require('fs').readFileSync(population));
      const expected=s.merged.flatMap((t,i)=>t===id&&(mode==='merged'||s.assignment[i]==='core')?[i]:[]);
      for(const method of Object.keys(reference.fits)){
       const fit=fits[[scheme,id,mode,method].join('/')];
+      if(fs.existsSync(reviewedPath))assert.equal(fit.metrics.evaluationRule==='all-pairs',expected.length<=5006);
       assert.deepEqual(fit.indices,expected);assert.equal(fit.coordinates.length,expected.length);
      }
     }
@@ -178,7 +180,9 @@ const reference=JSON.parse(require('fs').readFileSync(population));
      assert.deepEqual(rendered.pos,[fit.coordinates[0],fit.coordinates.at(-1)]);
      if(refs)assert.deepEqual(rendered.labels,rendered.ids.includes(refs[id].sample)?[name]:[]);
      assert.ok((await page.locator('#sampleTitle').innerText()).includes(name+' · Local 3D MDS'));
-     assert.ok((await page.locator('#sampleStress').innerText()).includes(fit.metrics.localError.toFixed(2)+'%'));
+     const full=fit.metrics.evaluationRule==='all-pairs',status=await page.locator('#sampleStress').innerText();
+     assert.ok(status.includes(fit.metrics.localError.toFixed(2)+'% ('+(full?'all pairs':'held-out pairs')+')'));
+     if(full)assert.ok(await page.getByText('Full metric-MDS fitted all '+fit.metrics.pairs.toLocaleString()+' pairs',{exact:false}).count());
     }
    }
    await page.click('#headerClearSelection');
