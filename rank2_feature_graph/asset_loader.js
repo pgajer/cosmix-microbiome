@@ -119,7 +119,7 @@ async function start(id){
    if(attempt!==revision)return;
    const data=skin?part.skinPopulation:part.agpPopulation;
    if(data?.id!==id||data.revision!==manifest.datasets[id].dataset.revision)throw Error('Population identity mismatch.');
-   await (skin?root.showSkinPopulation:root.showAgpPopulation)(data,choices,part.agpReferences,part.agpGraphLayouts,part.agpLocalFits);
+   await (skin?root.showSkinPopulation:root.showAgpPopulation)(data,choices,part.agpReferences,part.agpGraphLayouts,part.agpLocalFits,part.agpLocalBank);
    loader.status('');return;
   }
   validationLibrary??=script(manifest.validator).catch(error=>{validationLibrary=null;throw error});

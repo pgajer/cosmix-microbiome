@@ -1,5 +1,5 @@
 // AGP colors and filters are assignments in abundance space. Coordinates come from the saved population fit.
-async function showAgpPopulation(data, choices, references, graphLayouts, localFits){
+async function showAgpPopulation(data, choices, references, graphLayouts, localFits, localBank){
  const el=id=>document.getElementById(id), method=el('sampleMethod'),color=el('sampleColorScheme'),
        assign=el('stateMode'),plot=el('samples'),info=el('sampleContext'),selector=el('datasetSelect');
  const title=choices.find(item=>item.id===data.id).title;
@@ -104,7 +104,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   graph.begin(s);
   const selected=graph.selection();
   const localKey=[color.value,selected?.id,assign.checked?'merged':'pure',method.value].join('/');
-  const local=selected&&!selected.edge&&localFits?.[localKey];
+  const local=selected&&!selected.edge&&(localBank?localBank.fits[localBank.views[localKey]]:localFits?.[localKey]);
   const bank=data.fits[method.value],coords=local?local.coordinates:bank.coordinates;
   const frame=local?localKey:method.value;
   const localRows=local?new Map(local.indices.map((row,index)=>[row,index])):null;
@@ -127,8 +127,9 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   info.replaceChildren();
   function add(tag,value){const node=document.createElement(tag);node.textContent=value;info.append(node);return node}
   add('h3',color.selectedOptions[0].textContent);
-  if(localFits&&color.value==='70%-1-CST'){
+  if(s.k===1&&(localBank||(localFits&&s.q===70))){
    if(local)add('p','Local fit of '+(assign.checked?'the merged state':'the pure state')+'. Clear selection to return to the population map.');
+   else if(localBank)add('p','Select a taxon in the graph to open its local 3D fit.');
    else add('p','Select Bacteroides dorei or Akkermansia muciniphila in the graph to open its local 3D fit.');
   }
   const core=local?coreCounts.get(selected.id):populationCore;

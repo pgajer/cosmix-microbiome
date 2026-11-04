@@ -8,6 +8,7 @@ import portable as p
 ID = 'agp-24k-silva'
 PIN = 'ef01c7c98a7b262ee6f016d0c5248cdb485027d43d753772e043cb5098a0fd08'
 REFERENCE_PIN = '77f0276af8e7bffd2f1c433a518040fa81b4398fa37db469c0565093ce1ef499'
+LOCAL_ALL_PIN = '49ae4a557268d614e6acbda31c47ee91f7fc1dc966b1e7ad718e702a037ef243'
 LOCAL_PILOT_PIN = 'f3c5c29a39407c3d6dc83630382592ddca2e941759730dab8dc2c929a90e7fd3'
 LAYOUT_PIN = 'b4249fcdcbfa322ad301ff93840593db4b6541bfb8dab8fddfc9e9348dd756a0'
 
@@ -48,7 +49,17 @@ def attach(page, source):
         entry['parts'].append(publish(layout_bytes, '.json'))
     accepted.append(entry['parts'].copy())
     pilot = source.with_name('local-1cst-pilot.json')
-    if pilot.is_file():
+    complete = source.with_name('local-1cst-all.json')
+    if complete.is_file():
+        full_bytes = complete.read_bytes()
+        if p.sha(full_bytes) != LOCAL_ALL_PIN:
+            raise ValueError('AGP local 1-CST bank differs from the reviewed fits')
+        # An existing pilot installation may upgrade directly to the complete bank.
+        pilot_descriptor = dict(url='/vme-assets/' + LOCAL_PILOT_PIN + '.json',
+                                sha256=LOCAL_PILOT_PIN, bytes=4067864)
+        accepted.append(entry['parts'] + [pilot_descriptor])
+        entry['parts'].append(publish(full_bytes, '.json'))
+    elif pilot.is_file():
         pilot_bytes = pilot.read_bytes()
         if p.sha(pilot_bytes) != LOCAL_PILOT_PIN:
             raise ValueError('AGP local 1-CST pilot differs from the reviewed fits')

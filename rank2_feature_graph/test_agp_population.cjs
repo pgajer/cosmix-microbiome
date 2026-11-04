@@ -140,11 +140,26 @@ const reference=JSON.parse(require('fs').readFileSync(population));
  await page.click('#viewExportClose');
  console.log('PASS AGP selection navigation, history reset, and PNG download with legend at 2×');
  const localPath=path.join(path.dirname(population),'local-1cst-pilot.json');
- if(fs.existsSync(localPath)){
-  const fits=JSON.parse(fs.readFileSync(localPath)).agpLocalFits;
-  await page.selectOption('#sampleColorScheme','70%-1-CST');
-  for(const id of ['51','13']){
-   const name=reference.schemes['70%-1-CST'].labels[id];
+ const fullPath=path.join(path.dirname(population),'local-1cst-all.json');
+ if(fs.existsSync(fullPath)||fs.existsSync(localPath)){
+  const bank=fs.existsSync(fullPath)?JSON.parse(fs.readFileSync(fullPath)).agpLocalBank:null;
+  const fits=bank?Object.fromEntries(Object.entries(bank.views).map(([key,cell])=>[key,bank.fits[cell]])):JSON.parse(fs.readFileSync(localPath)).agpLocalFits;
+  if(bank){
+   assert.equal(Object.keys(fits).length,372);assert.equal(Object.keys(bank.fits).length,216);
+   for(const [scheme,s] of Object.entries(reference.schemes).filter(([,s])=>s.k===1)){
+    for(const id of s.cores)for(const mode of ['pure','merged']){
+     const expected=s.merged.flatMap((t,i)=>t===id&&(mode==='merged'||s.assignment[i]==='core')?[i]:[]);
+     for(const method of Object.keys(reference.fits)){
+      const fit=fits[[scheme,id,mode,method].join('/')];
+      assert.deepEqual(fit.indices,expected);assert.equal(fit.coordinates.length,expected.length);
+     }
+    }
+   }
+  }
+  const cases=bank?[[70,'51'],[70,'146'],[80,'268'],[90,'299']]:[[70,'51'],[70,'13']];
+  for(const [q,id] of cases){
+   const scheme=q+'%-1-CST',name=reference.schemes[scheme].labels[id];
+   await page.selectOption('#sampleColorScheme',scheme);
    await page.selectOption('#agpGraphLayout','diagram');
    const vertexIndex=await page.locator('#graph3d').evaluate((g,taxon)=>g.data.find(t=>t.meta?.agpGraphVertices).customdata.findIndex(v=>v.id===taxon),id);
    const point=page.locator('#graph3d .scatterlayer .point').nth(vertexIndex);
@@ -156,12 +171,12 @@ const reference=JSON.parse(require('fs').readFileSync(population));
     await page.locator('#stateMode').setChecked(mode==='merged');
     for(const method of Object.keys(reference.fits)){
      await page.selectOption('#sampleMethod',method);
-     const fit=fits[['70%-1-CST',id,mode,method].join('/')];
+     const fit=fits[[scheme,id,mode,method].join('/')];
      const rendered=await page.locator('#samples').evaluate(g=>{const t=g.data[0];return {ids:t.ids,
       pos:[0,t.ids.length-1].map(i=>[t.x[i],t.y[i],t.z[i]]),labels:g.layout.scene.annotations.map(a=>a.text)}});
      assert.deepEqual(rendered.ids,fit.indices.map(i=>reference.ids[i]));
      assert.deepEqual(rendered.pos,[fit.coordinates[0],fit.coordinates.at(-1)]);
-     if(refs)assert.deepEqual(rendered.labels,[name]);
+     if(refs)assert.deepEqual(rendered.labels,rendered.ids.includes(refs[id].sample)?[name]:[]);
      assert.ok((await page.locator('#sampleTitle').innerText()).includes(name+' · Local 3D MDS'));
      assert.ok((await page.locator('#sampleStress').innerText()).includes(fit.metrics.localError.toFixed(2)+'%'));
     }
@@ -169,7 +184,7 @@ const reference=JSON.parse(require('fs').readFileSync(population));
    await page.click('#headerClearSelection');
    assert.equal(await page.locator('#samples').evaluate(g=>g.data[0].ids.length),reference.ids.length);
   }
-  console.log('PASS all 12 local 1-CST pilot maps, memberships, coordinates, reference labels, errors and population return');
+  console.log('PASS local 1-CST bank, plot coordinates, pure/merged membership, reference labels, errors and population return');
  }
  assert.deepEqual(errors,[]);
  await page.selectOption('#datasetSelect','empty');await page.waitForURL('**/empty.html');await page.selectOption('#datasetSelect','agp-24k-silva');await page.waitForSelector('#samples canvas',{timeout:30000});
