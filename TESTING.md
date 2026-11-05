@@ -16,22 +16,25 @@ these developer tests.
 From the source clone, run these only when you want to validate:
 
 ```sh
-./scripts/vme-test
-./scripts/vme-test-audit
-./scripts/vme-test-layout
+./scripts/cosmix-test
+./scripts/cosmix-test-audit
+./scripts/cosmix-test-layout
 ```
 
 The first runs integration checks; the second adds the exhaustive layout audit.
 The third runs only the standalone graph-layout checks.
-All three use `~/cosmix/web/index.html` by default and fall back to `~/vme/web/index.html` on a legacy installation. Supply a built entry as the sole argument,
-or set `VME_TEST_PAGE` once in your shell configuration for a development build:
+All three use `~/cosmix/web/index.html` by default and recognize the former default
+app location for older installations. Supply a built entry as the sole argument,
+or set `COSMIX_TEST_PAGE` once in your shell configuration for a development build:
 
 ```sh
-export VME_TEST_PAGE="/path/to/development/index.http.html"
+export COSMIX_TEST_PAGE="/path/to/development/index.http.html"
 ```
 
-An explicit argument takes precedence over `VME_TEST_PAGE`. Paths containing
-spaces are supported. Neither command builds, updates, or refits anything.
+An explicit argument takes precedence over `COSMIX_TEST_PAGE`. The previous
+shortcut names and environment variable remain supported for compatibility.
+Paths containing spaces are supported. None of these commands builds, updates,
+or refits anything.
 To use the names from any directory, add the clone's `scripts` directory to
 your shell's PATH, for example in `~/.zshrc`:
 
@@ -40,7 +43,7 @@ export PATH="$HOME/cosmix-source/scripts:$PATH"
 ```
 
 Open a new terminal after changing shell configuration. You can then type
-`vme-test`, `vme-test-audit`, or `vme-test-layout`. Each accepts `--help`.
+`cosmix-test`, `cosmix-test-audit`, or `cosmix-test-layout`. Each accepts `--help`.
 
 ## Requirements and scope
 
@@ -51,8 +54,9 @@ needs to be running. Use a trusted local CoSMiX build: the test executes its
 application JavaScript in a simulated browser environment.
 
 The Git clone contains no scientific data. Obtain datasets and metadata
-separately under their own access and reuse terms. The full integration test
-currently requires these dataset IDs in the built app:
+directly from Pawel Gajer on an individual basis, under their own access and reuse
+terms. The full integration test currently requires these dataset IDs in the
+built app:
 
 - `comb-V3V4-tx`, including deferred display and graph-layout fragments;
 - `comb-V4-tx`;
@@ -101,7 +105,7 @@ are unchanged. It does **not** scan every saved layout.
 For focused graph-layout, camera, or named-view changes, run on demand:
 
 ```sh
-./scripts/vme-test-layout
+./scripts/cosmix-test-layout
 # Or call the test directly:
 node rank2_feature_graph/verify_graph_layout.mjs "$HOME/cosmix/web/index.html"
 ```
@@ -109,7 +113,8 @@ node rank2_feature_graph/verify_graph_layout.mjs "$HOME/cosmix/web/index.html"
 When calling the Node test directly, omitting the argument uses `index.http.html`
 in the current directory. `EXPLORER_HTML` remains supported by that direct call,
 but must name a built HTTP entry; an explicit argument takes precedence. The
-shortcut instead follows `VME_TEST_PAGE` and the installed-app default above. The test reads the entry's local, checksum-verified
+shortcut instead follows `COSMIX_TEST_PAGE` and the installed-app default above.
+The test reads the entry's local, checksum-verified
 application, loader, validator and dataset assets. No HTTP server is required.
 Offline exports and source templates are rejected with an actionable message.
 

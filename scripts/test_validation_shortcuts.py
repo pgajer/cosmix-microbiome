@@ -17,7 +17,7 @@ class ValidationShortcuts(unittest.TestCase):
             base = Path(temp)
             scripts = base / 'source with spaces' / 'scripts'
             scripts.mkdir(parents=True)
-            for name in ('vme-test', 'vme-test-audit', 'vme-test-layout'):
+            for name in ('vme-test', 'vme-test-audit', 'vme-test-layout', 'cosmix-test', 'cosmix-test-audit', 'cosmix-test-layout'):
                 shutil.copy2(SOURCE / name, scripts / name)
             bindir = base / 'bin'
             bindir.mkdir()
@@ -26,13 +26,16 @@ class ValidationShortcuts(unittest.TestCase):
             node.chmod(0o755)
             env = {**os.environ, 'HOME': str(base / 'home'), 'PATH': str(bindir) + os.pathsep + os.defpath}
             env.pop('VME_TEST_PAGE', None)
+            env.pop('COSMIX_TEST_PAGE', None)
             runner = str(scripts / '../rank2_feature_graph/verify_http_assets.mjs')
 
             def run(name, *args, environment=env):
                 return subprocess.run([str(scripts / name), *args], cwd=base,
                                       env=environment, capture_output=True, text=True)
 
-            for name, flags, target in [('vme-test', [], 'verify_http_assets.mjs'), ('vme-test-audit', ['--audit-layouts'], 'verify_http_assets.mjs'), ('vme-test-layout', [], 'verify_graph_layout.mjs')]:
+            routes = [('vme-test', [], 'verify_http_assets.mjs'), ('vme-test-audit', ['--audit-layouts'], 'verify_http_assets.mjs'), ('vme-test-layout', [], 'verify_graph_layout.mjs')]
+            routes += [(name.replace('vme-', 'cosmix-'), flags, target) for name, flags, target in routes]
+            for name, flags, target in routes:
                 runner = str(scripts / '../rank2_feature_graph' / target)
                 with self.subTest(command=name):
                     result = run(name)
@@ -41,6 +44,9 @@ class ValidationShortcuts(unittest.TestCase):
                     custom = {**env, 'VME_TEST_PAGE': '/custom build/index.http.html'}
                     result = run(name, environment=custom)
                     self.assertEqual(json.loads(result.stdout), [runner, custom['VME_TEST_PAGE'], *flags])
+                    custom = {**custom, 'COSMIX_TEST_PAGE': '/current build/index.http.html'}
+                    result = run(name, environment=custom)
+                    self.assertEqual(json.loads(result.stdout), [runner, custom['COSMIX_TEST_PAGE'], *flags])
                     result = run(name, '/explicit build/index.html', environment=custom)
                     self.assertEqual(json.loads(result.stdout), [runner, '/explicit build/index.html', *flags])
                     result = run(name, '--help')
@@ -48,6 +54,18 @@ class ValidationShortcuts(unittest.TestCase):
                     self.assertIn('Usage:', result.stdout)
                     for args in [('--unknown',), ('one.html', 'two.html')]:
                         self.assertEqual(run(name, *args).returncode, 2)
+            for name, flags, target in routes:
+                runner = str(scripts / '../rank2_feature_graph' / target)
+                legacy = Path(env['HOME']) / 'vme/web/index.html'
+                current = Path(env['HOME']) / 'cosmix/web/index.html'
+                legacy.parent.mkdir(parents=True, exist_ok=True)
+                legacy.write_text('legacy fixture')
+                current.unlink(missing_ok=True)
+                self.assertEqual(json.loads(run(name).stdout), [runner, str(legacy), *flags])
+                current.parent.mkdir(parents=True, exist_ok=True)
+                current.write_text('current fixture')
+                self.assertEqual(json.loads(run(name).stdout), [runner, str(current), *flags])
+            self.assertEqual(run('cosmix-test-layout', '--audit-layouts').returncode, 2)
             self.assertEqual(run('vme-test-layout', '--audit-layouts').returncode, 2)
             runner = str(scripts / '../rank2_feature_graph/verify_http_assets.mjs')
             result = run('vme-test', '--audit-layouts', '/explicit build/index.html')

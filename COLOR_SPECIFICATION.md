@@ -381,7 +381,7 @@ share the dataset's pair preferences. Reset removes the selected override.
 [rank3.js](rank2_feature_graph/rank3.js) constructs each triple identifier by sorting its feature
 IDs. `rank3Color` hashes that identifier into an HSL color with 62% saturation
 and 43% lightness; null membership uses `#A7B2B7`. A valid custom color wins.
-Overrides use the dataset ID plus triple ID in `vme-rank3-colors-v1`.
+Overrides use a persistent browser key indexed by dataset ID and triple ID.
 The **State colors** editor updates the applicable samples, faces and legend.
 A triple is not colored by mixing its three phylotype colors.
 

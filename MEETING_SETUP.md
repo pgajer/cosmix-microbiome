@@ -1,8 +1,14 @@
-# Get CoSMiX and choose your datasets
+# Get CoSMiX and your datasets
 
-CoSMiX is developing quickly. Install the software once from GitHub; keep your
-separately supplied data in place so later software updates are one command.
-Data are not downloaded from GitHub or uploaded by setup.
+CoSMiX is developing quickly. Install the software once from GitHub, then keep
+it current with the update command below.
+
+**All CoSMiX dataset packages and metadata supplements are obtained directly
+from Pawel Gajer, on an individual basis.** Contact Pawel to arrange the datasets
+you want to explore—your own data or public datasets already prepared for CoSMiX.
+He will provide the appropriate files and any dataset-specific setup steps.
+There is no general shared-folder download. GitHub contains the software source;
+installation and software updates do not download or upload research data.
 
 These instructions are for **macOS 11 or later** (Apple Silicon or Intel), with
 Git, Python 3.9 or later, and a browser that supports WebGL. No R, scientific
@@ -17,85 +23,85 @@ python3 --version
 If either command is missing, install it using your institution's supported
 software route before proceeding. A Mac may ask for approval to open a downloaded
 launcher or executable; follow your institution's normal approval procedure.
-Do not disable macOS security protections.
 
-New installations use `~/cosmix` for the app. The recommended data folder is
-`~/cosmix-data`. If you already use `~/vme` and `~/vme-data`, keep using those
-folders in the instructions below. The usual update command finds your existing
-app and remembers its data paths. If both app folders contain separate installations,
-choose one with `--output ~/cosmix` or `--output ~/vme`. After an intentional move,
-a direct link from `~/vme` to `~/cosmix` works for launchers and updates.
-Backups are named after the actual app folder.
+New installations use `~/cosmix-source` for the source clone, `~/cosmix` for the
+app, and `~/cosmix-data` for separately supplied data. Existing installations
+can keep their current folders, launchers and update command; substitute your
+actual source folder wherever this guide shows `~/cosmix-source`.
 
-## 1. Download just the data you need
+## 1. Obtain and unpack your data
 
-From the team's shared CoSMiX release folder, download **VME-starter.zip** and one
-or more dataset ZIPs listed in **DATASETS.md**. Keep the ZIPs from the same release
-together in a folder, for example `~/Downloads/VME-downloads`.
+Ask Pawel for the datasets you need. Package contents vary by project. Follow
+the instructions supplied with your files; do not rename files inside a package.
 
-The starter contains the catalogue and local server; each dataset ZIP contains
-its own saved samples, annotations, embeddings and available analysis results.
-Li/Lc neighborhoods are not included. The two HMP+U01 packages are distinct
-releases, not an upgrade pair. PAPCLEAR remains explicitly provisional.
-
-Extract them into the same location. The following commands avoid Finder's
-similarly named duplicate folders; run them after downloading the chosen ZIPs:
+For a **catalogue release**, Pawel supplies **CoSMiX-starter.zip** and the dataset
+ZIPs agreed with you. The accompanying **DATASETS.md** lists the available files
+and their sizes. Keep matching ZIPs together in a dedicated folder, for example
+`~/Downloads/CoSMiX-downloads`. Extract them into the same location:
 
 ```sh
 mkdir -p "$HOME/cosmix-data"
-for archive in "$HOME/Downloads/VME-downloads/"*.zip; do
+for archive in "$HOME/Downloads/CoSMiX-downloads/"*.zip; do
   ditto -x -k "$archive" "$HOME/cosmix-data"
 done
 ```
 
-This creates `~/cosmix-data/VME-meeting-2026-11-02`, containing `catalog.json`,
-`common`, and the dataset folders you downloaded. Keep this folder in place.
-Use only ZIPs from the supplied release; the installer checks file identities
-and rejects missing, mismatched or damaged data. Data retain their own access
-and reuse terms and are excluded from CoSMiX's MIT software license.
+The extracted release folder contains `catalog.json`, `common`, and your dataset
+folders. In the commands below, **CoSMiX-release is an example folder name**;
+replace it with the actual release folder supplied by Pawel. Keep that folder
+in place so later updates can find your data. Earlier packages may have different
+names and remain supported; keep their names and use their supplied paths.
 
-## 2. Get the software and choose datasets
+Some datasets, including standalone AGP or skin packages, have additional
+installation steps. Use the command supplied with that package; the catalogue
+command below does not apply to every package format. [Advanced setup](PORTABLE.md)
+describes the supported alternatives.
 
-If this is your first installation:
+Data retain their own access and reuse terms and are excluded from CoSMiX's MIT
+software license.
+
+## 2. Get the software and select datasets
+
+For a first installation:
 
 ```sh
 git clone https://github.com/pgajer/cosmix-microbiome.git "$HOME/cosmix-source"
 cd "$HOME/cosmix-source"
 ```
 
-If you already have a clone, use its existing folder for this and later commands. For example, use `~/vme-source` wherever this guide shows `~/cosmix-source` if that is where you originally cloned it.
+If you already have a clone, enter its existing folder and update it:
 
 ```sh
 cd "$HOME/cosmix-source"
 git pull --ff-only
 ```
 
-Install the app and select your datasets from the numbered list:
+For a catalogue release, install the app and choose your datasets from the
+numbered list. Replace `CoSMiX-release` with your actual release folder:
 
 ```sh
 python3 scripts/portable.py update \
-  --catalog "$HOME/cosmix-data/VME-meeting-2026-11-02" \
+  --catalog "$HOME/cosmix-data/CoSMiX-release" \
   --select-datasets
 ```
 
-Enter numbers separated by spaces, for example `3 7 8`, or `all` if you downloaded
-all dataset ZIPs. Read the displayed names rather than relying on the example
-numbers. The app is created at `~/cosmix`. The source stays in `~/cosmix-source`.
-A previous CoSMiX app is preserved in a backup folder printed by the installer.
+Enter numbers separated by spaces, or `all` only if you have every dataset ZIP
+listed in that catalogue. Select only the datasets supplied to you. Different
+people can install different subsets. The app is created at `~/cosmix`, separate
+from the source and original data. A previous app is preserved in a backup folder
+printed by the installer.
 
 ## 3. Open CoSMiX
 
 Double-click **Start CoSMiX.command** in `~/cosmix`. Keep its Terminal window open.
-Your browser opens at **http://127.0.0.1:43818/**. This is a server on your own
-computer, not an Internet service. Choose a dataset from the Dataset menu;
-**Empty** shows the interface without data.
+Your browser opens at **http://127.0.0.1:43818/**. This server runs on your own
+computer. Choose a dataset from the Dataset menu; **Empty** shows the interface
+without data.
 
-The app uses local data and works offline after installation. Some views take
-time to load; allow the loading message to finish. Use a desktop computer with
-several GiB of free memory and disk space. Download sizes and unpacked sizes are
-listed in DATASETS.md. Allow space for extracted data, the app, and update backups.
-The installer can share immutable asset storage on the same filesystem, but do
-not rely on this to eliminate all extra storage.
+The app works offline after installation. Some views take time to load. Allow
+space for the extracted data, the app and update backups; package sizes are
+provided with your data. The installer can share immutable asset storage on
+the same filesystem, but do not rely on this to eliminate all extra storage.
 
 ## Update the software
 
@@ -106,28 +112,20 @@ cd "$HOME/cosmix-source"
 git pull --ff-only && python3 scripts/portable.py update
 ```
 
-Existing clones of the former `pgajer/vme` repository can use this same update command. The original `Start VME.command` launcher also works.
+Reopen **Start CoSMiX.command** and reload your browser tab. Your dataset selection
+and data paths are remembered. Keep the original packages and supplements in
+place. Older clone folders and launchers still work; no folder rename is needed.
+This command does not run models or the optional integration/layout tests.
+A failed update keeps the previous app. Backups are not automatically deleted.
 
-Reopen `~/cosmix/Start CoSMiX.command` and reload your browser tab. Your dataset
-selection and data location are remembered. This command does not run models or
-the optional integration/layout tests. A failed update keeps the previous app.
-Backups are retained, not automatically deleted.
+## Add or update datasets
 
-If AGP is already installed, the ordinary update command reads the saved path to
-its population file. Keep that file in place. To add a separately supplied AGP
-file for the first time, or after moving it, run
-`python3 scripts/portable.py update --agp-population /path/to/population.json`.
+Contact Pawel directly for another dataset, a data revision, or a supplement.
+Software updates alone do not fetch new data. Use the matching files and paths
+he supplies; keep new data releases in separate versioned folders.
 
-For AGP component labels and the graph’s observed 3D reference positions, keep
-`component-references.json` beside `population.json`. The ordinary update picks
-it up automatically. For the 3D pair-graph layouts, also keep
-`graph-layouts-3d.json` in the same directory and run the ordinary update.
-The state diagram also works with the original population-only package.
-
-## Add or change datasets
-
-Download any additional dataset ZIPs from the **same release** and extract them
-into `~/cosmix-data` as above. Stop CoSMiX, then run:
+For additional dataset ZIPs from the **same catalogue release**, extract them
+as above, stop CoSMiX, then run:
 
 ```sh
 cd "$HOME/cosmix-source"
@@ -135,24 +133,20 @@ python3 scripts/portable.py update --select-datasets
 ```
 
 Select the **complete set** you now want installed. Deselecting a dataset removes
-it only from the new app; its original data and the previous app are preserved.
-For a newer data release, keep its separate versioned folder and repeat setup
-with its new `--catalog` path. Software updates alone do not fetch new data.
+it only from the new app; the original data and previous app are preserved.
+For a newer catalogue release, repeat setup with its new `--catalog` path.
 
 ## If something does not work
 
-- **Missing dataset ZIP:** download the named file and extract it into the same
-  release folder as the starter.
+- **Missing dataset or supplement:** contact Pawel for the matching files.
 - **Checksum or revision mismatch:** obtain matching files again; do not edit
   checksums or bypass validation.
 - **Port already in use:** stop the other CoSMiX launcher before installing/starting.
-- **Blank/loading browser:** reload the page; check the launcher's Terminal for
-  errors and confirm you opened port 43818. Send Pawel the exact error and browser.
-- **Existing directory is not a CoSMiX app:** preserve it; choose another output path
-  using `--output /path/to/new/app`. Do not overwrite a source clone with the app.
+- **Blank/loading browser:** reload the page and check the launcher's Terminal.
+  Send Pawel the exact error, browser and package name.
+- **Existing directory is not a CoSMiX app:** preserve it and choose another output
+  path with `--output /path/to/new/app`. Do not overwrite a source clone with the app.
 
-Available analyses depend on the dataset. In-app Methods/PDF buttons carry the
-included analysis documentation. The separate development report dashboard,
-mutual-overlap research browser and optional live R services are not included.
-Existing scientific limitations remain visible; these packages reuse saved
-results rather than constituting a new scientific analysis or approval.
+Available views and analyses depend on your dataset package. In-app Methods/PDF
+buttons provide its included analysis documentation. Packages reuse saved
+results and retain their stated scientific limitations.

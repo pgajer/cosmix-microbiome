@@ -2,7 +2,7 @@
 
 Microbiome Community State Space Explorer
 
-CoSMiX (pronounced **KOZ-miks**, formerly Vaginal Microbiome Explorer) lets you explore
+CoSMiX (pronounced **KOZ-miks**) lets you explore
 the composition of microbial communities and their variation
 across samples, cohorts, and participants over time.
 
@@ -33,8 +33,10 @@ phylotypes. CoSMiX also supports other classifications, including VALENCIA2 CSTs
 and subCSTs where supplied by a dataset.
 
 Available views depend on the dataset and its accompanying metadata and saved
-embeddings. Research datasets and metadata supplements are distributed
-separately; this repository contains the application source, not sample data.
+embeddings. Obtain all CoSMiX dataset packages and metadata supplements directly
+from Pawel Gajer, on an individual basis. Contact him to arrange your own datasets
+or public datasets already prepared for the explorer. This repository contains
+the application source, not sample data; software updates do not download data.
 
 If you use CoSMiX in your research, please cite the software using
 [CITATION.cff](CITATION.cff). Cite research datasets separately according to

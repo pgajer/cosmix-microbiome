@@ -28,7 +28,7 @@ Calls use the archived VALENCIA implementation at commit
 Sample-only taxa are retained with zero reference abundance; reference-only
 taxa have zero sample abundance. Matching does not renormalize the sample.
 
-For LSVF, each source count profile was checked against its frozen VME full
+For LSVF, each source count profile was checked against its frozen CoSMiX full
 composition. The original taxon labels were recovered by the documented
 underscore-to-space display transformation. Matching uses exact names and the
 same four explicit punctuation aliases used for the combined datasets; it
