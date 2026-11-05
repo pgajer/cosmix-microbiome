@@ -9,7 +9,8 @@ const reference=JSON.parse(require('fs').readFileSync(population));
  await page.goto(new URL('/?dataset=agp-24k-silva',origin).href);await page.waitForSelector('#samples canvas',{timeout:60000});
  const header=page.locator('.sampleHeaderActions');
  assert.deepEqual(await header.locator('input, select').evaluateAll(items=>items.map(e=>e.id)),
-  ['sampleColorScheme','stateMode','participantShowVertices','sampleMethod']);
+  ['sampleColorScheme','stateMode','participantShowVertices','sampleMethod','unfoldFaces']);
+ assert.ok(await header.locator('#unfoldFaces').isHidden());
  const fs=require('fs'),path=require('path'),refFile=path.join(path.dirname(population),'component-references.json');
  const refs=fs.existsSync(refFile)?JSON.parse(fs.readFileSync(refFile)).agpReferences:null;
  const range=async(id,value)=>page.locator('#'+id).evaluate((c,v)=>{c.value=v;c.dispatchEvent(new Event('input',{bubbles:true}))},value);
@@ -167,6 +168,19 @@ const reference=JSON.parse(require('fs').readFileSync(population));
     }
    }
   }
+  const unfoldedPath=path.join(path.dirname(population),'local-1cst-unfolded.json');
+  const unfolded=fs.existsSync(unfoldedPath)?JSON.parse(fs.readFileSync(unfoldedPath)).agpUnfolded:null;
+  if(unfolded){
+   assert.equal(Object.keys(unfolded.views).length,248);assert.equal(Object.keys(unfolded.fits).length,144);
+   for(const [view,key] of Object.entries(unfolded.views)){
+    const entry=unfolded.fits[key],base=fits[view];
+    assert.equal(entry.original,bank.views[view]);
+    if(entry.rotated){
+     assert.equal(entry.coordinates.length,base.indices.length);
+     assert.equal(entry.metrics.queries,base.indices.length);assert.ok(entry.metrics.localError>=0);
+    }
+   }
+  }
   const cases=bank?[[70,'51'],...(fs.existsSync(pivotPath)?[[80,'51'],[90,'51']]:[]),[70,'146'],[80,'268'],[90,'299']]:[[70,'51'],[70,'13']];
   for(const [q,id] of cases){
    const scheme=q+'%-1-CST',name=reference.schemes[scheme].labels[id];
@@ -192,6 +206,23 @@ const reference=JSON.parse(require('fs').readFileSync(population));
      const full=fit.metrics.evaluationRule==='all-pairs',status=await page.locator('#sampleStress').innerText();
      const expectedStress=fit.metrics.localError.toFixed(2)+'% ('+(full?'all pairs':'held-out pairs')+')';
      assert.ok(status.includes(expectedStress),[scheme,id,mode,method,expectedStress,status].join(' | '));
+     const toggle=page.locator('#unfoldFaces');
+     const view=[scheme,id,mode,method].join('/');
+     assert.equal(await toggle.isVisible(),method.startsWith('max-'));
+     if(unfolded?.views[view]){
+      const entry=unfolded.fits[unfolded.views[view]];
+      const snapshot=()=>page.locator('#samples').evaluate(g=>{const t=g.data[0];return {ids:t.ids,colors:t.marker.color,
+       xyz:[0,t.ids.length-1].map(i=>[t.x[i],t.y[i],t.z[i]])}});
+      const before=await snapshot();
+      await toggle.check();
+      await page.waitForFunction(()=>document.getElementById('sampleTitle').textContent.includes('Unfolded faces'));
+      const after=await snapshot(),coords=entry.rotated?entry.coordinates:fit.coordinates;
+      assert.deepEqual(after.ids,before.ids);assert.deepEqual(after.colors,before.colors);
+      assert.deepEqual(after.xyz,[coords[0],coords.at(-1)]);
+      const score=entry.rotated?entry.metrics:fit.metrics;
+      assert.ok((await page.locator('#sampleStress').innerText()).includes(score.localError.toFixed(2)+'%'));
+      await toggle.uncheck();assert.deepEqual(await snapshot(),before);
+     }else assert.ok(await toggle.isDisabled());
      if(full){
       const text=fit.metrics.approximation==='sparse'?'Sparse metric-MDS used 4,000 pivots. Error was measured on all ':'Full metric-MDS fitted all ';
       assert.ok(await page.getByText(text+fit.metrics.pairs.toLocaleString()+' pairs',{exact:false}).count());

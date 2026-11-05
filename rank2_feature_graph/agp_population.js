@@ -1,5 +1,5 @@
 // AGP colors and filters are assignments in abundance space. Coordinates come from the saved population fit.
-async function showAgpPopulation(data, choices, references, graphLayouts, localFits, localBank){
+async function showAgpPopulation(data, choices, references, graphLayouts, localFits, localBank, unfoldedBank){
  const el=id=>document.getElementById(id), method=el('sampleMethod'),color=el('sampleColorScheme'),
        assign=el('stateMode'),plot=el('samples'),info=el('sampleContext'),selector=el('datasetSelect');
  const title=choices.find(item=>item.id===data.id).title;
@@ -10,7 +10,13 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  labelControl.title=references?'Label each component at its highest observed relative abundance in the full AGP population.':'Install component-references.json beside the AGP population to enable observed reference positions.';
  labels.checked=false;labels.disabled=!references;
  const navigation=header.querySelector('.sampleHeaderNavigation'),save=el('saveSampleView');
- header.replaceChildren(navigation,color.closest('label'),assign.closest('label'),labelControl,method.closest('label'),save);
+ const unfold=el('unfoldFaces')||document.createElement('input');
+ const unfoldControl=unfold.closest('label')||document.createElement('label');
+ if(!unfold.id){
+  unfold.type='checkbox';unfold.id='unfoldFaces';unfoldControl.append(unfold,' Unfold faces');
+ }
+ unfold.checked=false;
+ header.replaceChildren(navigation,color.closest('label'),assign.closest('label'),labelControl,method.closest('label'),unfoldControl,save);
  el('controlSections').replaceChildren(el('dataControls'));
  el('cohortControl').hidden=true;
  el('datasetMessage').textContent=data.ids.length.toLocaleString()+' fecal samples · 340 SILVA taxa';
@@ -26,6 +32,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  .agpWorkspace #sampleContent{grid-template-columns:minmax(0,1fr) minmax(145px,30%);grid-template-rows:minmax(0,1fr)}
  .agpWorkspace #sampleSidePanels{grid-column:2;grid-row:1}
  .agpWorkspace .sampleHeaderActions label{display:inline-flex;gap:4px;align-items:center;font-size:12px}
+ .agpWorkspace .sampleHeaderActions label[hidden]{display:none}
  .agpWorkspace .agpExpanded{position:fixed!important;inset:0;z-index:1000;background:white}
  @container (max-width:690px){
    .agpWorkspace #sampleContent{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(90px,28%)}
@@ -104,11 +111,20 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   graph.begin(s);
   const selected=graph.selection();
   const localKey=[color.value,selected?.id,assign.checked?'merged':'pure',method.value].join('/');
-  const local=selected&&!selected.edge&&(localBank?localBank.fits[localBank.views[localKey]]:localFits?.[localKey]);
+  const originalKey=localBank?.views[localKey];
+  const ordinary=selected&&!selected.edge&&(localBank?localBank.fits[originalKey]:localFits?.[localKey]);
+  const entry=ordinary&&unfoldedBank?.fits[unfoldedBank.views[localKey]];
+  if(entry&&entry.original!==originalKey)throw Error('Unfolded and ordinary AGP memberships differ.');
+  unfoldControl.hidden=!ordinary||!method.value.startsWith('max-');
+  unfold.disabled=!entry;
+  if(!entry)unfold.checked=false;
+  unfoldControl.title=entry?'Rotate other dominant faces onto the selected taxon’s face.':'Install the AGP unfolded supplement to enable this view.';
+  const unfolded=unfold.checked&&entry;
+  const local=unfolded?.rotated?{...ordinary,coordinates:entry.coordinates,metrics:entry.metrics}:ordinary;
   const bank=data.fits[method.value],coords=local?local.coordinates:bank.coordinates;
-  const frame=local?localKey:method.value;
+  const frame=local?localKey+(unfolded?.rotated?'/unfolded':''):method.value;
   const localRows=local?new Map(local.indices.map((row,index)=>[row,index])):null;
-  el('sampleTitle').textContent=local?title+' · '+selected.name+' · Local 3D MDS':title;
+  el('sampleTitle').textContent=local?title+' · '+selected.name+' · Local 3D MDS'+(unfolded?' · Unfolded faces':''):title;
   const allPairsLocal=local?.metrics.evaluationRule==='all-pairs';
   if(allPairsLocal){
    const m=local.metrics;
@@ -117,6 +133,10 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
     : 'Full metric-MDS fitted all '+m.pairs.toLocaleString()+' pairs in this state.';
    formula.textContent=note+' RMS relative error is 100 × √mean[((3D distance − original distance) / original distance)²]. Each sample retains an average of '+m.localRecall.toFixed(2)+'% of its ten original nearest neighbors in the 3D map.';
   }else formula.textContent=local?'RMS relative error compares Euclidean distances in the 3D map with original distances under the selected method. It is 100 × the square root of the mean squared relative difference. On the same '+local.metrics.pairs.toLocaleString()+' within-state pairs excluded from both fits, the local map scored '+local.metrics.localError.toFixed(2)+'% and the population map scored '+local.metrics.populationError.toFixed(2)+'%. Lower is better.':populationFormula;
+  if(unfolded){
+   formula.textContent+=' Distances use the '+method.selectedOptions[0].textContent+' geometry after unfolding around '+selected.name+'.';
+   formula.textContent+=entry.rotated?' '+entry.rotated.toLocaleString()+' samples were rotated onto the anchor face. The ordinary map reports error against its own original target distances.':' Every sample already lies on the anchor face, so the ordinary coordinates apply.';
+  }
   const xyz=[[],[],[]],colors=[],hover=[],ids=[],counts=new Map(s.cores.map(key=>[key,0]));
   const coreCounts=new Map(counts);
   let populationCore=0;
@@ -135,6 +155,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   function add(tag,value){const node=document.createElement(tag);node.textContent=value;info.append(node);return node}
   add('h3',color.selectedOptions[0].textContent);
   if(s.k===1&&(localBank||(localFits&&s.q===70))){
+   if(unfolded)add('p',entry.rotated?'Unfolded around '+selected.name+' · '+entry.rotated.toLocaleString()+' samples rotated.':'Every sample lies on the anchor face. Both views use the same coordinates.');
    if(local)add('p','Local fit of '+(assign.checked?'the merged state':'the pure state')+'. Clear selection to return to the population map.');
    else if(localBank)add('p','Select a taxon in the graph to open its local 3D fit.');
    else add('p','Select Bacteroides dorei or Akkermansia muciniphila in the graph to open its local 3D fit.');
@@ -196,7 +217,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   };
   await Promise.all([renderSamples(),graph.update(s,counts,method.value)]);
  }
- for(const control of [method,color,assign])control.onchange=draw;
+ for(const control of [method,color,assign,unfold])control.onchange=draw;
  for(const control of [labels,spheres])control.onchange=()=>renderSamples();
  for(const control of [scale,tint,ambient,highlights,fontSize])control.oninput=()=>renderSamples();
  graph.onSelect(draw);

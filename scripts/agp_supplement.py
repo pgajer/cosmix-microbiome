@@ -12,6 +12,7 @@ LOCAL_ALL_PIN = '49ae4a557268d614e6acbda31c47ee91f7fc1dc966b1e7ad718e702a037ef24
 LOCAL_THROUGH_5006_PIN = 'fbb2f0ea6b59267868e31b684b6ccd7945d4fc97e6045792eafc383c06d5f6fc'
 LOCAL_PILOT_PIN = 'f3c5c29a39407c3d6dc83630382592ddca2e941759730dab8dc2c929a90e7fd3'
 LOCAL_REVIEWED_PIN = '51473823570462976a9f8a76e20ceb7949ebd7c7e828ffa7b72299ca45645533'
+UNFOLDED_PIN = '874d557c15cc31e96ad4ff2d3cdf56b5a6f0c73ca74b4651c49cb5bfd3da6adc'
 LAYOUT_PIN = 'b4249fcdcbfa322ad301ff93840593db4b6541bfb8dab8fddfc9e9348dd756a0'
 
 
@@ -71,6 +72,15 @@ def attach(page, source):
             accepted.append(entry['parts'] + [descriptor])
         entry['parts'].append(publish(data, '.json'))
         break
+    unfolded = source.with_name('local-1cst-unfolded.json')
+    if unfolded.is_file():
+        if entry['parts'][-1]['sha256'] != LOCAL_REVIEWED_PIN:
+            raise ValueError('AGP unfolding requires local-1cst-reviewed.json beside population.json')
+        raw_unfolded = unfolded.read_bytes()
+        if p.sha(raw_unfolded) != UNFOLDED_PIN:
+            raise ValueError('AGP unfolded 1-CST maps differ from the reviewed revision')
+        accepted.append(entry['parts'].copy())
+        entry['parts'].append(publish(raw_unfolded, '.json'))
     accepted.append(entry['parts'])
     if existing is not None and not any(existing == {**entry, 'parts': parts} for parts in accepted):
         raise ValueError('Conflicting AGP dataset revision')
