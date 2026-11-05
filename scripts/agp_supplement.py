@@ -1,5 +1,6 @@
-"""Attach the reviewed AGP epoch-200 population to a prepared HTTP viewer."""
+"""Attach a reviewed AGP population to a prepared HTTP viewer."""
 import argparse
+import json
 from pathlib import Path
 import re
 import tempfile
@@ -7,6 +8,10 @@ import portable as p
 
 ID = 'agp-24k-silva'
 PIN = 'ef01c7c98a7b262ee6f016d0c5248cdb485027d43d753772e043cb5098a0fd08'
+EPOCH500_PIN = '92b4858f2c1e0e6259f05aef5e7a2c9cd3850aa6290e89aed31b821f2c407917'
+POPULATION_PINS = {PIN: 'silva-340-epoch200-v1', EPOCH500_PIN: 'silva-340-epoch500-v1'}
+EPOCH200_PART = dict(url='/vme-assets/45e92df7d3cc2ea42b9c742d3cfa37336ec1f826642539e187c588b59ba93c71.json',
+                     sha256='45e92df7d3cc2ea42b9c742d3cfa37336ec1f826642539e187c588b59ba93c71',bytes=7095026)
 REFERENCE_PIN = '77f0276af8e7bffd2f1c433a518040fa81b4398fa37db469c0565093ce1ef499'
 LOCAL_ALL_PIN = '49ae4a557268d614e6acbda31c47ee91f7fc1dc966b1e7ad718e702a037ef243'
 LOCAL_THROUGH_5006_PIN = 'fbb2f0ea6b59267868e31b684b6ccd7945d4fc97e6045792eafc383c06d5f6fc'
@@ -18,8 +23,9 @@ LAYOUT_PIN = 'b4249fcdcbfa322ad301ff93840593db4b6541bfb8dab8fddfc9e9348dd756a0'
 
 def attach(page, source):
     raw = source.read_bytes()
-    if p.sha(raw) != PIN:
-        raise ValueError('AGP population differs from the reviewed epoch-200 revision')
+    revision = POPULATION_PINS.get(p.sha(raw))
+    if revision is None or json.loads(raw).get('revision') != revision:
+        raise ValueError('AGP population differs from the reviewed epoch-200 or epoch-500 revisions')
     manifest = p.read_manifest(page)
     def publish(raw, ext):
         digest = p.sha(raw)
@@ -33,7 +39,7 @@ def attach(page, source):
             Path(temp.name).replace(target)
         return descriptor
     entry = dict(capability='agp-population-v1',dataset=dict(id=ID,title='American Gut Project',
-                 revision='silva-340-epoch200-v1'),parts=[publish(b'{"agpPopulation":'+raw+b'}','.json')])
+                 revision=revision),parts=[publish(b'{"agpPopulation":'+raw+b'}','.json')])
     # Older distributions have the population only. Their diagram still works.
     existing = manifest['datasets'].get(ID)
     accepted = [entry['parts'].copy()]
@@ -82,7 +88,11 @@ def attach(page, source):
         accepted.append(entry['parts'].copy())
         entry['parts'].append(publish(raw_unfolded, '.json'))
     accepted.append(entry['parts'])
-    if existing is not None and not any(existing == {**entry, 'parts': parts} for parts in accepted):
+    accepted_entries = [{**entry, 'parts': parts} for parts in accepted]
+    if revision == POPULATION_PINS[EPOCH500_PIN]:
+        accepted_entries += [{**entry, 'dataset': {**entry['dataset'], 'revision': POPULATION_PINS[PIN]},
+                              'parts': [EPOCH200_PART]+parts[1:]} for parts in accepted]
+    if existing is not None and existing not in accepted_entries:
         raise ValueError('Conflicting AGP dataset revision')
     manifest['datasets'][ID] = entry
     allowed = manifest['seed'].get('distributionDatasets')

@@ -237,7 +237,12 @@ with a smaller subset does not need to run these checks to install or update.
 
 Install the separate reviewed AGP population using
 `python3 scripts/portable.py update --agp-population /path/to/population.json`.
-Updates remember the supplied file. The on-demand browser check uses Playwright
+Updates remember the supplied file. Both reviewed epoch-200 and epoch-500 population packages are supported.
+To upgrade, supply the epoch-500 `population.json` once with the same command.
+Keep its optional reference, graph-layout, local and unfolded supplements beside it.
+The population update preserves state memberships. Local fits retain their own
+epoch budgets and evaluation targets. The test checks displayed population errors,
+epoch counts and rendered coordinates against the supplied package. It uses Playwright
 and Chrome. Place the optional `local-1cst-all.json` beside `population.json` for all pure and merged 1-CST views at 70%, 80% and 90%. For the reviewed full metric-MDS maps, place `local-1cst-through-5006.json` beside `population.json`. That supplement keeps the 400-pivot maps for memberships above 5,006 samples. To use the reviewed 4,000-pivot maps for all four larger *B. dorei* memberships as well, place `local-1cst-reviewed.json` beside `population.json`. This newest supplement contains every local map, takes precedence over older supplements, and does not require the older files. CoSMiX reports all-pairs error and ten-neighbor recovery for both these sparse fits and the smaller full fits. To enable **Unfold faces** for both max-normalized local methods, add `local-1cst-unfolded.json` beside the reviewed bank. Pure states already lie on their anchor face. The browser check verifies map selection, unfolding and restoration of the ordinary coordinates at each coverage. Older installations with only `local-1cst-pilot.json` retain the two pilot states at 70%. Run `node rank2_feature_graph/test_agp_population.cjs http://127.0.0.1:4173 /path/to/population.json`
 with the origin of the running installation. It checks all four coverage schemes,
 both assignment settings and the three saved population geometries.

@@ -57,7 +57,9 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  stress.onclick=()=>{details.open=!details.open};
  const details=document.createElement('details');
  const summary=document.createElement('summary');summary.textContent='How the embedding was evaluated';
- const formula=document.createElement('p');const populationFormula='The reported error is 100 × √mean[((3D distance − original distance) / original distance)²] over 353,251 held-out pairs. All three maps use Euclidean distance on screen. The original distance follows the selected method. Each fit used 4,000 pivots and 200 epochs.';
+ const formula=document.createElement('p');
+ const populationFormula=bank=>'The reported error is 100 × √mean[((3D distance − original distance) / original distance)²] over '+bank.evaluatedPairs.toLocaleString()+' held-out pairs. All three maps use Euclidean distance on screen. The original distance follows the selected method. This fit used '+(bank.pivots||4000).toLocaleString()+' pivots and '+(bank.epochs||200)+' epochs.'+
+  (bank.nearbyError!==undefined?' On the separate nearby-pair set, error is '+bank.nearbyError.toFixed(2)+'%. Top-10 neighbor recovery is '+bank.recall10.toFixed(2)+'%. These results use one initialization seed.':'');
  details.append(summary,formula);
  for(const control of [selector,color,method,assign,stress,el('toggleControls')])control.disabled=false;
  el('toggleControls').onclick=()=>{
@@ -132,7 +134,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
     ? 'Sparse metric-MDS used '+m.pivots.toLocaleString()+' pivots. Error was measured on all '+m.pairs.toLocaleString()+' pairs in this state.'
     : 'Full metric-MDS fitted all '+m.pairs.toLocaleString()+' pairs in this state.';
    formula.textContent=note+' RMS relative error is 100 × √mean[((3D distance − original distance) / original distance)²]. Each sample retains an average of '+m.localRecall.toFixed(2)+'% of its ten original nearest neighbors in the 3D map.';
-  }else formula.textContent=local?'RMS relative error compares Euclidean distances in the 3D map with original distances under the selected method. It is 100 × the square root of the mean squared relative difference. On the same '+local.metrics.pairs.toLocaleString()+' within-state pairs excluded from both fits, the local map scored '+local.metrics.localError.toFixed(2)+'% and the population map scored '+local.metrics.populationError.toFixed(2)+'%. Lower is better.':populationFormula;
+  }else formula.textContent=local?'RMS relative error compares Euclidean distances in the 3D map with original distances under the selected method. It is 100 × the square root of the mean squared relative difference. On the same '+local.metrics.pairs.toLocaleString()+' within-state pairs excluded from both fits, the local map scored '+local.metrics.localError.toFixed(2)+'% and the original epoch-200 population map scored '+local.metrics.populationError.toFixed(2)+'%. Lower is better.':populationFormula(bank);
   if(unfolded){
    formula.textContent+=' Distances use the '+method.selectedOptions[0].textContent+' geometry after unfolding around '+selected.name+'.';
    formula.textContent+=entry.rotated?' '+entry.rotated.toLocaleString()+' samples were rotated onto the anchor face. The ordinary map reports error against its own original target distances.':' Every sample already lies on the anchor face, so the ordinary coordinates apply.';
