@@ -40,6 +40,13 @@ def render_empty_view(manifest, entry='index.html'):
                for item in manifest['datasets'].values()
                if not seed.get('distributionDatasets') or item['dataset']['id'] in seed['distributionDatasets']]
     choices += [(item['id'], item['title']) for item in manifest.get('families', []) + seed.get('optionalDatasetLinks', [])]
+    skin_ids = {key for key, item in manifest['datasets'].items() if item.get('capability') == 'skin-population-v2'}
+    grouped = []
+    for key, title in choices:
+        item = ('skin', 'Skin') if key in skin_ids else (key, title)
+        if item not in grouped:
+            grouped.append(item)
+    choices = grouped
     options = '<option value="empty" selected>Empty</option>' + ''.join(
         '<option value="' + escape(key, quote=True) + '">' + escape(title) + '</option>' for key, title in choices)
     for identifier in ('datasetSelect', 'panelDatasetSelect'):

@@ -274,3 +274,10 @@ them and retain existing datasets, including AGP. See
 [skin population behavior and checks](rank2_feature_graph/SKIN_POPULATIONS.md)
 for metadata, trajectory and distortion limitations. Scientific assets remain
 separately distributed under their own reuse terms.
+
+To add the reviewed genus-state annotations to installed skin populations, run
+`python3 scripts/portable.py update --skin-states /path/to/state-supplement-v1`.
+Keep this directory outside the app too; later updates remember it. Installed
+skin populations appear under **Dataset → Skin**, with **Cohort** selecting an
+independent population. The supplement adds coverage and coloring controls;
+it does not change the original ASV-based embedding maps or fit new models.

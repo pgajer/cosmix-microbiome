@@ -61,7 +61,21 @@ function createLoader(manifest,request=fetch,digest=bytes=>crypto.subtle.digest(
   sensitivity:()=>group('sensitivity',manifest.sensitivity),
   neighborhoods:()=>group('neighborhoods',manifest.neighborhoods)};
 }
-root.VMEAssetLoader={createLoader,mergePack};
+function skinCohorts(manifest){
+ return Object.values(manifest.datasets).filter(x=>x.capability==='skin-population-v2'&&(!manifest.seed.distributionDatasets||manifest.seed.distributionDatasets.includes(x.dataset.id))).map(x=>x.dataset);
+}
+function groupSkinChoices(choices,cohorts){
+ const ids=new Set(cohorts.map(x=>x.id)),out=[];let added=false;
+ for(const item of choices){if(ids.has(item.id)){if(!added){out.push({id:'skin',title:'Skin'});added=true}}else if(!out.some(x=>x.id===item.id))out.push(item)}
+ return out;
+}
+function resolveSkinDataset(id,cohort,cohorts){
+ if(id!=='skin')return id;
+ const found=cohort?cohorts.find(x=>x.id===cohort):cohorts[0];
+ if(!found)throw Error(cohort?'The requested skin cohort is not installed. Choose an installed cohort or dataset.':'No skin cohorts are installed.');
+ return found.id;
+}
+root.VMEAssetLoader={createLoader,mergePack,skinCohorts,groupSkinChoices,resolveSkinDataset};
 if(typeof document==='undefined')return;
 const requested=new URLSearchParams(location.search).get('dataset');
 if(requested==='empty'){location.replace(new URL('empty.html',location.href).href);return}
@@ -72,11 +86,12 @@ if(optional)for(const entry of Object.values(primary.datasets)){
 }
 const manifest=optional?.families.some(f=>f.id===requested)?optional:primary,loader=createLoader(manifest);
 root.VME_ASSETS=loader;
+loader.skinCohorts=skinCohorts(primary);
 // A population-only view has its own initialization. Route changes before an older
 // graph viewer tries to validate the selected population as a graph bundle.
 document.addEventListener('change',event=>{
- if(!['datasetSelect','panelDatasetSelect'].includes(event.target.id)||!primary.datasets[event.target.value]?.capability)return;
- event.stopImmediatePropagation();const url=new URL(location.href);url.searchParams.set('dataset',event.target.value);location.assign(url.href);
+ if(!['datasetSelect','panelDatasetSelect'].includes(event.target.id)||!(event.target.value==='skin'||primary.datasets[event.target.value]?.capability))return;
+ event.stopImmediatePropagation();const url=new URL(location.href);url.searchParams.set('dataset',event.target.value);url.searchParams.delete('cohort');location.assign(url.href);
 },true);
 const status=document.getElementById('vmeLoadStatus'),retry=document.getElementById('vmeLoadRetry');
 loader.status=message=>{status.textContent=message;status.hidden=!message};
@@ -84,11 +99,11 @@ loader.retry=action=>{retry.hidden=!action;retry.onclick=action?()=>Promise.reso
 const controls=[...document.querySelectorAll('input,select,button')].filter(e=>e!==retry),disabled=controls.map(e=>e.disabled);
 controls.forEach(e=>e.disabled=true);
 const selector=document.getElementById('datasetSelect');
-const choices=[{id:'empty',title:'Empty'},...Object.values(manifest.datasets).filter(x=>!manifest.seed.distributionDatasets||manifest.seed.distributionDatasets.includes(x.dataset.id)).map(x=>({id:x.dataset.id,title:manifest.seed.datasetPresentation?.[x.dataset.id]?.title||x.dataset.title})),...manifest.families,...(manifest.seed.optionalDatasetLinks||[])];
+const choices=groupSkinChoices([{id:'empty',title:'Empty'},...Object.values(manifest.datasets).filter(x=>!manifest.seed.distributionDatasets||manifest.seed.distributionDatasets.includes(x.dataset.id)).map(x=>({id:x.dataset.id,title:manifest.seed.datasetPresentation?.[x.dataset.id]?.title||x.dataset.title})),...manifest.families,...(manifest.seed.optionalDatasetLinks||[])],loader.skinCohorts);
 for(const item of choices){const option=document.createElement('option');option.value=item.id;option.textContent=item.title;selector.appendChild(option)}
 let validationLibrary=null;
-let selected=choices.some(x=>x.id===requested)?requested:manifest.seed.default,revision=0,library=null;
-selector.value=selected;selector.disabled=false;
+let selected=choices.some(x=>x.id===requested)||loader.skinCohorts.some(x=>x.id===requested)?requested:manifest.seed.default,revision=0,library=null;
+selector.value=loader.skinCohorts.some(x=>x.id===selected)?'skin':selected;selector.disabled=false;
 const script=descriptor=>new Promise((resolve,reject)=>{const e=document.createElement('script');e.src=descriptor.url;e.integrity='sha256-'+btoa(String.fromCharCode(...Uint8Array.from(descriptor.sha256.match(/../g),x=>parseInt(x,16))));e.onload=resolve;e.onerror=()=>{e.remove();reject(Error('Could not load application code. Retry loading.'))};document.body.appendChild(e)});
 loader.validateDataset=(value,id)=>{
  const b=value.bundles?.[0],expected=manifest.datasets[id]?.dataset;
@@ -110,9 +125,10 @@ loader.validateDataset=(value,id)=>{
 async function start(id){
  if(id==='empty'){location.assign(new URL('empty.html',location.href).href);return}
  if(manifest.seed.optionalDatasetLinks?.some(item=>item.id===id)){const url=new URL(location.href);url.searchParams.set('dataset',id);location.assign(url.href);return}
- const attempt=++revision;selected=id;loader.retry(null);loader.status('Loading '+choices.find(x=>x.id===id).title+'…');
- const dataset=manifest.datasets[id]?id:manifest.neighborhoods.datasets[0];
+ const attempt=++revision;selected=id;loader.retry(null);loader.status('Loading '+(choices.find(x=>x.id===id)?.title||manifest.datasets[id]?.dataset.title||id)+'…');
  try{
+  id=resolveSkinDataset(id,new URLSearchParams(location.search).get('cohort'),loader.skinCohorts);
+  const dataset=manifest.datasets[id]?id:manifest.neighborhoods.datasets[0];
   library??=script(manifest.plotly).catch(error=>{library=null;throw error});
   const capability=manifest.datasets[id]?.capability;
   if(['skin-population-v1','skin-population-v2','agp-population-v1'].includes(capability)){
@@ -121,7 +137,7 @@ async function start(id){
    if(attempt!==revision)return;
    const data=skin?part.skinPopulation:part.agpPopulation;
    if(data?.id!==id||data.revision!==manifest.datasets[id].dataset.revision)throw Error('Population identity mismatch.');
-   await (capability==='skin-population-v2'?root.showSkinPopulationV2:skin?root.showSkinPopulation:root.showAgpPopulation)(data,choices,part.agpReferences,part.agpGraphLayouts,part.agpLocalFits,part.agpLocalBank,part.agpUnfolded);
+   await (capability==='skin-population-v2'?root.showSkinPopulationV2:skin?root.showSkinPopulation:root.showAgpPopulation)(capability==='skin-population-v2'?{...data,genusStates:part.skinStates}:data,choices,part.agpReferences,part.agpGraphLayouts,part.agpLocalFits,part.agpLocalBank,part.agpUnfolded);
    loader.status('');return;
   }
   validationLibrary??=script(manifest.validator).catch(error=>{validationLibrary=null;throw error});

@@ -1,6 +1,6 @@
 # CoSMiX color specification
 
-Specification version 29 · reviewed 31 October 2026.
+Specification version 30 · reviewed 5 November 2026.
 
 Canonical CoSMiX-wide reference for dataset authors and interface developers.
 Read this specification when preparing, adding or revising a CoSMiX dataset.
@@ -545,9 +545,27 @@ relative abundance across this population first.
 
 ### Exploratory skin population maps
 
-Skin v2 uses a discrete visit-order palette within each population; unknown or
-unverified visits are gray. Colors repeat after eight visit orders, so the
-textual legend and hover labels explicitly identify the order. Visit colors do
-not imply elapsed time, cross-study correspondence or a CST assignment. Filtering
-to a participant shows that participant's retained specimens and vetted same-site
-edges only. Unknown metadata and exploratory notices remain in views and exports.
+Skin v2 populations appear under one Skin entry, with independent populations
+selected using Cohort. There is no pooled map or cross-cohort assignment.
+An optional, revision-bound genus-state supplement adds pure and current-coverage
+merged genus 2-CST colors. These annotate unchanged ASV-based coordinates.
+Coverage uses whole frequency tiers within the selected population. With
+assignment off, only original members of retained pure cores are displayed;
+with assignment on, remaining specimens retain their precomputed within-cohort
+assignments. Changing Color by alone never filters samples or changes maps.
+
+State colors are deterministically keyed by the unordered full category IDs,
+including higher-rank and unassigned-taxonomy fallbacks. Numeric pair keys remain
+population-local. Pair labels order components by population total relative
+abundance. Labels and counts supplement color, which is not guaranteed unique
+across the many rare pairs. Cohort coloring is uniform within the selected cohort.
+The legend's n counts displayed specimens; % and c% use all eligible specimens
+in that cohort, including when only original retained cores are visible.
+
+Verified visit order remains a separate discrete palette; unknown or unverified
+visits are gray. Colors repeat after eight visit orders, so textual legends and
+hover labels identify the order. Visit colors do not imply elapsed time or
+cross-study correspondence. Filtering retains only existing same-site edges with
+both endpoints visible; no hidden visits are bridged. Unknown metadata, genus/ASV
+distinctions and exploratory notices remain in views and exports. Coverage,
+assignment visibility and color preferences persist separately per population.

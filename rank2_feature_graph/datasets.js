@@ -22,8 +22,9 @@ function datasetDisplayMethods(meta){return cstTerminology([BUNDLE_PACK.datasetP
 function updateDatasetChoices(){
  const catalogue=new Map(typeof VME_ASSETS==='undefined'?[]:Object.entries(VME_ASSETS.manifest.datasets).map(([id,x])=>[id,x]));
  for(const [id,b] of datasetRegistry)catalogue.set(id,b);
- const options=[...catalogue.values()].filter(b=>!BUNDLE_PACK.distributionDatasets||BUNDLE_PACK.distributionDatasets.includes(b.dataset.id)).map(b=>`<option value="${esc(b.dataset.id)}">${esc(datasetDisplayTitle(b.dataset))}</option>`).join('')+
-  [...embeddingFamilyRegistry.values()].map(f=>`<option value="${esc(f.id)}">${esc(f.title)}</option>`).join('')+(BUNDLE_PACK.optionalDatasetLinks||[]).map(f=>`<option value="${esc(f.id)}">${esc(f.title)}</option>`).join('')+'<option value="empty">Empty</option><option value="">Load dataset bundle…</option>';
+ let choices=[...catalogue.values()].filter(b=>!BUNDLE_PACK.distributionDatasets||BUNDLE_PACK.distributionDatasets.includes(b.dataset.id)).map(b=>({id:b.dataset.id,title:datasetDisplayTitle(b.dataset)})).concat([...embeddingFamilyRegistry.values()],BUNDLE_PACK.optionalDatasetLinks||[]);
+ if(globalThis.VMEAssetLoader)choices=VMEAssetLoader.groupSkinChoices(choices,globalThis.VME_ASSETS?.skinCohorts||[]);
+ const options=choices.map(f=>`<option value="${esc(f.id)}">${esc(f.title)}</option>`).join('')+'<option value="empty">Empty</option><option value="">Load dataset bundle…</option>';
  for(const id of ['datasetSelect','panelDatasetSelect']){el(id).innerHTML=options;el(id).value=activeEmbeddingFamily?.id||META.id}
 }
 function datasetPresentation(coverage=META.defaultCoverage){
@@ -165,7 +166,7 @@ function datasetMessage(message){for(const id of ['datasetMessage','panelDataset
 for(const id of ['datasetSelect','panelDatasetSelect'])el(id).onchange=()=>{
  const value=el(id).value;
  if(value==='empty'){location.assign(new URL('empty.html',location.href).href);return}
- if(['skin-population-v1','skin-population-v2'].includes(globalThis.VME_ASSETS?.manifest.datasets[value]?.capability)||BUNDLE_PACK.optionalDatasetLinks?.some(item=>item.id===value)){const url=new URL(location.href);url.searchParams.set('dataset',value);location.assign(url.href);return}
+ if(value==='skin'||['skin-population-v1','skin-population-v2'].includes(globalThis.VME_ASSETS?.manifest.datasets[value]?.capability)||BUNDLE_PACK.optionalDatasetLinks?.some(item=>item.id===value)){const url=new URL(location.href);url.searchParams.set('dataset',value);url.searchParams.delete('cohort');location.assign(url.href);return}
  if(value===''){
   // Restore both selectors before opening the picker, including when it is canceled.
   updateDatasetChoices();el('datasetFile').value='';el('datasetFile').click();return;

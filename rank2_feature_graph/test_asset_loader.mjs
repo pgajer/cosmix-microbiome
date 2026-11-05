@@ -4,6 +4,16 @@ const context=vm.createContext({TextDecoder,Uint8Array,crypto:webcrypto});
 vm.runInContext(fs.readFileSync(new URL('asset_loader.js',import.meta.url),'utf8'),context);
 const {createLoader}=context.VMEAssetLoader;
 const plain=x=>JSON.parse(JSON.stringify(x));
+{
+ const {skinCohorts,groupSkinChoices,resolveSkinDataset}=context.VMEAssetLoader;
+ const m={seed:{distributionDatasets:['a','s2']},datasets:{a:{dataset:{id:'a',title:'A'}},s1:{capability:'skin-population-v2',dataset:{id:'s1',title:'One'}},s2:{capability:'skin-population-v2',dataset:{id:'s2',title:'Two'}}}};
+ const cohorts=skinCohorts(m);assert.deepEqual(plain(cohorts),[{id:'s2',title:'Two'}]);
+ assert.deepEqual(plain(groupSkinChoices([{id:'a',title:'A'},...cohorts,...cohorts],cohorts)),[{id:'a',title:'A'},{id:'skin',title:'Skin'}]);
+ assert.equal(resolveSkinDataset('skin',null,cohorts),'s2');assert.equal(resolveSkinDataset('skin','s2',cohorts),'s2');
+ assert.equal(resolveSkinDataset('s2',null,cohorts),'s2','Old links remain identities');
+ assert.throws(()=>resolveSkinDataset('skin','s1',cohorts),/not installed/);
+ assert.throws(()=>resolveSkinDataset('skin',null,[]),/No skin cohorts/);
+}
 const bodies=new Map();
 async function descriptor(value){const bytes=new TextEncoder().encode(JSON.stringify(value)),sha256=Buffer.from(await webcrypto.subtle.digest('SHA-256',bytes)).toString('hex');const d={url:'/vme-assets/'+sha256+'.json',sha256,bytes:bytes.length};bodies.set(d.url,bytes);return d}
 const a=await descriptor({bundles:[{dataset:{id:'a'}}],subjectEmbeddings:{contexts:{a:'one'}}}),fit=await descriptor({subjectEmbeddings:{fits:{one:{coords:[[1,2,3]]}}}}),b=await descriptor({bundles:[{dataset:{id:'b'}}]});

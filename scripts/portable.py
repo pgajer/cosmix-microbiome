@@ -491,7 +491,7 @@ def app_destination(output=None):
 
 
 def update(package=None, metadata_path=None, output=None, neighborhood_package=None, neighborhood_metadata=None,
-           catalog=None, datasets=None, select_datasets=False, agp_population=None, skin_exchanges=None):
+           catalog=None, datasets=None, select_datasets=False, agp_population=None, skin_exchanges=None, skin_states=None):
     output = app_destination(output)
     # Reject the source checkout before creating any locks or staging folders.
     if output == ROOT or output in ROOT.parents or ROOT in output.parents:
@@ -577,6 +577,20 @@ def update(package=None, metadata_path=None, output=None, neighborhood_package=N
                 receipt = json.loads(receipt_path.read_text())
                 receipt['skinExchanges'] = list(map(str, paths))
                 receipt_path.write_text(json.dumps(receipt, indent=2)+'\n')
+            skin_states = skin_states or old_receipt.get('skinStates')
+            if skin_states:
+                from skin_states import attach as attach_states
+                states_path = Path(skin_states).expanduser().resolve()
+                if output == states_path or output in states_path.parents or states_path in output.parents:
+                    raise ValueError('Keep skin state data outside the app folder')
+                # A changed selectable subset may contain no skin populations.
+                if any(e.get('capability') == 'skin-population-v2' for e in read_manifest(candidate/'web/index.html')['datasets'].values()):
+                    digest = attach_states(candidate/'web/index.html', states_path)
+                    extend_instance(candidate, 'skin-states', digest)
+                receipt_path = candidate/'SOURCE_AND_DATA.json'
+                receipt = json.loads(receipt_path.read_text())
+                receipt['skinStates'] = str(states_path)
+                receipt_path.write_text(json.dumps(receipt, indent=2)+'\n')
             validate_prepared(candidate)
             # Write recovery information before either directory is moved.
             with journal.open('x') as stream:
@@ -619,11 +633,12 @@ def main():
     item.add_argument('--select-datasets', action='store_true', help='Choose datasets interactively')
     item.add_argument('--agp-population', type=Path, help='Reviewed AGP SILVA population file (remembered locally)')
     item.add_argument('--skin-exchange', nargs='+', type=Path, help='Registered skin v2 exchange directories (remembered locally)')
+    item.add_argument('--skin-states', type=Path, help='Reviewed skin genus-state sidecar directory (remembered locally)')
     args = parser.parse_args()
     try:
         if args.command == 'update':
             update(args.package, args.metadata, args.output, args.neighborhood_package, args.neighborhood_metadata,
-                   args.catalog, args.datasets, args.select_datasets, args.agp_population, args.skin_exchange)
+                   args.catalog, args.datasets, args.select_datasets, args.agp_population, args.skin_exchange, args.skin_states)
         elif args.command == 'prepare':
             prepare(args.package.resolve(), args.metadata.resolve(), args.output.resolve())
         else:
