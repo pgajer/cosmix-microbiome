@@ -240,6 +240,10 @@ with a smaller subset does not need to run these checks to install or update.
 
 ## AGP population
 
+Optional outcome-estimate checks and their data requirements are documented in
+[AGP_OUTCOMES.md](rank2_feature_graph/AGP_OUTCOMES.md). They remain on demand,
+outside installation and updates, and never fit models.
+
 Graph picking checks are also on demand:
 
 ```sh

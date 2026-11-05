@@ -119,6 +119,11 @@ def attach(page, source):
         from agp_connection_layouts_supplement import checked_layouts
         entry['parts'].append(publish(checked_layouts(connection_layouts,source),'.json'))
         accepted.append(entry['parts'].copy())
+    outcomes=source.with_name('outcome-estimates.json')
+    if outcomes.is_file():
+        from agp_outcomes_supplement import checked_outcomes
+        entry['parts'].append(publish(checked_outcomes(outcomes,json.loads(raw)),'.json'))
+        accepted.append(entry['parts'].copy())
     accepted_entries = [{**entry, 'parts': parts} for parts in accepted]
     if revision == POPULATION_PINS[EPOCH500_PIN]:
         accepted_entries += [{**entry, 'dataset': {**entry['dataset'], 'revision': POPULATION_PINS[PIN]},
@@ -129,7 +134,7 @@ def attach(page, source):
     allowed = manifest['seed'].get('distributionDatasets')
     if allowed is not None and ID not in allowed:
         allowed.append(ID)
-    viewer = b'(() => {\n' + (p.HERE/'sphere_geometry.js').read_bytes() + b'\n' + (p.HERE/'png_export.js').read_bytes() + b'\n' + (p.HERE/'agp_connections.js').read_bytes() + b'\n' + (p.HERE/'agp_connection_layouts.js').read_bytes() + b'\n' + (p.HERE/'agp_graph_picking.js').read_bytes() + b'\n' + (p.HERE/'agp_population.js').read_bytes()
+    viewer = b'(() => {\n' + (p.HERE/'sphere_geometry.js').read_bytes() + b'\n' + (p.HERE/'png_export.js').read_bytes() + b'\n' + (p.HERE/'agp_connections.js').read_bytes() + b'\n' + (p.HERE/'agp_connection_layouts.js').read_bytes() + b'\n' + (p.HERE/'agp_graph_picking.js').read_bytes() + b'\n' + (p.HERE/'agp_outcomes.js').read_bytes() + b'\n' + (p.HERE/'agp_population.js').read_bytes()
     manifest['agpViewer'] = publish(viewer + b'\nwindow.showAgpPopulation = showAgpPopulation;\n})();', '.js')
     loader = publish((p.HERE/'asset_loader.js').read_bytes(),'.js')
     html = page.read_text()

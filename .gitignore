@@ -13,6 +13,7 @@
 !/TESTING.md
 !/THIRD_PARTY_NOTICES.md
 !/rank2_feature_graph/AGP_CONNECTIONS.md
+!/rank2_feature_graph/AGP_OUTCOMES.md
 !/rank2_feature_graph/ASSOCIATIONS.md
 !/rank2_feature_graph/QUALITY_PREVIEW_POLICY.md
 !/rank2_feature_graph/SKIN_POPULATIONS.md
@@ -20,6 +21,7 @@
 !/rank2_feature_graph/agp_connection_layouts.js
 !/rank2_feature_graph/agp_connections.js
 !/rank2_feature_graph/agp_graph_picking.js
+!/rank2_feature_graph/agp_outcomes.js
 !/rank2_feature_graph/agp_population.js
 !/rank2_feature_graph/annotation_tracks.js
 !/rank2_feature_graph/asset_loader.js
@@ -68,6 +70,8 @@
 !/rank2_feature_graph/test_agp_connections_browser.cjs
 !/rank2_feature_graph/test_agp_graph_picking.cjs
 !/rank2_feature_graph/test_agp_graph_picking_browser.cjs
+!/rank2_feature_graph/test_agp_outcomes.cjs
+!/rank2_feature_graph/test_agp_outcomes_browser.cjs
 !/rank2_feature_graph/test_agp_persistence.cjs
 !/rank2_feature_graph/test_agp_population.cjs
 !/rank2_feature_graph/test_asset_loader.mjs
@@ -104,6 +108,7 @@
 !/rank2_feature_graph/viewer_source.py
 !/scripts/agp_connection_layouts_supplement.py
 !/scripts/agp_connections_supplement.py
+!/scripts/agp_outcomes_supplement.py
 !/scripts/agp_supplement.py
 !/scripts/association_supplement.py
 !/scripts/cosmix-test
@@ -121,6 +126,7 @@
 !/scripts/test_agp_connection_layouts.py
 !/scripts/test_agp_connections.py
 !/scripts/test_agp_epoch500.py
+!/scripts/test_agp_outcomes.py
 !/scripts/test_dataset_maxnorm_supplement.py
 !/scripts/test_max_normalized_supplement.py
 !/scripts/test_meeting_release.py

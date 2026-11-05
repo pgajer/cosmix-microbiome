@@ -1,6 +1,6 @@
 # CoSMiX color specification
 
-Specification version 32 · reviewed 5 November 2026.
+Specification version 33 · reviewed 5 November 2026.
 
 Canonical CoSMiX-wide reference for dataset authors and interface developers.
 Read this specification when preparing, adding or revising a CoSMiX dataset.
@@ -586,3 +586,15 @@ selected and incident edges are highlighted in orange. These graph annotations
 do not override the independent sample Color by choice. Graph selection follows
 the current assignment checkbox and retained cores, while coloring alone changes
 no membership. Unknown genus assignments retain their explicit higher-rank labels.
+
+### AGP outcome probability colors
+
+The optional Outcome estimates controls override sample CST colors only when
+enabled. A common Viridis scale maps probability 0–1 to 0–100% for all outcomes,
+estimators, fitting populations and prediction types. Unavailable estimates
+are gray (`#9ca3af`); samples outside a selected graph boundary are lighter gray
+(`#dedede`). Hover text distinguishes these from missing recorded answers.
+Zero is a valid estimate, never an unavailable code. State colors and counts
+remain in the CST table and graph; reference vertices retain their own color.
+The fixed frozen 70%-1-CST fitting populations are independent of display
+coverage or pure/merged filtering. See [outcome estimates](rank2_feature_graph/AGP_OUTCOMES.md).

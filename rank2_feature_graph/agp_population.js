@@ -7,8 +7,8 @@ function agpViewPreferences(data){
   'graphProportionStrength','graphSpheres','graphSphereAmbient','graphSphereHighlights','graphVertexScale',
   'vertexLabels','graphVertexColor','graphEdgeColor','graphWidthBySize','graphEdgeWidth','graphWidthStrength',
   'graphFadeBySize','graphFadeStrength','graphDegreeFilter','graphMinimumDegree','agpConnectionNeighbors',
-  'agpConnectionPure','agpConnectionMeasure','agpConnectionBoundary','agpConnectionMinWeight','agpConnectionMinSamples','agpConnectionLengths'];
- const detailIds=['dataControls','sampleAppearance','sampleAppearanceVertices','graphVertexCharacteristics','agpConnectionHelp','agpEmbeddingDetails'];
+  'agpConnectionPure','agpConnectionMeasure','agpConnectionBoundary','agpConnectionMinWeight','agpConnectionMinSamples','agpConnectionLengths',...AgpOutcomes.controls];
+ const detailIds=['dataControls','sampleAppearance','sampleAppearanceVertices','graphVertexCharacteristics','agpConnectionHelp','agpEmbeddingDetails','agpOutcomeControls'];
  const el=id=>document.getElementById(id);
  let saved={},ready=false,snapshot=()=>({}),views=new Map();
  try{
@@ -83,7 +83,7 @@ function agpViewPreferences(data){
   install(graphSnapshot){
    snapshot=graphSnapshot;ready=true;
    for(const event of ['input','change','click'])document.addEventListener(event,e=>{
-    if(e.target.closest?.('#samplePanel,#featurePanel')||e.target.id==='toggleControls')save();
+    if(e.target.closest?.('#samplePanel,#featurePanel,#agpOutcomeControls')||e.target.id==='toggleControls')save();
    });
    document.addEventListener('toggle',e=>{if(detailIds.includes(e.target.id))save()},true);
    const flush=()=>{remember(el('samples'));remember(el('graph3d'));save()};
@@ -95,7 +95,7 @@ function agpViewPreferences(data){
 }
 
 // AGP colors and filters are assignments in abundance space. Coordinates come from the saved population fit.
-async function showAgpPopulation(data, choices, references, graphLayouts, localFits, localBank, unfoldedBank, connectionBank, mergedConnections, connectionLayouts){
+async function showAgpPopulation(data, choices, references, graphLayouts, localFits, localBank, unfoldedBank, connectionBank, mergedConnections, connectionLayouts, outcomeBank){
  connectionBank=AgpConnections.validate(connectionBank,data);
  if(connectionBank)connectionBank.merged=AgpConnections.validateMerged(mergedConnections,data);
  connectionLayouts=AgpConnectionLayouts.validate(connectionLayouts,data);
@@ -189,6 +189,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  for(const scheme of Object.values(data.schemes))for(const state of scheme.cores){
   if(!stateColors.has(state)){const i=stateColors.size;stateColors.set(state,palette[i]||('hsl('+Math.round(i*137.508%360)+',55%,'+(35+10*(i%3))+'%)'))}
  }
+ const outcomes=AgpOutcomes.install(outcomeBank,data,el('controlSections'),()=>draw());
  const rows=new Map(data.ids.map((id,i)=>[id,i]));
  const graph=agpGraphPanel(data,references,rows,graphLayouts,connectionBank,preferences,connectionLayouts);
  const openExport=installPngExportDialog(el,async()=>{
@@ -199,7 +200,9 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   Object.assign(layout,{width,height,autosize:false});
   const s=data.schemes[color.value],selected=graph.selection();
   const rows=[{text:color.selectedOptions[0].textContent+' · '+(assign.checked?'Assigned and core samples':'Core samples only')},
-   {text:plot.data[0].ids.length.toLocaleString()+' samples displayed'}];
+   {text:plot.data.filter(t=>t.meta?.agpSamples).reduce((n,t)=>n+t.ids.length,0).toLocaleString()+' samples displayed'}];
+  const outcome=outcomes.current();
+  if(outcome.active)rows.push({text:outcome.title},{text:outcome.description},{text:'Probability scale: 0–100%. Gray: unavailable or selection context.'});
   if(selected)rows.push({text:'Selected '+(selected.edge?'state: ':'vertex: ')+selected.name});
   for(const tr of Array.from(info.querySelector('table').rows).slice(1)){
    const cells=tr.cells;rows.push({text:cells[0].textContent+' · '+cells[3].textContent+' samples ('+cells[4].textContent+'%)',color:cells[0].firstElementChild.style.backgroundColor});
@@ -254,7 +257,8 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
    formula.textContent+=' Distances use the '+method.selectedOptions[0].textContent+' geometry after unfolding around '+selected.name+'.';
    formula.textContent+=entry.rotated?' '+entry.rotated.toLocaleString()+' samples were rotated onto the anchor face. The ordinary map reports error against its own original target distances.':' Every sample already lies on the anchor face, so the ordinary coordinates apply.';
   }
-  const xyz=[[],[],[]],colors=[],hover=[],ids=[],counts=new Map(s.cores.map(key=>[key,0]));
+  const outcome=outcomes.current();
+  const xyz=[[],[],[]],colors=[],hover=[],ids=[],highlighted=[],counts=new Map(s.cores.map(key=>[key,0]));
   const coreCounts=new Map(counts);
   let populationCore=0;
   for(let i=0;i<data.ids.length;i++){
@@ -264,14 +268,21 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
    counts.set(state,counts.get(state)+1);
    if(local&&!localRows.has(i))continue;
    const position=local?localRows.get(i):i;
-   ids.push(data.ids[i]);colors.push(graph.contains(state,i)?stateColors.get(state):'#dedede');
+   ids.push(data.ids[i]);highlighted.push(graph.contains(state,i));colors.push(graph.contains(state,i)?stateColors.get(state):'#dedede');
    for(let j=0;j<3;j++)xyz[j].push(coords[position][j]);
    hover.push([s.labels[state],isCore?'Original core member':s.assignment[i]==='rank-support'?'Assigned by rank '+(s.k+1)+' support':'Assigned by neighbor vote']);
   }
   info.replaceChildren();
   function add(tag,value){const node=document.createElement(tag);node.textContent=value;info.append(node);return node}
   add('h3',color.selectedOptions[0].textContent);
-  if(selected?.connection)add('p','Boundary samples for the graph’s current pure or merged memberships retain their state colors; other displayed samples are gray. The saved population coordinates and displayed memberships are unchanged.');
+  if(outcome.active){
+   add('h3',outcome.title);add('p',outcome.description);
+   const values=ids.map(id=>outcomes.lookup(id,outcome)),available=values.filter(v=>v.probability!==null).length;
+   add('p',available.toLocaleString()+' estimated · '+(ids.length-available).toLocaleString()+' unavailable. Fixed probability scale: 0–100%; unavailable estimates are gray. Observed answers are reported separately in the hover.');
+   if(outcome.scope==='state')add('p','Fitted within frozen merged 70%-1-CSTs, independently of the displayed CST coverage and pure/merged setting.');
+   if(selected?.connection)add('p','Probability colors highlight this graph boundary; other displayed samples are light gray context.');
+  }
+  if(!outcome.active&&selected?.connection)add('p','Boundary samples for the graph’s current pure or merged memberships retain their state colors; other displayed samples are gray. The saved population coordinates and displayed memberships are unchanged.');
   if(s.k===1&&(localBank||(localFits&&s.q===70))){
    if(unfolded)add('p',entry.rotated?'Unfolded around '+selected.name+' · '+entry.rotated.toLocaleString()+' samples rotated.':'Every sample lies on the anchor face. Both views use the same coordinates.');
    if(local)add('p','Local fit of '+(assign.checked?'the merged state':'the pure state')+'. Clear selection to return to the population map.');
@@ -296,7 +307,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
    return [lo-pad,hi+pad];
   }));
   const [xaxis,yaxis,zaxis]=ranges.get(frame).map(range=>({range,visible:false}));
-  const samples={type:'scatter3d',mode:'markers',x:xyz[0],y:xyz[1],z:xyz[2],ids,
+  const samples={type:'scatter3d',meta:{agpSamples:true},mode:'markers',x:xyz[0],y:xyz[1],z:xyz[2],ids,
     marker:{size:2.5,color:colors,opacity:0.8},customdata:hover,text:ids,
     hovertemplate:'%{text}<br>%{customdata[0]}<br>%{customdata[1]}<extra></extra>'};
   const components=local?[selected.id].filter(id=>references&&localRows.has(rows.get(references[id].sample))):[...new Set(s.cores.flatMap(state=>state.split(',')))];
@@ -309,7 +320,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
    for(const input of [scale,ambient,highlights,fontSize])el(input.id+'Value').value=input.value+(input===fontSize?' px':'%');
    const note=el('sampleReferenceNote');
    note.hidden=visible;note.textContent=local&&!components.length?'The observed reference sample is outside this local fit.':references?'Turn on Component labels to show reference vertices.':labelControl.title;
-   const traces=[samples],annotations=[];
+   const traces=outcomes.annotate(samples,outcome,highlighted),annotations=[];
    if(visible){
     const anchors=components.map(t=>references[t]),p=anchors.map(a=>coords[local?localRows.get(rows.get(a.sample)):rows.get(a.sample)]);
     const size=5*Number(scale.value)/100;
@@ -331,7 +342,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
    }
    const view=preferences.view(plot,frame);
    return sampleReady=Plotly.react(plot,traces,
-    {showlegend:false,margin:{l:0,r:0,b:0,t:0},uirevision:frame,scene:{aspectmode:'data',xaxis,yaxis,zaxis,annotations,...(view.camera?{camera:view.camera}:{})}},
+    {showlegend:false,margin:{l:0,r:outcome.active?60:0,b:0,t:0},uirevision:frame,scene:{aspectmode:'data',xaxis,yaxis,zaxis,annotations,...(view.camera?{camera:view.camera}:{})}},
     {responsive:true,displaylogo:false}).then(()=>preferences.watch(plot));
   };
   // The connection bank describes pure cores, independently of sample assignment.
