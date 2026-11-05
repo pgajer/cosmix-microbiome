@@ -144,7 +144,8 @@ const reference=JSON.parse(require('fs').readFileSync(population));
  await page.click('#viewExportClose');
  console.log('PASS AGP selection navigation, history reset, and PNG download with legend at 2×');
  const localPath=path.join(path.dirname(population),'local-1cst-pilot.json');
- const pivotPath=path.join(path.dirname(population),'local-1cst-reviewed.json');
+ const epoch500Path=path.join(path.dirname(population),'local-1cst-error500.json');
+ const pivotPath=fs.existsSync(epoch500Path)?epoch500Path:path.join(path.dirname(population),'local-1cst-reviewed.json');
  const reviewedPath=fs.existsSync(pivotPath)?pivotPath:path.join(path.dirname(population),'local-1cst-through-5006.json');
  const fullPath=fs.existsSync(reviewedPath)?reviewedPath:path.join(path.dirname(population),'local-1cst-all.json');
  if(fs.existsSync(fullPath)||fs.existsSync(localPath)){
@@ -171,7 +172,8 @@ const reference=JSON.parse(require('fs').readFileSync(population));
     }
    }
   }
-  const unfoldedPath=path.join(path.dirname(population),'local-1cst-unfolded.json');
+  const unfolded500Path=path.join(path.dirname(population),'local-1cst-unfolded-error500.json');
+  const unfoldedPath=fs.existsSync(unfolded500Path)?unfolded500Path:path.join(path.dirname(population),'local-1cst-unfolded.json');
   const unfolded=fs.existsSync(unfoldedPath)?JSON.parse(fs.readFileSync(unfoldedPath)).agpUnfolded:null;
   if(unfolded){
    assert.equal(Object.keys(unfolded.views).length,248);assert.equal(Object.keys(unfolded.fits).length,144);
@@ -184,7 +186,7 @@ const reference=JSON.parse(require('fs').readFileSync(population));
     }
    }
   }
-  const cases=bank?[[70,'51'],...(fs.existsSync(pivotPath)?[[80,'51'],[90,'51']]:[]),[70,'146'],[80,'268'],[90,'299']]:[[70,'51'],[70,'13']];
+  const cases=bank?[[70,'51'],...(fs.existsSync(pivotPath)?[[80,'51'],[90,'51']]:[]),[70,'146'],[80,'268'],[90,'299'],...(fs.existsSync(epoch500Path)?[[90,'76'],[90,'274'],[90,'13']]:[])]:[[70,'51'],[70,'13']];
   for(const [q,id] of cases){
    const scheme=q+'%-1-CST',name=reference.schemes[scheme].labels[id];
    await page.selectOption('#sampleColorScheme',scheme);

@@ -17,7 +17,9 @@ LOCAL_ALL_PIN = '49ae4a557268d614e6acbda31c47ee91f7fc1dc966b1e7ad718e702a037ef24
 LOCAL_THROUGH_5006_PIN = 'fbb2f0ea6b59267868e31b684b6ccd7945d4fc97e6045792eafc383c06d5f6fc'
 LOCAL_PILOT_PIN = 'f3c5c29a39407c3d6dc83630382592ddca2e941759730dab8dc2c929a90e7fd3'
 LOCAL_REVIEWED_PIN = '51473823570462976a9f8a76e20ceb7949ebd7c7e828ffa7b72299ca45645533'
+LOCAL_ERROR500_PIN = 'eebb47756393851bbfa4cdd5c30663ace3e30130c8d8b382d9f47323672f4f77'
 UNFOLDED_PIN = '874d557c15cc31e96ad4ff2d3cdf56b5a6f0c73ca74b4651c49cb5bfd3da6adc'
+UNFOLDED_ERROR500_PIN = '22e7431915fe1bf6b54d60a4092262fbaa9988bb80a80fbcccbacb6fc567d56e'
 LAYOUT_PIN = 'b4249fcdcbfa322ad301ff93840593db4b6541bfb8dab8fddfc9e9348dd756a0'
 
 
@@ -64,7 +66,9 @@ def attach(page, source):
         ('local-1cst-all.json', LOCAL_ALL_PIN, 14467743),
         ('local-1cst-through-5006.json', LOCAL_THROUGH_5006_PIN, 15163011),
         ('local-1cst-reviewed.json', LOCAL_REVIEWED_PIN, 15939243),
+        ('local-1cst-error500.json', LOCAL_ERROR500_PIN, 15942907),
     ]
+    base_parts = entry['parts'].copy()
     for index in reversed(range(len(releases))):
         name, checksum, size = releases[index]
         path = source.with_name(name)
@@ -78,15 +82,25 @@ def attach(page, source):
             accepted.append(entry['parts'] + [descriptor])
         entry['parts'].append(publish(data, '.json'))
         break
-    unfolded = source.with_name('local-1cst-unfolded.json')
+    unfolded = source.with_name('local-1cst-unfolded-error500.json')
+    unfolded_pin, ordinary_pin = UNFOLDED_ERROR500_PIN, LOCAL_ERROR500_PIN
+    if not unfolded.is_file():
+        unfolded = source.with_name('local-1cst-unfolded.json')
+        unfolded_pin, ordinary_pin = UNFOLDED_PIN, LOCAL_REVIEWED_PIN
     if unfolded.is_file():
-        if entry['parts'][-1]['sha256'] != LOCAL_REVIEWED_PIN:
-            raise ValueError('AGP unfolding requires local-1cst-reviewed.json beside population.json')
+        if entry['parts'][-1]['sha256'] != ordinary_pin:
+            raise ValueError('AGP unfolding requires its matching ordinary local bank beside population.json')
         raw_unfolded = unfolded.read_bytes()
-        if p.sha(raw_unfolded) != UNFOLDED_PIN:
+        if p.sha(raw_unfolded) != unfolded_pin or json.loads(raw_unfolded)['agpUnfolded']['baseSha'] != ordinary_pin:
             raise ValueError('AGP unfolded 1-CST maps differ from the reviewed revision')
         accepted.append(entry['parts'].copy())
         entry['parts'].append(publish(raw_unfolded, '.json'))
+        if unfolded_pin == UNFOLDED_ERROR500_PIN:
+            # Permit the exact previously reviewed ordinary+unfolded release.
+            accepted.append(base_parts + [
+                dict(url='/vme-assets/'+LOCAL_REVIEWED_PIN+'.json', sha256=LOCAL_REVIEWED_PIN, bytes=15939243),
+                dict(url='/vme-assets/'+UNFOLDED_PIN+'.json', sha256=UNFOLDED_PIN, bytes=7064531),
+            ])
     accepted.append(entry['parts'])
     accepted_entries = [{**entry, 'parts': parts} for parts in accepted]
     if revision == POPULATION_PINS[EPOCH500_PIN]:

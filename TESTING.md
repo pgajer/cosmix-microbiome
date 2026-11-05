@@ -246,3 +246,22 @@ epoch counts and rendered coordinates against the supplied package. It uses Play
 and Chrome. Place the optional `local-1cst-all.json` beside `population.json` for all pure and merged 1-CST views at 70%, 80% and 90%. For the reviewed full metric-MDS maps, place `local-1cst-through-5006.json` beside `population.json`. That supplement keeps the 400-pivot maps for memberships above 5,006 samples. To use the reviewed 4,000-pivot maps for all four larger *B. dorei* memberships as well, place `local-1cst-reviewed.json` beside `population.json`. This newest supplement contains every local map, takes precedence over older supplements, and does not require the older files. CoSMiX reports all-pairs error and ten-neighbor recovery for both these sparse fits and the smaller full fits. To enable **Unfold faces** for both max-normalized local methods, add `local-1cst-unfolded.json` beside the reviewed bank. Pure states already lie on their anchor face. The browser check verifies map selection, unfolding and restoration of the ordinary coordinates at each coverage. Older installations with only `local-1cst-pilot.json` retain the two pilot states at 70%. Run `node rank2_feature_graph/test_agp_population.cjs http://127.0.0.1:4173 /path/to/population.json`
 with the origin of the running installation. It checks all four coverage schemes,
 both assignment settings and the three saved population geometries.
+
+
+The optional matched pair `local-1cst-error500.json` and
+`local-1cst-unfolded-error500.json` supersedes the reviewed local banks. It adopts
+16 saved pilot maps (nine ordinary, seven unfolded) with lower all-pairs RMS
+relative distance error; neighbor recovery is not an adoption criterion. All
+other fits and memberships remain unchanged. Install them beside the supplied
+population file; the updater rejects mismatched ordinary/unfolded banks.
+
+Run the data-backed adoption and upgrade checks on demand:
+
+```sh
+COSMIX_AGP_ERROR500=/path/to/new-package \
+COSMIX_AGP_PREVIOUS=/path/to/previous-package \
+python3 -m unittest discover -s scripts -p test_agp_epoch500.py
+```
+
+These checks use existing saved assets, do not run fits, and are outside the
+update command. The browser integration test above also recognizes the new pair.

@@ -133,7 +133,9 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
    const note=m.approximation==='sparse'
     ? 'Sparse metric-MDS used '+m.pivots.toLocaleString()+' pivots. Error was measured on all '+m.pairs.toLocaleString()+' pairs in this state.'
     : 'Full metric-MDS fitted all '+m.pairs.toLocaleString()+' pairs in this state.';
-   formula.textContent=note+' RMS relative error is 100 × √mean[((3D distance − original distance) / original distance)²]. Each sample retains an average of '+m.localRecall.toFixed(2)+'% of its ten original nearest neighbors in the 3D map.';
+   formula.textContent=note+' This fit completed '+m.epochs+' SGD epochs. RMS relative error is 100 × √mean[((3D distance − original distance) / original distance)²].'+
+    (m.epoch500Promotion?' This 500-epoch map replaced the earlier map because its all-pairs relative error is lower (previously '+m.epoch500Promotion.releasedError.toFixed(2)+'%). Neighbor recovery was not used to choose the replacement.':'')+
+    ' Each sample retains an average of '+m.localRecall.toFixed(2)+'% of its ten original nearest neighbors in the 3D map.';
   }else formula.textContent=local?'RMS relative error compares Euclidean distances in the 3D map with original distances under the selected method. It is 100 × the square root of the mean squared relative difference. On the same '+local.metrics.pairs.toLocaleString()+' within-state pairs excluded from both fits, the local map scored '+local.metrics.localError.toFixed(2)+'% and the original epoch-200 population map scored '+local.metrics.populationError.toFixed(2)+'%. Lower is better.':populationFormula(bank);
   if(unfolded){
    formula.textContent+=' Distances use the '+method.selectedOptions[0].textContent+' geometry after unfolding around '+selected.name+'.';
