@@ -64,6 +64,7 @@
 !/rank2_feature_graph/taxon_palette.py
 !/rank2_feature_graph/test_agp_connections.cjs
 !/rank2_feature_graph/test_agp_connections_browser.cjs
+!/rank2_feature_graph/test_agp_persistence.cjs
 !/rank2_feature_graph/test_agp_population.cjs
 !/rank2_feature_graph/test_asset_loader.mjs
 !/rank2_feature_graph/test_association_graphs.mjs

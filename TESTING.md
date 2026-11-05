@@ -240,6 +240,18 @@ with a smaller subset does not need to run these checks to install or update.
 
 ## AGP population
 
+For browser-local state restoration, run on demand against an installation with
+the reviewed AGP local, unfolded and connection supplements:
+
+```sh
+node rank2_feature_graph/test_agp_persistence.cjs http://127.0.0.1:4173
+```
+
+This uses an isolated Playwright/Chrome context to check reload, reopening a tab,
+switching to comb-V3V4-tx and back, selected states/connections, navigation,
+appearance, cameras and invalid/unavailable browser storage. It does not alter
+your browser preferences, run models or join the ordinary update command.
+
 The optional pure 1-CST connection bank and its on-demand integrity/browser
 checks are documented in [AGP connections](rank2_feature_graph/AGP_CONNECTIONS.md).
 Check pure versus merged mode, all three geometries and neighbor counts,

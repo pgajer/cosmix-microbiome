@@ -1,6 +1,103 @@
+// Browser-local display state only: never store samples, memberships or fitted coordinates.
+function agpViewPreferences(data){
+ const key='cosmix-agp-view-v1:'+encodeURIComponent(data.id),identity=[data.countSha256,data.featureSha256];
+ const ids=['sampleColorScheme','sampleMethod','stateMode','unfoldFaces','participantShowVertices',
+  'sampleReferenceSpheres','sampleReferenceScale','sampleReferenceColor','sampleReferenceSphereAmbient',
+  'sampleReferenceSphereHighlights','participantVertexLabelSize','graphEdgeLengths','graphEmbeddingMethod',
+  'graphProportionStrength','graphSpheres','graphSphereAmbient','graphSphereHighlights','graphVertexScale',
+  'vertexLabels','graphVertexColor','graphEdgeColor','graphWidthBySize','graphEdgeWidth','graphWidthStrength',
+  'graphFadeBySize','graphFadeStrength','graphDegreeFilter','graphMinimumDegree','agpConnectionNeighbors',
+  'agpConnectionMeasure','agpConnectionBoundary','agpConnectionMinWeight','agpConnectionMinSamples'];
+ const detailIds=['dataControls','sampleAppearance','sampleAppearanceVertices','graphVertexCharacteristics','agpConnectionHelp','agpEmbeddingDetails'];
+ const el=id=>document.getElementById(id);
+ let saved={},ready=false,snapshot=()=>({}),views=new Map();
+ try{
+  const value=JSON.parse(localStorage.getItem(key));
+  if(value?.version===1&&JSON.stringify(value.identity)===JSON.stringify(identity))saved=value;
+ }catch{}
+ const camera=value=>{
+  if(!value||!['eye','center','up'].every(k=>['x','y','z'].every(a=>Number.isFinite(value[k]?.[a])&&Math.abs(value[k][a])<1e6)))return null;
+  const result=Object.fromEntries(['eye','center','up'].map(k=>[k,Object.fromEntries(['x','y','z'].map(a=>[a,value[k][a]]))]));
+  if(['perspective','orthographic'].includes(value.projection?.type))result.projection={type:value.projection.type};
+  return result;
+ };
+ const validView=value=>{
+  const c=camera(value?.camera);
+  if(c)return {camera:c};
+  if(['x','y'].every(a=>Array.isArray(value?.[a])&&value[a].length===2&&value[a].every(Number.isFinite)&&value[a][0]!==value[a][1]))return {x:[...value.x],y:[...value.y]};
+  return null;
+ };
+ for(const [frame,value] of Object.entries(saved.views||{}).slice(-120)){
+  const view=validView(value);if(frame.length<300&&view)views.set(frame,view);
+ }
+ function remember(plot){
+  if(!plot?._agpFrame)return;
+  const scene=plot._fullLayout?.scene?._scene;
+  const value=validView(scene?{camera:scene.getCamera()}:{x:plot._fullLayout?.xaxis?.range,y:plot._fullLayout?.yaxis?.range});
+  if(value){views.delete(plot._agpFrame);views.set(plot._agpFrame,value)}
+  while(views.size>120)views.delete(views.keys().next().value);
+ }
+ function save(){
+  if(!ready)return;
+  const controls=Object.fromEntries(ids.map(id=>{const node=el(id);return [id,node.type==='checkbox'?node.checked:node.value]}));
+  const details=Object.fromEntries(detailIds.map(id=>[id,el(id).open]));
+  try{localStorage.setItem(key,JSON.stringify({version:1,identity,controls,details,graph:snapshot(),views:Object.fromEntries(views),
+   collapsed:el('explorerLayout').classList.contains('controlsCollapsed'),
+   expanded:['samplePanel','featurePanel'].filter(id=>el(id).classList.contains('agpExpanded'))}))}catch{}
+ }
+ return {
+  graph:saved.graph,
+  restore(){
+   for(const id of ids){
+    const node=el(id),value=saved.controls?.[id];
+    if(node.type==='checkbox'){if(typeof value==='boolean')node.checked=value}
+    else if(typeof value==='string'){
+     if(node.tagName==='SELECT'){if([...node.options].some(o=>o.value===value))node.value=value}
+     else if(node.type==='color'){if(/^#[0-9a-f]{6}$/i.test(value))node.value=value}
+     else if(['range','number'].includes(node.type)&&value.trim()&&Number.isFinite(Number(value))){
+      const min=node.min===''?-1e6:Number(node.min),max=node.max===''?1e6:Number(node.max),step=Number(node.step)||1;
+      const base=Number.isFinite(min)?min:0;
+      node.value=String(Number(Math.max(min,Math.min(max,base+Math.round((Number(value)-base)/step)*step)).toFixed(12)));
+     }
+    }
+   }
+   for(const id of detailIds)if(typeof saved.details?.[id]==='boolean')el(id).open=saved.details[id];
+   if(typeof saved.collapsed==='boolean'){
+    el('explorerLayout').classList.toggle('controlsCollapsed',saved.collapsed);el('controlSections').hidden=saved.collapsed;
+    el('toggleControls').textContent=saved.collapsed?'›':'‹';el('toggleControls').setAttribute('aria-expanded',String(!saved.collapsed));
+   }
+   for(const id of ['samplePanel','featurePanel'])if(Array.isArray(saved.expanded)&&saved.expanded.includes(id)){
+    el(id).classList.add('agpExpanded');const button=el('maximize-'+id);button.textContent='Restore';button.setAttribute('aria-expanded','true');
+   }
+  },
+  view(plot,frame){
+   plot._agpFrame=plot.id+'/'+frame;
+   return views.get(plot._agpFrame)||{};
+  },
+  watch(plot){
+   if(plot._agpRememberView)return;plot._agpRememberView=true;
+   plot.on('plotly_relayout',event=>{
+    if(Object.keys(event).some(k=>k.startsWith('scene.camera')||/^[xy]axis\.(range|autorange)/.test(k))){remember(plot);save()}
+   });
+  },
+  install(graphSnapshot){
+   snapshot=graphSnapshot;ready=true;
+   for(const event of ['input','change','click'])document.addEventListener(event,e=>{
+    if(e.target.closest?.('#samplePanel,#featurePanel')||e.target.id==='toggleControls')save();
+   });
+   document.addEventListener('toggle',e=>{if(detailIds.includes(e.target.id))save()},true);
+   const flush=()=>{remember(el('samples'));remember(el('graph3d'));save()};
+   window.addEventListener('pagehide',flush);
+   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flush()});
+   save();
+  },save
+ };
+}
+
 // AGP colors and filters are assignments in abundance space. Coordinates come from the saved population fit.
 async function showAgpPopulation(data, choices, references, graphLayouts, localFits, localBank, unfoldedBank, connectionBank){
  connectionBank=AgpConnections.validate(connectionBank,data);
+ const preferences=agpViewPreferences(data);
  const el=id=>document.getElementById(id), method=el('sampleMethod'),color=el('sampleColorScheme'),
        assign=el('stateMode'),plot=el('samples'),info=el('sampleContext'),selector=el('datasetSelect');
  const title=choices.find(item=>item.id===data.id).title;
@@ -68,7 +165,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  const stress=el('sampleStress');
  stress.removeAttribute('aria-haspopup');
  stress.onclick=()=>{details.open=!details.open};
- const details=document.createElement('details');
+ const details=document.createElement('details');details.id='agpEmbeddingDetails';
  const summary=document.createElement('summary');summary.textContent='How the embedding was evaluated';
  const formula=document.createElement('p');
  const populationFormula=bank=>'The reported error is 100 × √mean[((3D distance − original distance) / original distance)²] over '+bank.evaluatedPairs.toLocaleString()+' held-out pairs. All three maps use Euclidean distance on screen. The original distance follows the selected method. This fit used '+(bank.pivots||4000).toLocaleString()+' pivots and '+(bank.epochs||200)+' epochs.'+
@@ -91,7 +188,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   if(!stateColors.has(state)){const i=stateColors.size;stateColors.set(state,palette[i]||('hsl('+Math.round(i*137.508%360)+',55%,'+(35+10*(i%3))+'%)'))}
  }
  const rows=new Map(data.ids.map((id,i)=>[id,i]));
- const graph=agpGraphPanel(data,references,rows,graphLayouts,connectionBank);
+ const graph=agpGraphPanel(data,references,rows,graphLayouts,connectionBank,preferences);
  const openExport=installPngExportDialog(el,async()=>{
   await sampleReady;
   const clone=x=>JSON.parse(JSON.stringify(x)),layout=clone(plot.layout);
@@ -112,7 +209,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  const ranges=new Map();
  const resize=()=>{Plotly.Plots.resize(plot);graph.resize()};
  for(const [panel,button] of [[el('featurePanel'),el('maximize-featurePanel')],[el('samplePanel'),document.createElement('button')]]){
-  if(!button.isConnected){button.type='button';button.className='maximizePanel';button.textContent='⛶ Maximize';header.append(button)}
+  if(!button.isConnected){button.id='maximize-'+panel.id;button.type='button';button.className='maximizePanel';button.textContent='⛶ Maximize';header.append(button)}
   button.disabled=false;button.onclick=()=>{
    const open=panel.classList.toggle('agpExpanded');
    button.textContent=open?'Restore':'⛶ Maximize';button.setAttribute('aria-expanded',String(open));
@@ -230,22 +327,27 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
      x:p.map(v=>v[0]),y:p.map(v=>v[1]),z:p.map(v=>v[2]),text:anchors.map(a=>a.label),
      marker:{size,symbol:'diamond',color:tint.value},customdata:hoverData,hovertemplate});
    }
+   const view=preferences.view(plot,frame);
    return sampleReady=Plotly.react(plot,traces,
-    {showlegend:false,margin:{l:0,r:0,b:0,t:0},uirevision:frame,scene:{aspectmode:'data',xaxis,yaxis,zaxis,annotations}},
-    {responsive:true,displaylogo:false});
+    {showlegend:false,margin:{l:0,r:0,b:0,t:0},uirevision:frame,scene:{aspectmode:'data',xaxis,yaxis,zaxis,annotations,...(view.camera?{camera:view.camera}:{})}},
+    {responsive:true,displaylogo:false}).then(()=>preferences.watch(plot));
   };
   // The connection bank describes pure cores, independently of sample assignment.
   await Promise.all([renderSamples(),graph.update(s,connectionBank&&s.k===1?coreCounts:counts,method.value)]);
+  preferences.save();
  }
  for(const control of [method,color,assign,unfold])control.onchange=draw;
  for(const control of [labels,spheres])control.onchange=()=>renderSamples();
  for(const control of [scale,tint,ambient,highlights,fontSize])control.oninput=()=>renderSamples();
  graph.onSelect(draw);
+ // Options and local/connection controls must exist before restoring their values.
+ info.append(details);preferences.restore();
  await draw();
+ preferences.install(graph.snapshot);
 }
 
 // State counts come from the same retained-state memberships as the sample panel.
-function agpGraphPanel(data,references,rows,bank,connections){
+function agpGraphPanel(data,references,rows,bank,connections,preferences){
  const el=id=>document.getElementById(id);
  const plot=el('graph3d'),area=el('graphPlotArea'),toolbar=el('graphDetails').querySelector('.graphToolbar');
  const layout=document.createElement('select');
@@ -258,6 +360,10 @@ function agpGraphPanel(data,references,rows,bank,connections){
  const spheres=el('graphSpheres'),ambient=el('graphSphereAmbient'),highlights=el('graphSphereHighlights');
  const fitControls=[lengths,strength,algo],sphereControls=[spheres,ambient,highlights];
  let pairLayout=bank?'graph':'diagram',previousAlgorithm='weighted_grip',singleLayout='diagram';
+ const previous=preferences.graph;
+ if(['diagram',...(references?['reference']:[]),...(bank?['graph']:[])].includes(previous?.pairLayout))pairLayout=previous.pairLayout;
+ if(['diagram',...(references?['reference']:[])].includes(previous?.singleLayout))singleLayout=previous.singleLayout;
+ if(['spring','mds','grip','weighted_grip'].includes(previous?.previousAlgorithm))previousAlgorithm=previous.previousAlgorithm;
  lengths.disabled=spheres.disabled=false;lengths.value='proportion';algo.value=previousAlgorithm;
  const layoutLabel=document.createElement('label');
  layoutLabel.append('Graph layout',layout);
@@ -280,7 +386,7 @@ function agpGraphPanel(data,references,rows,bank,connections){
  const minWeight=numeric('agpConnectionMinWeight','Minimum edge weight',.05,.01,1);
  const minSamples=numeric('agpConnectionMinSamples','Min boundary samples / side',5,1,data.ids.length);
  const connectionNote=document.createElement('p');connectionNote.id='agpConnectionNote';connectionControls.append(connectionNote);
- const help=document.createElement('details'),helpTitle=document.createElement('summary');helpTitle.textContent='How connections are measured';
+ const help=document.createElement('details'),helpTitle=document.createElement('summary');help.id='agpConnectionHelp';helpTitle.textContent='How connections are measured';
  const helpText=document.createElement('div');helpText.innerHTML=`<p><strong>Which pure states meet through nearby samples?</strong> Neighbors use original 340-taxon profiles under the selected sample method, never the 3D map. All 24,421 samples remain eligible neighbors, including states hidden by coverage. Each center is excluded. All distances within 10⁻¹² of the cutoff are included.</p>
  <p>For states A and B, let b<sub>A</sub> and b<sub>B</sub> count records having a neighbor in the other state; n<sub>A</sub> and n<sub>B</sub> are their state sizes. Boundary weight is their geometric mean:</p>
  <math display="block"><mi>W</mi><mo>=</mo><msqrt><mfrac><msub><mi>b</mi><mi>A</mi></msub><msub><mi>n</mi><mi>A</mi></msub></mfrac><mo>×</mo><mfrac><msub><mi>b</mi><mi>B</mi></msub><msub><mi>n</mi><mi>B</mi></msub></mfrac></msqrt></math>
@@ -322,7 +428,7 @@ function agpGraphPanel(data,references,rows,bank,connections){
  const clear=document.createElement('button');clear.type='button';clear.textContent='Clear graph selection';clear.hidden=true;
  el('graphSummary').append(clear);
  const back=el('headerBackSelection'),forward=el('headerForwardSelection'),clearHeader=el('headerClearSelection');
- let history=[null],cursor=0;
+ let history=[null],cursor=0,pendingNavigation=previous;
  function syncNavigation(){
   selected=history[cursor];clear.hidden=!selected;clearHeader.disabled=!selected;
   back.disabled=cursor===0;forward.disabled=cursor===history.length-1;
@@ -366,6 +472,7 @@ function agpGraphPanel(data,references,rows,bank,connections){
    if(pair)edges.push({state,ids,n});
   }
   connectionControls.hidden=scheme.k!==1;edgeDetails.hidden=!connected;
+  if(!connected)picker.value='';
   for(const input of [neighbors,measure,rule,minWeight,minSamples])input.disabled=!connected;
   rule.disabled=!connected||measure.value!=='boundary';
   connectionNote.textContent=!connections?'Install pure-1cst-connections.json with the AGP data to enable weighted connections.':'';
@@ -500,7 +607,11 @@ function agpGraphPanel(data,references,rows,bank,connections){
   const config={margin:{t:20,b:20,l:10,r:10},showlegend:false,uirevision:[scheme.q,layout.value,layout.value==='reference'?method:''].join('/'),
    xaxis:{...axis,range:pair||connected?[-.48,1]:[-.10,1]},yaxis:{...axis,range:[-all.length,1]},
    scene:{aspectmode:'data',xaxis:sceneAxis,yaxis:sceneAxis,zaxis:sceneAxis}};
+  const view=preferences.view(plot,config.uirevision);
+  if(spatial&&view.camera)config.scene.camera=view.camera;
+  else if(!spatial&&view.x){config.xaxis.range=view.x;config.yaxis.range=view.y}
   return Plotly.react(plot,traces,config,{responsive:true,displaylogo:false}).then(()=>{
+   preferences.watch(plot);
    if(plot._agpClick)return;
    plot._agpClick=true;plot.on('plotly_click',ev=>{
     const point=ev.points[0];let item=point?.customdata;
@@ -521,9 +632,28 @@ function agpGraphPanel(data,references,rows,bank,connections){
   render();
  };
  return {begin(s,m){if(s!==scheme)resetNavigation();scheme=s;method=m;
+   if(pendingNavigation){
+    const items=pendingNavigation.history,position=pendingNavigation.cursor;
+    if(Array.isArray(items)&&items.length<=100&&Number.isInteger(position)&&position>=0&&position<items.length){
+     const vertices=new Set(s.cores.flatMap(id=>id.split(','))),edges=new Set(currentEdges().map(e=>e.state));
+     history=items.map(item=>{
+      if(typeof item?.id!=='string'||typeof item.edge!=='boolean')return null;
+      const connection=item.connection===true;
+      const valid=connection?item.edge&&connectionMode()&&edges.has(item.id):item.edge?s.k===2&&s.cores.includes(item.id):vertices.has(item.id);
+      return valid?{id:item.id,edge:item.edge,connection}:null;
+     });cursor=position;syncNavigation();
+    }
+    pendingNavigation=null;
+   }
    if(selected?.connection&&!connectionMode())resetNavigation();
    connectionEdges=currentEdges();const edge=selected?.connection&&connectionEdges.find(e=>e.state===selected.id);
    boundaryRows=new Set(edge?[...edge.ba,...edge.bb]:[]);
   },selection:()=>selected&&{...selected,name:selected.connection?selected.id.split(',').map(id=>names.get(id)).join(' ↔ '):selected.edge?scheme.labels[selected.id]:names.get(selected.id)},contains,onSelect:fn=>{notify=fn},resize:()=>{if(plot.data)Plotly.Plots.resize(plot)},
+  snapshot(){
+   // Bound browser storage while retaining the current selection and nearby navigation.
+   const start=Math.max(0,cursor-49),end=Math.min(history.length,start+100);
+   return {history:history.slice(start,end).map(item=>item?{id:item.id,edge:item.edge,connection:item.connection===true}:null),
+    cursor:cursor-start,pairLayout,singleLayout,previousAlgorithm};
+  },
   update(s,c,m){if(s!==layoutScheme){layout.value=s.k===2?pairLayout:singleLayout;layoutScheme=s}scheme=s;counts=c;method=m;return render()}};
 }

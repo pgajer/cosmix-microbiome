@@ -56,6 +56,22 @@ connection and highlights the same pure-core boundary samples. Coverage changes
 reset selection. No memberships or stored coordinates
 are rewritten. Hidden states remain eligible neighbors at every coverage.
 
+## Returning to AGP
+
+CoSMiX remembers AGP's coverage/coloring, pure or merged display, embedding
+method, unfolding, selected vertex or connection, Back/Forward history, graph
+settings and reference-sphere appearance. Camera positions and zoom, expanded
+panels and open information sections are restored too. Changes are saved as
+you work, including when you switch datasets, reload or close the tab.
+
+Preferences belong to this browser and site address, independently of other
+datasets. Reopen the same address to resume; another browser, port or private
+session has separate storage. Clearing site data removes these preferences.
+Existing settings remain valid when only saved fits are updated. A different
+underlying sample/taxon matrix starts with defaults; unavailable options or
+selections are ignored safely. No samples or fitted coordinates are stored in
+the preference record.
+
 ## Definitions
 
 Let N be all 24,421 frozen records. A and B are disjoint pure states of sizes
