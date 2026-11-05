@@ -2,7 +2,7 @@
 
 Microbiome Community State Space Explorer
 
-CoSMiX (pronounced **KOZ-miks**) lets you explore
+CoSMiX (pronounced **KOZ-mik**) lets you explore
 the composition of microbial communities and their variation
 across samples, cohorts, and participants over time.
 
