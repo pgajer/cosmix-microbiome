@@ -1,6 +1,6 @@
 # CoSMiX color specification
 
-Specification version 31 · reviewed 5 November 2026.
+Specification version 32 · reviewed 5 November 2026.
 
 Canonical CoSMiX-wide reference for dataset authors and interface developers.
 Read this specification when preparing, adding or revising a CoSMiX dataset.
@@ -34,6 +34,13 @@ local to the dataset and reference target, not universal biological identities.
 The active legend determines the meaning of color in a particular view.
 
 ## Sample coloring
+
+In AGP pure 1-CST connection views, selecting an edge preserves the state colors
+of its boundary samples and draws other displayed samples in gray (`#dedede`).
+This is a proximity highlight, not reassignment or filtering. Connection edges
+use the graph edge color (selected edges orange); reference vertices retain their
+independent color. Counts, stored coordinates and pure labels are unchanged.
+See [pure-state connections](rank2_feature_graph/AGP_CONNECTIONS.md).
 
 The **Color by** selector explicitly chooses sample colors independently of the
 graph mode, selected samples and saved embedding:

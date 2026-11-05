@@ -101,7 +101,12 @@ def attach(page, source):
                 dict(url='/vme-assets/'+LOCAL_REVIEWED_PIN+'.json', sha256=LOCAL_REVIEWED_PIN, bytes=15939243),
                 dict(url='/vme-assets/'+UNFOLDED_PIN+'.json', sha256=UNFOLDED_PIN, bytes=7064531),
             ])
-    accepted.append(entry['parts'])
+    accepted.append(entry['parts'].copy())
+    connections = source.with_name('pure-1cst-connections.json')
+    if connections.is_file():
+        from agp_connections_supplement import checked_connections
+        entry['parts'].append(publish(checked_connections(connections,json.loads(raw)),'.json'))
+        accepted.append(entry['parts'].copy())
     accepted_entries = [{**entry, 'parts': parts} for parts in accepted]
     if revision == POPULATION_PINS[EPOCH500_PIN]:
         accepted_entries += [{**entry, 'dataset': {**entry['dataset'], 'revision': POPULATION_PINS[PIN]},
@@ -112,7 +117,7 @@ def attach(page, source):
     allowed = manifest['seed'].get('distributionDatasets')
     if allowed is not None and ID not in allowed:
         allowed.append(ID)
-    viewer = b'(() => {\n' + (p.HERE/'sphere_geometry.js').read_bytes() + b'\n' + (p.HERE/'png_export.js').read_bytes() + b'\n' + (p.HERE/'agp_population.js').read_bytes()
+    viewer = b'(() => {\n' + (p.HERE/'sphere_geometry.js').read_bytes() + b'\n' + (p.HERE/'png_export.js').read_bytes() + b'\n' + (p.HERE/'agp_connections.js').read_bytes() + b'\n' + (p.HERE/'agp_population.js').read_bytes()
     manifest['agpViewer'] = publish(viewer + b'\nwindow.showAgpPopulation = showAgpPopulation;\n})();', '.js')
     loader = publish((p.HERE/'asset_loader.js').read_bytes(),'.js')
     html = page.read_text()

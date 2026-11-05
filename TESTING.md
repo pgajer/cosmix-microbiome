@@ -235,6 +235,13 @@ with a smaller subset does not need to run these checks to install or update.
 
 ## AGP population
 
+The optional pure 1-CST connection bank and its on-demand integrity/browser
+checks are documented in [AGP connections](rank2_feature_graph/AGP_CONNECTIONS.md).
+Check pure versus merged mode, all three geometries and neighbor counts,
+inclusive/two-state-only boundaries, thresholds, edge details/highlights,
+navigation, reference spheres, and a representative ordinary dataset.
+The tests verify unchanged sample identities and coordinates; no fits run.
+
 Install the separate reviewed AGP population using
 `python3 scripts/portable.py update --agp-population /path/to/population.json`.
 Updates remember the supplied file. Both reviewed epoch-200 and epoch-500 population packages are supported.

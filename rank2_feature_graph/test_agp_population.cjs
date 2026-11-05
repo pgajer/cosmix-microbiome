@@ -13,6 +13,8 @@ const reference=JSON.parse(require('fs').readFileSync(population));
  assert.ok(await header.locator('#unfoldFaces').isHidden());
  const fs=require('fs'),path=require('path'),refFile=path.join(path.dirname(population),'component-references.json');
  const refs=fs.existsSync(refFile)?JSON.parse(fs.readFileSync(refFile)).agpReferences:null;
+ const connectionFile=path.join(path.dirname(population),'pure-1cst-connections.json');
+ const connectionBank=fs.existsSync(connectionFile)?JSON.parse(fs.readFileSync(connectionFile)).agpConnections:null;
  const range=async(id,value)=>page.locator('#'+id).evaluate((c,v)=>{c.value=v;c.dispatchEvent(new Event('input',{bubbles:true}))},value);
  if(refs){
   assert.ok(await page.locator('#sampleReferenceScale').isDisabled());
@@ -50,11 +52,18 @@ const reference=JSON.parse(require('fs').readFileSync(population));
    await page.locator('#stateMode').setChecked(merged);
    const components=[...new Set(s.cores.flatMap(state=>state.split(',')))];
    const edges=await page.locator('#graph3d').evaluate(g=>g.data.filter(t=>t.mode==='lines').map(t=>t.customdata[0].id));
-   assert.deepEqual(edges,s.k===2?s.cores:[]);
+   let expected=s.k===2?s.cores:[];
+   if(s.k===1&&!merged&&connectionBank){
+    const method=await page.locator('#sampleMethod').inputValue();
+    const sizes=new Map();connectionBank.pureStates.forEach(id=>sizes.set(id,(sizes.get(id)||0)+1));
+    expected=connectionBank.geometries[method][20].edges.filter(e=>s.cores.includes(String(e.a))&&s.cores.includes(String(e.b))&&
+     e.boundaryA.length>=5&&e.boundaryB.length>=5&&Math.sqrt(e.boundaryA.length/sizes.get(e.a)*e.boundaryB.length/sizes.get(e.b))>=.05).map(e=>e.a+','+e.b);
+   }
+   assert.deepEqual(edges,expected);
    const vertices=await page.locator('#graph3d').evaluate(g=>g.data.find(t=>t.meta?.agpGraphVertices).customdata);
    for(const v of vertices){
     const states=s.cores.filter(state=>state.split(',').includes(v.id));
-    assert.equal(v.degree,s.k===2?states.length:0);
+    assert.equal(v.degree,s.k===2?states.length:expected.filter(key=>key.split(',').includes(v.id)).length);
     assert.equal(v.n,s.merged.filter((state,i)=>states.includes(state)&&(merged||s.assignment[i]==='core')).length);
    }
    assert.equal(vertices.length,components.length);
