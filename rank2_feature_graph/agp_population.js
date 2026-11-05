@@ -428,7 +428,7 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
   const missing=ids.filter(id=>!names.has(id)),other=parts.filter(name=>!ids.some(id=>names.get(id)===name));
   if(missing.length===1 && other.length===1)names.set(missing[0],other[0]);
  }
- let scheme,layoutScheme,counts,method,selected=null,notify=null,connectionEdges=[],boundaryRows=new Set();
+ let scheme,layoutScheme,counts,method,selected=null,notify=null,connectionEdges=[],boundaryRows=new Set(),renderRevision=0;
  const connectionMode=()=>Boolean(connections&&scheme?.k===1);
  function currentEdges(){return connectionMode()?AgpConnections.edges(connections,scheme,method,neighbors.value,measure.value,rule.value,pureGraph.checked):[]}
  function contains(state,row){return !selected || (selected.connection?boundaryRows.has(row):selected.edge?state===selected.id:state.split(',').includes(selected.id))}
@@ -444,7 +444,7 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
  function select(item){
   const next=selected?.id===item?.id && selected?.edge===item?.edge?null:item;
   if(!next&&!selected)return;
-  history.splice(cursor+1,Infinity,next);cursor++;syncNavigation();notify();
+  history.splice(cursor+1,Infinity,next);cursor++;syncNavigation();notify();preferences.save();
  }
  back.onclick=()=>{if(cursor>0){cursor--;syncNavigation();notify()}};
  forward.onclick=()=>{if(cursor+1<history.length){cursor++;syncNavigation();notify()}};
@@ -456,6 +456,7 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
  };
  function render(){
   if(!scheme)return;
+  ++renderRevision;
   const pair=scheme.k===2,useFit=pair&&layout.value==='graph',spatial=useFit||layout.value==='reference';
   const vertices=new Map(),edges=[],connected=connectionMode();
   if(connected){
@@ -619,8 +620,8 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
      customdata:mesh.x.map(()=>({id:v.id,edge:false})),hovertemplate:v.name+'<br>'+v.n.toLocaleString()+' samples<extra></extra>'});
    }
   }
-  traces.push({type,mode:lit?'text':showLabels?'markers+text':'markers',...coord(nodes.map(v=>v.id)),
-   visible:lit&&!showLabels?false:true,meta:{agpGraphVertices:true},marker:{size:sizes,color:nodes.map((v,i)=>rgba(colorFor(v),opacities[i]))},
+  traces.push({type,mode:spatial?'markers':showLabels?'markers+text':'markers',...coord(nodes.map(v=>v.id)),
+   visible:!lit,meta:{agpGraphVertices:true},marker:{size:sizes,color:nodes.map((v,i)=>rgba(colorFor(v),opacities[i]))},
    text:nodes.map(v=>v.name),textposition:spatial?'top center':'middle right',cliponaxis:false,
    customdata:nodes.map(v=>({id:v.id,edge:false,n:v.n,degree:v.degree})),
    hovertemplate:'%{text}<br>%{customdata.n} samples<extra></extra>'});
@@ -628,24 +629,16 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
   plot.style.height=spatial?'100%':Math.max(area.clientHeight,all.length*27+40)+'px';
   const config={margin:{t:20,b:20,l:10,r:10},showlegend:false,uirevision:[scheme.q,layout.value,layout.value==='reference'?method:''].join('/'),
    xaxis:{...axis,range:pair||connected?[-.48,1]:[-.10,1]},yaxis:{...axis,range:[-all.length,1]},
-   scene:{aspectmode:'data',xaxis:sceneAxis,yaxis:sceneAxis,zaxis:sceneAxis}};
+   scene:{aspectmode:'data',dragmode:'orbit',xaxis:sceneAxis,yaxis:sceneAxis,zaxis:sceneAxis,
+    annotations:spatial&&showLabels?nodes.map((v,i)=>({x:pos.get(v.id)[0],y:pos.get(v.id)[1],z:pos.get(v.id)[2],
+     text:v.name.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'),name:'agp-vertex:'+v.id,
+     showarrow:false,captureevents:false,xanchor:'center',yanchor:'bottom',yshift:sizes[i]/2+5,opacity:opacities[i],font:{family:'Arial, sans-serif',size:12,color:'#173744'}})):[]}};
   const view=preferences.view(plot,config.uirevision);
   if(spatial&&view.camera)config.scene.camera=view.camera;
   else if(!spatial&&view.x){config.xaxis.range=view.x;config.yaxis.range=view.y}
   return Plotly.react(plot,traces,config,{responsive:true,displaylogo:false}).then(()=>{
    preferences.watch(plot);
-   if(plot._agpClick)return;
-   plot._agpClick=true;plot.on('plotly_click',ev=>{
-    const point=ev.points[0];let item=point?.customdata;
-    // A line endpoint occupies the vertex center. Plotly may report that line
-    // before the marker; give the shared endpoint the vertex's selection.
-    const endpoints=point?.data?.meta?.agpGraphEdge;
-    if(endpoints){
-     const end=point.pointNumber===0?0:point.pointNumber===point.data.x.length-1?1:null;
-     if(end!==null)item={id:endpoints[end],edge:false};
-    }
-    if(item?.id)select({id:item.id,edge:item.edge,connection:Boolean(item.connection)});
-   });
+   installAgpGraphPicking(plot,select,()=>renderRevision);
   });
  }
  toolbar.oninput=event=>{

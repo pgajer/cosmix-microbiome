@@ -18,6 +18,7 @@
 !/rank2_feature_graph/SKIN_POPULATIONS.md
 !/rank2_feature_graph/VALENCIA2_DATASETS.md
 !/rank2_feature_graph/agp_connections.js
+!/rank2_feature_graph/agp_graph_picking.js
 !/rank2_feature_graph/agp_population.js
 !/rank2_feature_graph/annotation_tracks.js
 !/rank2_feature_graph/asset_loader.js
@@ -64,6 +65,8 @@
 !/rank2_feature_graph/taxon_palette.py
 !/rank2_feature_graph/test_agp_connections.cjs
 !/rank2_feature_graph/test_agp_connections_browser.cjs
+!/rank2_feature_graph/test_agp_graph_picking.cjs
+!/rank2_feature_graph/test_agp_graph_picking_browser.cjs
 !/rank2_feature_graph/test_agp_persistence.cjs
 !/rank2_feature_graph/test_agp_population.cjs
 !/rank2_feature_graph/test_asset_loader.mjs

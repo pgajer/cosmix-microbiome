@@ -240,6 +240,20 @@ with a smaller subset does not need to run these checks to install or update.
 
 ## AGP population
 
+Graph picking checks are also on demand:
+
+```sh
+node rank2_feature_graph/test_agp_graph_picking.cjs
+node rank2_feature_graph/test_agp_graph_picking_browser.cjs http://127.0.0.1:4173 /path/to/population.json
+```
+
+The first checks click/drag event ordering and hit priorities. The browser test
+uses physical mouse actions in real WebGL scenes at all three 1-CST coverages,
+all three geometries and both graph memberships. It verifies one selection per
+press, sphere/flat-marker/label/edge clicks, rotation, normal/maximized panels,
+and exact sample identities and boundary highlights. It runs no fits and is
+not part of the update command.
+
 For browser-local state restoration, run on demand against an installation with
 the reviewed AGP local, unfolded and connection supplements:
 

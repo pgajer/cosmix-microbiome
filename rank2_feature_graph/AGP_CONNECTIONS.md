@@ -152,9 +152,28 @@ with at most h samples must have some external neighbors. The present 37
 retained cores all exceed 40 samples, although the full collection includes
 smaller states. Neighbor search includes those states too.
 
+## Selecting objects in 3D
+
+Click a sphere, flat vertex marker or its label to open the existing local
+1-CST sample embedding. Click anywhere along a visible connection to highlight
+its boundary samples in the population map and populate the connection table.
+Sample membership follows the header's Assign remaining samples setting; graph
+membership follows Pure 1-CST graph. Selecting a connection does not change
+sample coordinates or the displayed sample set. Back, Forward and Clear
+selection share the same selection history as the table controls.
+
+The picker uses the currently rendered camera, sphere sizes and visible edge
+segments. A label selects its named vertex, and a sphere takes precedence over
+an edge at their shared endpoint. Selection occurs once on a stationary primary
+pointer release. Repeated WebGL frame events, rotation/pan gestures, canceled
+presses and clicks queued for a replaced view cannot add selections. This also
+applies to the saved 3D pair-graph layouts. Flat 2D diagrams retain selection.
+
 ## On-demand checks
 
 ```sh
+node rank2_feature_graph/test_agp_graph_picking.cjs
+node rank2_feature_graph/test_agp_graph_picking_browser.cjs http://127.0.0.1:4173 /path/to/population.json
 node rank2_feature_graph/test_agp_connections.cjs /path/to/population.json
 COSMIX_AGP_CONNECTIONS=/path/to/package python3 -m unittest discover -s scripts -p test_agp_connections.py
 node rank2_feature_graph/test_agp_connections_browser.cjs http://127.0.0.1:4173 /path/to/population.json
