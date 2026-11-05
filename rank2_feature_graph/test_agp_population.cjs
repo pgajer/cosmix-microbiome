@@ -53,7 +53,7 @@ const reference=JSON.parse(require('fs').readFileSync(population));
    const components=[...new Set(s.cores.flatMap(state=>state.split(',')))];
    const edges=await page.locator('#graph3d').evaluate(g=>g.data.filter(t=>t.mode==='lines').map(t=>t.customdata[0].id));
    let expected=s.k===2?s.cores:[];
-   if(s.k===1&&!merged&&connectionBank){
+   if(s.k===1&&connectionBank){
     const method=await page.locator('#sampleMethod').inputValue();
     const sizes=new Map();connectionBank.pureStates.forEach(id=>sizes.set(id,(sizes.get(id)||0)+1));
     expected=connectionBank.geometries[method][20].edges.filter(e=>s.cores.includes(String(e.a))&&s.cores.includes(String(e.b))&&
@@ -64,7 +64,8 @@ const reference=JSON.parse(require('fs').readFileSync(population));
    for(const v of vertices){
     const states=s.cores.filter(state=>state.split(',').includes(v.id));
     assert.equal(v.degree,s.k===2?states.length:expected.filter(key=>key.split(',').includes(v.id)).length);
-    assert.equal(v.n,s.merged.filter((state,i)=>states.includes(state)&&(merged||s.assignment[i]==='core')).length);
+    const graphUsesPureCores=s.k===1&&connectionBank;
+    assert.equal(v.n,s.merged.filter((state,i)=>states.includes(state)&&((merged&&!graphUsesPureCores)||s.assignment[i]==='core')).length);
    }
    assert.equal(vertices.length,components.length);
    for(const [method,fit] of Object.entries(reference.fits)){
@@ -196,11 +197,14 @@ const reference=JSON.parse(require('fs').readFileSync(population));
    }
   }
   const cases=bank?[[70,'51'],...(fs.existsSync(pivotPath)?[[80,'51'],[90,'51']]:[]),[70,'146'],[80,'268'],[90,'299'],...(fs.existsSync(epoch500Path)?[[90,'76'],[90,'274'],[90,'13']]:[])]:[[70,'51'],[70,'13']];
+  // Local-fit checks need all vertices, including low-degree pure cores.
+  await page.uncheck('#graphDegreeFilter');
   for(const [q,id] of cases){
    const scheme=q+'%-1-CST',name=reference.schemes[scheme].labels[id];
    await page.selectOption('#sampleColorScheme',scheme);
    await page.selectOption('#agpGraphLayout','diagram');
    const vertexIndex=await page.locator('#graph3d').evaluate((g,taxon)=>g.data.find(t=>t.meta?.agpGraphVertices).customdata.findIndex(v=>v.id===taxon),id);
+   assert(vertexIndex>=0,'Expected local-fit vertex to be visible: '+name);
    const point=page.locator('#graph3d .scatterlayer .point').nth(vertexIndex);
    await point.scrollIntoViewIfNeeded();
    const bounds=await point.boundingBox();

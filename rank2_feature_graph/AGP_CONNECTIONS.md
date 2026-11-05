@@ -6,12 +6,15 @@ Which pure leading-taxon states meet through nearby samples in the original
 abundance space? These connections describe sample proximity. They are not
 temporal transitions, interaction probabilities, or significance tests.
 
-Select AGP, choose a 70%, 80% or 90% **1-CSTs** coloring, and turn off **Assign
-remaining samples to retained states**. A separately supplied, reviewed
+Select AGP and choose a 70%, 80% or 90% **1-CSTs** coloring. The whole pure-core
+connection graph appears with or without a selected state. **Assign remaining
+samples to retained states** controls the 3D samples only: graph node counts,
+sizes and edge weights always use original pure-core memberships. A separately supplied, reviewed
 `pure-1cst-connections.json` must be beside `population.json`. The installer
 checks its checksum, sample order and original memberships. Older packages
-remain usable and explain why connections are unavailable. Merged 1-CSTs and
-the existing 2-CST graph retain their previous behavior.
+remain usable and explain why connections are unavailable. These are not
+connections computed between merged memberships. The existing 2-CST graph
+retains its previous behavior.
 
 ## Controls and selection
 
@@ -39,15 +42,18 @@ the saved observed reference coordinates. No graph or sample fit runs.
 Click an edge or use **Connection** to see both sides' counts, state sizes and
 percentages, plus unique known participants across both boundaries and unlinked
 records. Boundary samples retain their state colors; other currently displayed
-pure-core samples are gray. The saved population coordinates and sample set do
+samples are gray, including assigned samples if displayed. The saved population coordinates and sample set do
 not change. An edge hidden by a subsequent display filter can remain selected;
 the picker explicitly marks it hidden. Back, Forward and Clear selection also
-work for connections. Vertex selection continues to open the existing local
-embedding. Connection selection uses the population map because it spans states.
+work for connections. Vertex selection continues to open the existing pure or
+merged local embedding, according to the assignment checkbox. Graph node sizes,
+counts, positions and edges remain those of the whole pure-core graph.
+Connection selection uses the population map because it spans states.
 
 Changing geometry or neighbor count updates connections using their matching
-saved original-space calculations. Turning assignment on clears a connection
-selection. Coverage changes reset selection. No memberships or stored coordinates
+saved original-space calculations. Changing assignment preserves the selected
+connection and highlights the same pure-core boundary samples. Coverage changes
+reset selection. No memberships or stored coordinates
 are rewritten. Hidden states remain eligible neighbors at every coverage.
 
 ## Definitions

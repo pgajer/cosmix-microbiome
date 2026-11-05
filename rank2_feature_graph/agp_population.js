@@ -123,7 +123,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  let renderSamples,sampleReady;
  async function draw(){
   const s=data.schemes[color.value];
-  graph.begin(s,method.value,!assign.checked);
+  graph.begin(s,method.value);
   const selected=graph.selection();
   const localKey=[color.value,selected?.id,assign.checked?'merged':'pure',method.value].join('/');
   const originalKey=localBank?.views[localKey];
@@ -172,7 +172,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   info.replaceChildren();
   function add(tag,value){const node=document.createElement(tag);node.textContent=value;info.append(node);return node}
   add('h3',color.selectedOptions[0].textContent);
-  if(selected?.connection)add('p','Boundary samples retain their state colors; other displayed samples are gray. The saved population coordinates and displayed memberships are unchanged.');
+  if(selected?.connection)add('p','Pure-core boundary samples retain their state colors; other displayed samples are gray. The saved population coordinates and displayed memberships are unchanged.');
   if(s.k===1&&(localBank||(localFits&&s.q===70))){
    if(unfolded)add('p',entry.rotated?'Unfolded around '+selected.name+' · '+entry.rotated.toLocaleString()+' samples rotated.':'Every sample lies on the anchor face. Both views use the same coordinates.');
    if(local)add('p','Local fit of '+(assign.checked?'the merged state':'the pure state')+'. Clear selection to return to the population map.');
@@ -234,7 +234,8 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
     {showlegend:false,margin:{l:0,r:0,b:0,t:0},uirevision:frame,scene:{aspectmode:'data',xaxis,yaxis,zaxis,annotations}},
     {responsive:true,displaylogo:false});
   };
-  await Promise.all([renderSamples(),graph.update(s,counts,method.value)]);
+  // The connection bank describes pure cores, independently of sample assignment.
+  await Promise.all([renderSamples(),graph.update(s,connectionBank&&s.k===1?coreCounts:counts,method.value)]);
  }
  for(const control of [method,color,assign,unfold])control.onchange=draw;
  for(const control of [labels,spheres])control.onchange=()=>renderSamples();
@@ -314,8 +315,8 @@ function agpGraphPanel(data,references,rows,bank,connections){
   const missing=ids.filter(id=>!names.has(id)),other=parts.filter(name=>!ids.some(id=>names.get(id)===name));
   if(missing.length===1 && other.length===1)names.set(missing[0],other[0]);
  }
- let scheme,layoutScheme,counts,method,selected=null,notify=null,pure=false,connectionEdges=[],boundaryRows=new Set();
- const connectionMode=()=>Boolean(connections&&scheme?.k===1&&pure);
+ let scheme,layoutScheme,counts,method,selected=null,notify=null,connectionEdges=[],boundaryRows=new Set();
+ const connectionMode=()=>Boolean(connections&&scheme?.k===1);
  function currentEdges(){return connectionMode()?AgpConnections.edges(connections,scheme,method,neighbors.value,measure.value,rule.value):[]}
  function contains(state,row){return !selected || (selected.connection?boundaryRows.has(row):selected.edge?state===selected.id:state.split(',').includes(selected.id))}
  const clear=document.createElement('button');clear.type='button';clear.textContent='Clear graph selection';clear.hidden=true;
@@ -367,14 +368,13 @@ function agpGraphPanel(data,references,rows,bank,connections){
   connectionControls.hidden=scheme.k!==1;edgeDetails.hidden=!connected;
   for(const input of [neighbors,measure,rule,minWeight,minSamples])input.disabled=!connected;
   rule.disabled=!connected||measure.value!=='boundary';
-  connectionNote.textContent=!connections?'Install pure-1cst-connections.json with the AGP data to enable weighted connections.':
-   !pure?'Connections describe pure 1-CSTs. Turn off “Assign remaining samples to retained states” to show them.':'';
+  connectionNote.textContent=!connections?'Install pure-1cst-connections.json with the AGP data to enable weighted connections.':'';
   if(connected){
    connectionEdges=currentEdges();
    edges.push(...AgpConnections.filter(connectionEdges,Number(minWeight.value),Number(minSamples.value)));
    for(const e of edges)for(const id of e.ids)vertices.get(id).degree++;
    const diag=connections.geometries[method][neighbors.value].diagnostics[scheme.q];
-   connectionNote.textContent='All distance ties included. '+Number(neighbors.value)+' requested; '+diag.maxNeighbors.toLocaleString()+' maximum actual neighbors among displayed cores. '+diag.extraTies.toLocaleString()+' of '+diag.queries.toLocaleString()+' queries have extra ties. Filters affect drawing only.';
+   connectionNote.textContent='Node sizes and connections use pure 1-CST cores. “Assign remaining samples” changes only the 3D sample view. The whole graph remains visible with or without a selected state. All distance ties included. '+Number(neighbors.value)+' requested; '+diag.maxNeighbors.toLocaleString()+' maximum actual neighbors among displayed cores. '+diag.extraTies.toLocaleString()+' of '+diag.queries.toLocaleString()+' queries have extra ties. Filters affect drawing only.';
    const audit=connections.tieSensitivity?.find(r=>r.h===Number(neighbors.value)&&r.q===scheme.q);
    if(method==='max-linf'&&audit)connectionNote.textContent+=' Fixed-size tie audit: '+audit.top20_overlap+'/'+audit.top20_count+' leading boundary connections retained; rank correlation '+audit.spearman.toFixed(3)+'.';
    if(method==='max-linf'&&measure.value==='paga')connectionNote.textContent+=' PAGA weights are more sensitive to ties; stable boundary rankings do not guarantee stable PAGA values.';
@@ -390,7 +390,7 @@ function agpGraphPanel(data,references,rows,bank,connections){
     p(chosen.ids.map(id=>names.get(id)).join(' ↔ '));
     p(AgpConnections.measures[measure.value]+': '+chosen.weight.toFixed(4)+(measure.value==='boundary'?' · '+rule.selectedOptions[0].textContent:''));
     const table=document.createElement('table');table.style.width='100%';const head=table.insertRow();
-    for(const s of ['Boundary side','n / state size','%']){const th=document.createElement('th');th.textContent=s;head.append(th)}
+    for(const s of ['Boundary side','n / pure-state size','%']){const th=document.createElement('th');th.textContent=s;head.append(th)}
     for(const [id,ba,n,f] of [[chosen.a,chosen.ba,chosen.nA,chosen.fa],[chosen.b,chosen.bb,chosen.nB,chosen.fb]]){
      const row=table.insertRow();for(const value of [names.get(String(id)),ba.length.toLocaleString()+' / '+n.toLocaleString(),(100*f).toFixed(2)])row.insertCell().textContent=value;
     }edgeText.append(table);
@@ -423,10 +423,11 @@ function agpGraphPanel(data,references,rows,bank,connections){
    el(id+'Value').textContent=el(id).value+({graphVertexScale:'%',graphEdgeWidth:' px'}[id]||'');
   }
   el('featurePanelTitle').textContent=connected?'Pure 1-CST connections · '+scheme.q+'% cores':scheme.q+'%-'+scheme.k+'-CST graph';
-  el('graphInformationTitle').textContent='Displayed '+scheme.k+'-CST graph';
+  el('graphInformationTitle').textContent=connected?'Displayed pure 1-CST graph':'Displayed '+scheme.k+'-CST graph';
   el('status').textContent=nodes.length+' of '+all.length+' component taxa'+(pair?' · '+visibleEdges.length+' of '+edges.length+' retained pairs':connected?' · '+visibleEdges.length+' of '+connectionEdges.length+' possible connections':' · one vertex per retained state');
-  el('graphVertexNote').textContent=(pair?'n counts samples in incident pairs. A sample contributes to both endpoints.':'n counts samples in each displayed state.')+' Percentages use the full AGP population. Click a vertex or pair to highlight its samples.';
-  if(connected)el('graphVertexNote').textContent+=' Degree counts edges passing connection filters, before degree filtering. Vertex size represents state sample count.';
+  el('graphVertexNote').textContent=(pair?'n counts samples in incident pairs. A sample contributes to both endpoints.':connected?'n counts original pure-core samples, excluding samples assigned from other states.':'n counts samples in each displayed state.')+' Percentages use the full AGP population.';
+  if(connected)el('graphVertexNote').textContent+=' Degree counts edges passing connection filters, before degree filtering. Vertex size represents pure-state sample count. Click a vertex to open its pure or merged local sample view, according to “Assign remaining samples”.';
+  else el('graphVertexNote').textContent+=' Click a vertex or pair to highlight its samples.';
   const tbody=el('graphVertexRows');tbody.replaceChildren();
   for(const v of all){
    const tr=tbody.insertRow(),button=document.createElement('button');
@@ -465,7 +466,7 @@ function agpGraphPanel(data,references,rows,bank,connections){
     if(!spatial)point[0]=-.43*(Math.abs(start[1]-end[1])/all.length)**.65*Math.sin(Math.PI*t);
     return point;
    });
-   traces.push({type,mode:'lines',...Object.fromEntries(axes.map((axis,j)=>[axis,path.map(p=>p[j])])),
+   traces.push({type,mode:'lines',meta:{agpGraphEdge:e.ids},...Object.fromEntries(axes.map((axis,j)=>[axis,path.map(p=>p[j])])),
     customdata:path.map(()=>pick),text:path.map(()=>text),hovertemplate:'%{text}<extra></extra>',
     line:{color:active(e)?'#d2691e':el('graphEdgeColor').value,width:el('graphWidthBySize').checked?1+(width-1)*ratio**Number(el('graphWidthStrength').value):width},
     opacity:faded?ratio**fadePower:1});
@@ -501,7 +502,17 @@ function agpGraphPanel(data,references,rows,bank,connections){
    scene:{aspectmode:'data',xaxis:sceneAxis,yaxis:sceneAxis,zaxis:sceneAxis}};
   return Plotly.react(plot,traces,config,{responsive:true,displaylogo:false}).then(()=>{
    if(plot._agpClick)return;
-   plot._agpClick=true;plot.on('plotly_click',ev=>{const item=ev.points[0]?.customdata;if(item?.id)select({id:item.id,edge:item.edge,connection:Boolean(item.connection)})});
+   plot._agpClick=true;plot.on('plotly_click',ev=>{
+    const point=ev.points[0];let item=point?.customdata;
+    // A line endpoint occupies the vertex center. Plotly may report that line
+    // before the marker; give the shared endpoint the vertex's selection.
+    const endpoints=point?.data?.meta?.agpGraphEdge;
+    if(endpoints){
+     const end=point.pointNumber===0?0:point.pointNumber===point.data.x.length-1?1:null;
+     if(end!==null)item={id:endpoints[end],edge:false};
+    }
+    if(item?.id)select({id:item.id,edge:item.edge,connection:Boolean(item.connection)});
+   });
   });
  }
  toolbar.oninput=event=>{
@@ -509,7 +520,7 @@ function agpGraphPanel(data,references,rows,bank,connections){
   if(event.target===layout){if(scheme.k===2)pairLayout=layout.value;else singleLayout=layout.value}
   render();
  };
- return {begin(s,m,p){if(s!==scheme)resetNavigation();scheme=s;method=m;pure=p;
+ return {begin(s,m){if(s!==scheme)resetNavigation();scheme=s;method=m;
    if(selected?.connection&&!connectionMode())resetNavigation();
    connectionEdges=currentEdges();const edge=selected?.connection&&connectionEdges.find(e=>e.state===selected.id);
    boundaryRows=new Set(edge?[...edge.ba,...edge.bb]:[]);

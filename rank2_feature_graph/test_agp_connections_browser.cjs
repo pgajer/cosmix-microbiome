@@ -1,4 +1,5 @@
 const {chromium}=require('playwright'),assert=require('assert/strict'),fs=require('fs'),path=require('path');
+const connections=require('./agp_connections.js');
 const [origin,file]=process.argv.slice(2);assert(origin&&file,'Pass HTTP origin and population.json');
 const data=JSON.parse(fs.readFileSync(file)),bank=JSON.parse(fs.readFileSync(path.join(path.dirname(file),'pure-1cst-connections.json'))).agpConnections;
 (async()=>{
@@ -6,6 +7,43 @@ const data=JSON.parse(fs.readFileSync(file)),bank=JSON.parse(fs.readFileSync(pat
  try{
   const page=await browser.newPage({viewport:{width:1460,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(origin+'/?dataset=agp-24k-silva');await page.waitForSelector('#samples canvas',{timeout:90000});
+  await page.waitForFunction(()=>document.getElementById('graph3d').data?.some(t=>t.customdata?.[0]?.connection));
+  assert(await page.locator('#stateMode').isChecked(),'Default merged sample display remains enabled');
+  assert(await page.locator('#headerClearSelection').isDisabled(),'Connections appear before any selection');
+  const graphSnapshot=()=>page.locator('#graph3d').evaluate(g=>g.data.filter(t=>t.mode==='lines'||t.meta?.agpGraphVertices).map(t=>({
+   mode:t.mode,x:t.x,y:t.y,z:t.z,customdata:t.customdata,size:t.marker?.size
+  })));
+  const checkGraph=async(s,method)=>{
+   const expected=connections.filter(connections.edges(bank,s,method,20),.05,5).map(e=>e.state);
+   const actual=await page.locator('#graph3d').evaluate(g=>g.data.filter(t=>t.mode==='lines').map(t=>t.customdata[0].id));
+   assert.deepEqual(actual,expected,'Graph edges must match saved pure-core weights');
+   const vertices=await page.locator('#graph3d').evaluate(g=>g.data.find(t=>t.meta?.agpGraphVertices).customdata);
+   for(const v of vertices)assert.equal(v.n,s.original.filter(id=>String(id)===v.id).length,'Node count must exclude assigned samples');
+  };
+  await page.locator('#graphVertexCharacteristics > summary').click();
+  for(const q of [70,80,90])for(const method of Object.keys(data.fits)){
+   const s=data.schemes[q+'%-1-CST'];
+   await page.selectOption('#sampleColorScheme',q+'%-1-CST');await page.selectOption('#sampleMethod',method);
+   await page.check('#stateMode');await checkGraph(s,method);
+   const whole=await graphSnapshot();
+   const state=s.cores.find(id=>s.labels[id]==='Akkermansia muciniphila');assert(state);
+   const vertexIndex=await page.locator('#graph3d').evaluate((g,id)=>g.data.find(t=>t.meta?.agpGraphVertices).customdata.findIndex(v=>v.id===id),state);
+   assert(vertexIndex>=0);
+   const glyph=page.locator('#graph3d .scatterlayer .point').nth(vertexIndex);
+   await glyph.scrollIntoViewIfNeeded();const bounds=await glyph.boundingBox();
+   // Plotly receives physical pointer events on its drag overlay above SVG glyphs.
+   await page.mouse.click(bounds.x+bounds.width/2,bounds.y+bounds.height/2);
+   await page.waitForFunction(()=>document.getElementById('sampleTitle').textContent.includes('Local 3D MDS'));
+   const expectedMerged=data.ids.filter((_,i)=>s.merged[i]===state);
+   assert.deepEqual(await page.locator('#samples').evaluate(g=>g.data[0].ids),expectedMerged);
+   assert.deepEqual(await graphSnapshot(),whole,'Vertex selection must preserve the whole pure-core graph');
+   await page.uncheck('#stateMode');
+   const expectedPure=data.ids.filter((_,i)=>s.merged[i]===state&&s.assignment[i]==='core');
+   assert.deepEqual(await page.locator('#samples').evaluate(g=>g.data[0].ids),expectedPure);
+   assert.deepEqual(await graphSnapshot(),whole,'Pure and merged local views share the same pure-core graph');
+   await page.click('#headerClearSelection');await checkGraph(s,method);
+   assert.deepEqual(await graphSnapshot(),whole,'Clear selection must retain connections');
+  }
   await page.selectOption('#sampleColorScheme','90%-1-CST');await page.uncheck('#stateMode');
   await page.waitForFunction(()=>document.getElementById('graph3d').data.some(t=>t.customdata?.[0]?.connection));
   const snapshot=()=>page.locator('#samples').evaluate(g=>{const t=g.data[0];return {ids:t.ids,x:t.x,y:t.y,z:t.z}});
@@ -58,9 +96,15 @@ const data=JSON.parse(fs.readFileSync(file)),bank=JSON.parse(fs.readFileSync(pat
   await page.waitForFunction(()=>document.getElementById('featurePanel').classList.contains('agpExpanded'));
   if(process.env.COSMIX_TEST_SCREENSHOT)await page.screenshot({path:process.env.COSMIX_TEST_SCREENSHOT});
   await page.click('#maximize-featurePanel');
-  await page.check('#stateMode');assert(await page.locator('#agpConnectionMeasure').isDisabled());assert.equal(await page.locator('#graph3d').evaluate(g=>g.data.filter(t=>t.mode==='lines').length),0);
+  const pureGraph=await graphSnapshot(),chosen=await page.locator('#agpConnectionPicker').inputValue();
+  await page.check('#stateMode');assert(!(await page.locator('#agpConnectionMeasure').isDisabled()));
+  assert.deepEqual(await graphSnapshot(),pureGraph);assert.equal(await page.locator('#agpConnectionPicker').inputValue(),chosen);
+  const merged=await snapshot();assert.deepEqual(merged.ids,data.ids);
+  const expectedBoundary=bank.geometries['max-linf'][20].edges.find(e=>e.a+','+e.b===chosen);
+  const expectedIds=[...expectedBoundary.boundaryA,...expectedBoundary.boundaryB].map(i=>data.ids[i]).sort();
+  assert.deepEqual(await page.locator('#samples').evaluate(g=>g.data[0].ids.filter((_,i)=>g.data[0].marker.color[i]!=='#dedede').sort()),expectedIds);
   await page.selectOption('#sampleColorScheme','40%-2-CST');assert(await page.locator('#agpConnectionControls').isHidden());
   assert.deepEqual(await page.locator('#graph3d').evaluate(g=>g.data.filter(t=>t.mode==='lines').map(t=>t.customdata[0].id)),data.schemes['40%-2-CST'].cores);
-  assert.deepEqual(errors,[]);console.log('PASS browser: three geometries/scales, exact boundary highlights, strict rule, filters, all scores, navigation, 3D spheres and merged/pair isolation');
+  assert.deepEqual(errors,[]);console.log('PASS browser: whole pure-core graph before/after selection, pure/merged local sample views at all coverages/geometries, exact boundary highlights, filters, scores, navigation, 3D spheres and pair isolation');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
