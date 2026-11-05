@@ -1,6 +1,6 @@
 // On-demand pure selection/coordinate checks on separately installed v2 apps.
 const fs=require('fs'),path=require('path'),assert=require('node:assert/strict');
-const {skinPopulationSelection:select}=require('./skin_population_v2.js');
+const {skinPopulationSelection:select,skinGraphModel,skinGraphLayout}=require('./skin_population_v2.js');
 const apps=process.argv.slice(2);assert(apps.length,'Pass installed app folders');
 let cases=0;
 for(const app of apps){
@@ -31,6 +31,27 @@ for(const app of apps){
     run({coverage,assignRemaining});assert.equal(select(data,{coverage,assignRemaining}).subjects.length,assignRemaining?data.records.length:data.genusStates.levels[String(coverage)].coreCount);
     for(const participant of participants)run({coverage,assignRemaining,participant,paths:true});
    }
+   const annotationSnapshot=JSON.stringify(data.genusStates),layout=skinGraphLayout(data.genusStates);
+   assert.deepEqual(skinGraphLayout(data.genusStates),layout,'Deterministic topology layout');assert(Object.values(layout).every(p=>p.every(Number.isFinite)));
+   const states=data.genusStates;
+   for(const coverage of [60,70,80,90,100])for(const assignRemaining of [false,true]){
+    const level=states.levels[String(coverage)],labels=assignRemaining?level.assignments:states.pure;
+    const model=skinGraphModel(data,{coverage,assignRemaining});assert.equal(model.edges.length,level.cores.length);
+    for(const [kind,items] of [['edge',model.edges],['vertex',model.vertices]])for(const item of items){
+     const wanted=data.records.filter((r,i)=>level.cores.includes(labels[i])&&(kind==='edge'?labels[i]===item.id:states.states[labels[i]].components.includes(item.id)));
+     const selection={coverage,assignRemaining,graphSelection:{kind,id:item.id}};
+     assert.deepEqual(select(data,selection).subjects,wanted);assert.equal(item.reference,wanted.length);assert.equal(item.visible,wanted.length);cases++;
+     const participant=wanted.find(r=>r.participantId!==null)?.participantId;
+     if(participant){
+      const got=select(data,{...selection,participant,paths:true}),expected=wanted.filter(r=>r.participantId===participant),keep=new Set(expected.map(r=>r.specimenId));
+      assert.deepEqual(got.subjects,expected);assert.deepEqual(got.edges,data.pairs.filter(e=>keep.has(e.from)&&keep.has(e.to)));cases++;
+     }
+     if(wanted.length){const r=wanted[0],site=JSON.stringify(r.site),visit=JSON.stringify(r.visitOrder);assert.deepEqual(select(data,{...selection,site,visit}).subjects,wanted.filter(t=>t.site===r.site&&t.visitOrder===r.visitOrder));cases++}
+    }
+    const first=data.records.find(r=>r.participantId!==null);
+    if(first){const context=skinGraphModel(data,{coverage,assignRemaining,participant:first.participantId});for(const edge of context.edges)assert.equal(edge.visible,select(data,{coverage,assignRemaining,participant:first.participantId,graphSelection:{kind:'edge',id:edge.id}}).subjects.length)}
+   }
+   assert.equal(JSON.stringify(data.genusStates),annotationSnapshot,'Graph never changes assignments');
    assert.equal(JSON.stringify(data.banks),snapshot,'State filtering never changes maps');
   }
   for(const participant of participants){run({participant,paths:true});run({participant,paths:false})}

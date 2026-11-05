@@ -1,6 +1,6 @@
 # CoSMiX color specification
 
-Specification version 30 · reviewed 5 November 2026.
+Specification version 31 · reviewed 5 November 2026.
 
 Canonical CoSMiX-wide reference for dataset authors and interface developers.
 Read this specification when preparing, adding or revising a CoSMiX dataset.
@@ -569,3 +569,13 @@ cross-study correspondence. Filtering retains only existing same-site edges with
 both endpoints visible; no hidden visits are bridged. Unknown metadata, genus/ASV
 distinctions and exploratory notices remain in views and exports. Coverage,
 assignment visibility and color preferences persist separately per population.
+
+
+### Skin genus-state graph
+
+The skin cohort graph uses red feature vertices and blue connectivity edges.
+Pair midpoint markers use the same category-keyed colors as the sample states;
+selected and incident edges are highlighted in orange. These graph annotations
+do not override the independent sample Color by choice. Graph selection follows
+the current assignment checkbox and retained cores, while coloring alone changes
+no membership. Unknown genus assignments retain their explicit higher-rank labels.
