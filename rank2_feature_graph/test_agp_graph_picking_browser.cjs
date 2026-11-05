@@ -1,6 +1,9 @@
 // On-demand real WebGL/mouse test; no emitted Plotly clicks or numerical fits.
 const {chromium}=require('playwright'),assert=require('assert/strict'),fs=require('fs'),path=require('path');
 const [origin,file]=process.argv.slice(2);assert(origin&&file,'Pass HTTP origin and population.json');
+const layouts=process.argv.includes('--connection-layouts')?JSON.parse(fs.readFileSync(path.join(path.dirname(file),'connection-layouts-3d.json'))).agpConnectionLayouts:null;
+global.AgpConnections=require('./agp_connections.js');
+const layoutTools=require('./agp_connection_layouts.js');
 const data=JSON.parse(fs.readFileSync(file)),connections=require('./agp_connections.js');
 const bank=JSON.parse(fs.readFileSync(path.join(path.dirname(file),'pure-1cst-connections.json'))).agpConnections;
 const merged=path.join(path.dirname(file),'merged-1cst-connections.json');if(fs.existsSync(merged))bank.merged=JSON.parse(fs.readFileSync(merged)).agpMergedConnections;
@@ -9,6 +12,7 @@ const merged=path.join(path.dirname(file),'merged-1cst-connections.json');if(fs.
  try{
   const p=await b.newPage({viewport:{width:1460,height:1000}}),errors=[];p.on('pageerror',e=>errors.push(e.message));
   await p.goto(origin+'/?dataset=agp-24k-silva');await p.waitForFunction(()=>document.getElementById('graph3d')?._agpClick,{},{timeout:90000});
+  if(layouts)await p.selectOption('#agpGraphLayout','graph');
   await p.click('#maximize-featurePanel');await p.waitForFunction(()=>{const g=document.getElementById('graph3d');return Math.abs(g._fullLayout.width-g.clientWidth)<2&&g.clientWidth>800});
   const state=()=>p.evaluate(()=>{const s=JSON.parse(localStorage.getItem('cosmix-agp-view-v1:agp-24k-silva'));return s.graph});
   const ids=()=>p.locator('#samples').evaluate(g=>g.data[0].ids);
@@ -34,12 +38,20 @@ const merged=path.join(path.dirname(file),'merged-1cst-connections.json');if(fs.
   await new Promise(r=>setTimeout(r,200));assert.deepEqual(await state(),before,'No navigation before release');
   await p.mouse.up();await waitSelection(v.id);assert.equal((await state()).cursor,before.cursor+1);
   await new Promise(r=>setTimeout(r,100));assert.equal((await state()).cursor,before.cursor+1,'Only one history entry per click');await clear();
-  for(const q of [70,80,90])for(const method of Object.keys(data.fits))for(const pure of bank.merged?[false,true]:[true]){
+  for(const q of [70,80,90])for(const method of Object.keys(data.fits))for(const pure of bank.merged?[false,true]:[true])for(const algorithm of layouts?layoutTools.algorithms:['reference']){
    await p.click('#maximize-featurePanel');
    const scheme=data.schemes[q+'%-1-CST'];await p.selectOption('#sampleColorScheme',q+'%-1-CST');await p.selectOption('#sampleMethod',method);
    await p.locator('#stateMode').setChecked(!pure);await p.click('#maximize-featurePanel');
    await p.waitForFunction(()=>{const g=document.getElementById('graph3d');return Math.abs(g._fullLayout.width-g.clientWidth)<2&&g.clientWidth>800});
    await p.locator('#agpConnectionPure').setChecked(pure);
+   if(layouts){
+    const unchanged=await sampleSnapshot();await p.selectOption('#graphEmbeddingMethod',algorithm);
+    const lengths=algorithm==='mds'||algorithm==='weighted_grip'?'connection':'equal';await p.selectOption('#agpConnectionLengths',lengths);
+    assert.deepEqual(await sampleSnapshot(),unchanged,'Changing graph method/targets preserves the sample embedding');
+    const key=layoutTools.key(q,pure,method,20,'boundary','inclusive',lengths,algorithm),fit=layouts.fits[layouts.contexts[key]];
+    const actual=await p.locator('#graph3d').evaluate(g=>{const t=g.data.find(t=>t.meta?.agpGraphVertices);return Object.fromEntries(t.customdata.map((d,i)=>[d.id,[t.x[i],t.y[i],t.z[i]]]))});
+    assert.deepEqual(actual,Object.fromEntries(fit.nodes.map((id,i)=>[String(id),fit.coords[i]])));
+   }
    const v=await target('vertex');assert(v&&v.gap>12);await p.mouse.click(v.x,v.y);await waitSelection(v.id);
    await p.waitForFunction(()=>document.getElementById('sampleTitle').textContent.includes('Local 3D MDS'));
    assert.deepEqual(await ids(),data.ids.filter((_,i)=>scheme.merged[i]===v.id&&(!pure||scheme.assignment[i]==='core')));
@@ -51,7 +63,7 @@ const merged=path.join(path.dirname(file),'merged-1cst-connections.json');if(fs.
    const support=new Set([...expected.ba,...expected.bb].map(i=>data.ids[i]));
    const highlighted=await p.locator('#samples').evaluate(g=>g.data[0].ids.filter((_,i)=>g.data[0].marker.color[i]!=='#dedede'));
    assert.deepEqual(highlighted.sort(),whole.ids.filter(id=>support.has(id)).sort());assert.deepEqual(await sampleSnapshot(),whole);
-   await clear();console.log('PASS physical sphere/edge clicks',q,method,pure?'pure':'merged');
+   await clear();console.log('PASS physical sphere/edge clicks',q,method,pure?'pure':'merged',algorithm);
   }
   // Real rendered labels select their own identities, including with sphere mode off.
   await p.click('#maximize-featurePanel');await p.selectOption('#sampleColorScheme','70%-1-CST');await p.check('#stateMode');
@@ -72,6 +84,21 @@ const merged=path.join(path.dirname(file),'merged-1cst-connections.json');if(fs.
   await p.check('#vertexLabels');
   await p.locator('#graphVertexCharacteristics > summary').click();await p.getByRole('button',{name:'Akkermansia muciniphila',exact:true}).click();
   await p.waitForFunction(()=>document.getElementById('sampleTitle').textContent.includes('Akkermansia muciniphila'));
+  if(layouts){
+   for(const kind of ['vertex','edge']){
+    if(kind==='edge'){
+     await clear();await p.click('#maximize-featurePanel');const edge=await target('edge');
+     await p.mouse.click(edge.x,edge.y);await waitSelection(edge.id);
+    }
+    const before=await state(),points=await sampleSnapshot();
+    for(const algorithm of layoutTools.algorithms)for(const lengths of ['equal','connection']){
+     await p.selectOption('#graphEmbeddingMethod',algorithm);await p.selectOption('#agpConnectionLengths',lengths);
+     const after=await state();assert.deepEqual(after.history,before.history);assert.equal(after.cursor,before.cursor);
+     assert.deepEqual(await sampleSnapshot(),points,'Graph layout keeps selected '+kind+' sample coordinates and membership');
+    }
+   }
+   console.log('PASS all four algorithms and both target rules preserve active vertex/edge selections and sample coordinates');
+  }
   if(process.env.COSMIX_TEST_SCREENSHOT){await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));await p.screenshot({path:process.env.COSMIX_TEST_SCREENSHOT})}
   assert.equal(errors.length,0,errors.join('\n'));console.log('PASS labels, flat vertices, stationary release, rotations, history and synchronized sample views');
  }finally{await b.close()}

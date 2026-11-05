@@ -17,6 +17,7 @@
 !/rank2_feature_graph/QUALITY_PREVIEW_POLICY.md
 !/rank2_feature_graph/SKIN_POPULATIONS.md
 !/rank2_feature_graph/VALENCIA2_DATASETS.md
+!/rank2_feature_graph/agp_connection_layouts.js
 !/rank2_feature_graph/agp_connections.js
 !/rank2_feature_graph/agp_graph_picking.js
 !/rank2_feature_graph/agp_population.js
@@ -101,6 +102,7 @@
 !/rank2_feature_graph/view_tools.js
 !/rank2_feature_graph/viewer.html
 !/rank2_feature_graph/viewer_source.py
+!/scripts/agp_connection_layouts_supplement.py
 !/scripts/agp_connections_supplement.py
 !/scripts/agp_supplement.py
 !/scripts/association_supplement.py
@@ -116,6 +118,7 @@
 !/scripts/skin_exchange_v2.py
 !/scripts/skin_states.py
 !/scripts/skin_supplement.py
+!/scripts/test_agp_connection_layouts.py
 !/scripts/test_agp_connections.py
 !/scripts/test_agp_epoch500.py
 !/scripts/test_dataset_maxnorm_supplement.py

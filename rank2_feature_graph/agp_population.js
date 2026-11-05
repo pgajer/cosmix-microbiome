@@ -7,7 +7,7 @@ function agpViewPreferences(data){
   'graphProportionStrength','graphSpheres','graphSphereAmbient','graphSphereHighlights','graphVertexScale',
   'vertexLabels','graphVertexColor','graphEdgeColor','graphWidthBySize','graphEdgeWidth','graphWidthStrength',
   'graphFadeBySize','graphFadeStrength','graphDegreeFilter','graphMinimumDegree','agpConnectionNeighbors',
-  'agpConnectionPure','agpConnectionMeasure','agpConnectionBoundary','agpConnectionMinWeight','agpConnectionMinSamples'];
+  'agpConnectionPure','agpConnectionMeasure','agpConnectionBoundary','agpConnectionMinWeight','agpConnectionMinSamples','agpConnectionLengths'];
  const detailIds=['dataControls','sampleAppearance','sampleAppearanceVertices','graphVertexCharacteristics','agpConnectionHelp','agpEmbeddingDetails'];
  const el=id=>document.getElementById(id);
  let saved={},ready=false,snapshot=()=>({}),views=new Map();
@@ -95,9 +95,10 @@ function agpViewPreferences(data){
 }
 
 // AGP colors and filters are assignments in abundance space. Coordinates come from the saved population fit.
-async function showAgpPopulation(data, choices, references, graphLayouts, localFits, localBank, unfoldedBank, connectionBank, mergedConnections){
+async function showAgpPopulation(data, choices, references, graphLayouts, localFits, localBank, unfoldedBank, connectionBank, mergedConnections, connectionLayouts){
  connectionBank=AgpConnections.validate(connectionBank,data);
  if(connectionBank)connectionBank.merged=AgpConnections.validateMerged(mergedConnections,data);
+ connectionLayouts=AgpConnectionLayouts.validate(connectionLayouts,data);
  const preferences=agpViewPreferences(data);
  const el=id=>document.getElementById(id), method=el('sampleMethod'),color=el('sampleColorScheme'),
        assign=el('stateMode'),plot=el('samples'),info=el('sampleContext'),selector=el('datasetSelect');
@@ -189,7 +190,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   if(!stateColors.has(state)){const i=stateColors.size;stateColors.set(state,palette[i]||('hsl('+Math.round(i*137.508%360)+',55%,'+(35+10*(i%3))+'%)'))}
  }
  const rows=new Map(data.ids.map((id,i)=>[id,i]));
- const graph=agpGraphPanel(data,references,rows,graphLayouts,connectionBank,preferences);
+ const graph=agpGraphPanel(data,references,rows,graphLayouts,connectionBank,preferences,connectionLayouts);
  const openExport=installPngExportDialog(el,async()=>{
   await sampleReady;
   const clone=x=>JSON.parse(JSON.stringify(x)),layout=clone(plot.layout);
@@ -348,7 +349,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
 }
 
 // State counts come from the same retained-state memberships as the sample panel.
-function agpGraphPanel(data,references,rows,bank,connections,preferences){
+function agpGraphPanel(data,references,rows,bank,connections,preferences,connectionLayouts){
  const el=id=>document.getElementById(id);
  const plot=el('graph3d'),area=el('graphPlotArea'),toolbar=el('graphDetails').querySelector('.graphToolbar');
  const layout=document.createElement('select');
@@ -356,14 +357,14 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
  layout.add(new Option('State diagram · 2D','diagram'));
  if(references)layout.add(new Option('Population metric-MDS · 3D','reference'));
  const fitted=new Option('Graph edge-layout · 3D','graph');
- if(bank)layout.add(fitted);
+ if(bank||connectionLayouts)layout.add(fitted);
  const lengths=el('graphEdgeLengths'),algo=el('graphEmbeddingMethod'),strength=el('graphProportionStrength');
  const spheres=el('graphSpheres'),ambient=el('graphSphereAmbient'),highlights=el('graphSphereHighlights');
  const fitControls=[lengths,strength,algo],sphereControls=[spheres,ambient,highlights];
  let pairLayout=bank?'graph':'diagram',previousAlgorithm='weighted_grip',singleLayout=references?'reference':'diagram';
  const previous=preferences.graph;
  if(['diagram',...(references?['reference']:[]),...(bank?['graph']:[])].includes(previous?.pairLayout))pairLayout=previous.pairLayout;
- if(previous?.layoutRevision===2&&['diagram',...(references?['reference']:[])].includes(previous?.singleLayout))singleLayout=previous.singleLayout;
+ if([2,3].includes(previous?.layoutRevision)&&['diagram',...(references?['reference']:[]),...(connectionLayouts?['graph']:[])].includes(previous?.singleLayout))singleLayout=previous.singleLayout;
  if(['spring','mds','grip','weighted_grip'].includes(previous?.previousAlgorithm))previousAlgorithm=previous.previousAlgorithm;
  lengths.disabled=spheres.disabled=false;lengths.value='proportion';algo.value=previousAlgorithm;
  const layoutLabel=document.createElement('label');
@@ -371,6 +372,13 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
  const controls=['graphVertexScale','vertexLabels','graphVertexColor','graphEdgeColor','graphWidthBySize',
   'graphEdgeWidth','graphWidthStrength','graphFadeBySize','graphFadeStrength','graphDegreeFilter','graphMinimumDegree'];
  const layoutNote=document.createElement('small');
+ layoutNote.id='agpGraphLayoutNote';
+ const connectionLengths=document.createElement('select'),connectionLengthLabel=document.createElement('label');
+ connectionLengths.id='agpConnectionLengths';
+ connectionLengths.add(new Option('Equal targets (1)','equal'));
+ connectionLengths.add(new Option('Stronger connections → shorter targets','connection'));
+ connectionLengthLabel.append('Edge lengths',connectionLengths);
+ connectionLengthLabel.title='Layout targets only. Equal uses 1. Weighted uses 1 + 4 × (1 − weight / largest weight), so targets range from 1 to 5. Connection scores and sample embeddings do not change.';
  const connectionControls=document.createElement('fieldset');connectionControls.id='agpConnectionControls';
  const heading=document.createElement('legend');heading.textContent='1-CST connections';connectionControls.append(heading);
  const pureLabel=document.createElement('label'),pureGraph=document.createElement('input');
@@ -405,7 +413,7 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
  const edgeDetails=document.createElement('section');edgeDetails.id='agpConnectionDetails';
  const pickerLabel=document.createElement('label'),picker=document.createElement('select');picker.id='agpConnectionPicker';pickerLabel.append('Connection',picker);edgeDetails.append(pickerLabel);
  const edgeText=document.createElement('div');edgeText.id='agpConnectionDescription';edgeDetails.append(edgeText);
- toolbar.replaceChildren(layoutLabel,...fitControls.map(input=>input.closest('label')),layoutNote,
+ toolbar.replaceChildren(layoutLabel,connectionLengthLabel,...fitControls.map(input=>input.closest('label')),layoutNote,
   ...sphereControls.map(input=>input.closest('label')),connectionControls,...controls.map(id=>el(id).closest('label')));
  if(!bank)layoutLabel.title='Add graph-layouts-3d.json beside population.json for the fitted 3D pair graph.';
  for(const id of controls)el(id).disabled=false;
@@ -457,7 +465,7 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
  function render(){
   if(!scheme)return;
   ++renderRevision;
-  const pair=scheme.k===2,useFit=pair&&layout.value==='graph',spatial=useFit||layout.value==='reference';
+  const pair=scheme.k===2,useFit=layout.value==='graph'&&(pair?bank:connectionLayouts),spatial=!!useFit||layout.value==='reference';
   const vertices=new Map(),edges=[],connected=connectionMode();
   if(connected){
    pureGraph.disabled=!connections.merged;
@@ -467,12 +475,16 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
    for(const value of labels){const id=String(value);if(counts.has(id))counts.set(id,counts.get(id)+1)}
   }
   const membership=pureGraph.checked?'pure':'merged';
-  fitted.hidden=!pair;fitted.disabled=!pair;
-  for(const c of fitControls)c.closest('label').hidden=!useFit;
-  const saved=lengths.value==='reference';
+  fitted.hidden=false;fitted.disabled=!(pair?bank:connectionLayouts);
+  fitted.textContent=pair?'Graph edge-layout · 3D':'Connection graph layout · 3D';
+  for(const c of fitControls)c.closest('label').hidden=!useFit||(!pair&&c!==algo);
+  connectionLengthLabel.hidden=!(useFit&&!pair);
+  const saved=pair&&lengths.value==='reference';
   if(saved && algo.value!=='reference'){previousAlgorithm=algo.value;algo.value='reference'}
   if(!saved && algo.value==='reference')algo.value=previousAlgorithm;
   algo.disabled=saved;strength.disabled=lengths.value!=='proportion';
+  algo.closest('label').title=pair?'Choose Equal or State proportion edge targets to compare graph drawing methods.':
+   'Prepared graph-only layouts: Spring preview, SGD metric MDS, GRIP with hop hierarchy, and Weighted GRIP. These do not refit the sample embedding.';
   el('graphProportionStrengthValue').textContent=strength.value;
   const lit=spatial&&spheres.checked;
   for(const c of sphereControls)c.closest('label').hidden=!spatial;
@@ -562,17 +574,26 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
   const tick=lengths.value==='proportion'?Math.round(4*Number(strength.value)):0;
   const assignment=el('stateMode').checked?'merged':'pure';
   const key=[tick?assignment:'equal',tick,algo.value].join('/');
-  const fit=useFit?(saved?bank.reference:bank.fits[key]):null;
+  const connectionKey=!pair?AgpConnectionLayouts.key(scheme.q,pureGraph.checked,method,neighbors.value,measure.value,rule.value,connectionLengths.value,algo.value):null;
+  const fit=useFit?(pair?(saved?bank.reference:bank.fits[key]):connectionLayouts.fits[connectionLayouts.contexts[connectionKey]]):null;
+  if(useFit&&!fit)throw Error('Missing prepared AGP graph layout. Install the matching connection-layout supplement.');
   const geometryLabel={'l1-euclidean':'L1–Euclidean','max-euclidean':'Max–Euclidean','max-linf':'Max–L∞'}[method];
   const referenceOption=[...layout.options].find(o=>o.value==='reference');
   if(referenceOption)referenceOption.textContent='Population metric-MDS · '+geometryLabel+' · 3D';
   layout.title='Population metric-MDS places each taxon at its highest-abundance observed reference sample in the selected population embedding. It does not optimize the connection graph. Graph edge-layout uses the separately named graph drawing method below.';
   layoutNote.hidden=!(useFit||layout.value==='reference');
   if(layout.value==='reference')layoutNote.textContent='Population metric-MDS (SGD), '+geometryLabel+'. Vertices use their highest-abundance observed reference samples. Positions stay fixed when coverage or graph membership changes; edges are measured in original abundance space, not this 3D layout.';
-  if(useFit)layoutNote.textContent=(saved?'Saved MDS reference. Edge targets are Euclidean distances between the observed reference compositions.':
+  if(useFit&&pair)layoutNote.textContent=(saved?'Saved MDS reference. Edge targets are Euclidean distances between the observed reference compositions.':
    tick?'Edge target = 1 + '+strength.value+' × pair count / largest pair count.':'All edge targets are 1.')+
    ' Relative RMS edge-length error: '+(fit.rms*100).toFixed(2)+'%.';
-  const pos=useFit?new Map(bank.nodes.map((id,i)=>[String(id),fit.coords[i]])):new Map(all.map((v,i)=>{
+  if(useFit&&!pair)layoutNote.textContent=algo.selectedOptions[0].textContent+'. '+
+   (connectionLengths.value==='equal'?'All positive connections have target length 1.':'Target = 1 + 4 × (1 − weight / largest weight); stronger connections have shorter targets.')+
+   ' Uses every positive connection among the retained states, before display filters. Filters hide objects without moving the layout. '+
+   ({spring:'Deterministic 600-step spring relaxation.',mds:'SGD metric MDS of length-weighted shortest paths: 3 starts, 500 epochs.',grip:'GRIP uses hop-count hierarchy and neighborhoods, with the chosen adjacent-edge targets.','weighted_grip':'Weighted GRIP uses length-weighted shortest paths throughout its hierarchy.'}[algo.value])+
+   ' Relative RMS edge-length error: '+(100*fit.rms).toFixed(2)+'%.'+
+   (fit.geodesicNormalizedRmse==null?'':' Geodesic normalized RMSE: '+(100*fit.geodesicNormalizedRmse).toFixed(2)+'%.')+
+   ' Disconnected component positions are arbitrary. These are graph drawing errors, not sample embedding errors.';
+  const pos=useFit?new Map((pair?bank.nodes:fit.nodes).map((id,i)=>[String(id),fit.coords[i]])):new Map(all.map((v,i)=>{
    return [v.id,spatial?data.fits[method].coordinates[rows.get(references[v.id].sample)]:
     [0,-i]];
   }));
@@ -627,7 +648,7 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
    hovertemplate:'%{text}<br>%{customdata.n} samples<extra></extra>'});
   const sceneAxis={visible:false},axis={visible:false,fixedrange:false};
   plot.style.height=spatial?'100%':Math.max(area.clientHeight,all.length*27+40)+'px';
-  const config={margin:{t:20,b:20,l:10,r:10},showlegend:false,uirevision:[scheme.q,layout.value,layout.value==='reference'?method:''].join('/'),
+  const config={margin:{t:20,b:20,l:10,r:10},showlegend:false,uirevision:[scheme.q,layout.value,layout.value==='reference'?method:useFit&&!pair?connectionKey:''].join('/'),
    xaxis:{...axis,range:pair||connected?[-.48,1]:[-.10,1]},yaxis:{...axis,range:[-all.length,1]},
    scene:{aspectmode:'data',dragmode:'orbit',xaxis:sceneAxis,yaxis:sceneAxis,zaxis:sceneAxis,
     annotations:spatial&&showLabels?nodes.map((v,i)=>({x:pos.get(v.id)[0],y:pos.get(v.id)[1],z:pos.get(v.id)[2],
@@ -644,6 +665,7 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
  toolbar.oninput=event=>{
   if(connectionControls.contains(event.target))return;
   if(event.target===layout){if(scheme.k===2)pairLayout=layout.value;else singleLayout=layout.value}
+  if(event.target===algo&&algo.value!=='reference')previousAlgorithm=algo.value;
   render();
  };
  return {begin(s,m){if(s!==scheme)resetNavigation();scheme=s;method=m;
@@ -669,7 +691,7 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
    // Bound browser storage while retaining the current selection and nearby navigation.
    const start=Math.max(0,cursor-49),end=Math.min(history.length,start+100);
    return {history:history.slice(start,end).map(item=>item?{id:item.id,edge:item.edge,connection:item.connection===true}:null),
-    cursor:cursor-start,pairLayout,singleLayout,previousAlgorithm,layoutRevision:2};
+    cursor:cursor-start,pairLayout,singleLayout,previousAlgorithm,layoutRevision:3};
   },
   update(s,c,m){if(s!==layoutScheme){layout.value=s.k===2?pairLayout:singleLayout;layoutScheme=s}scheme=s;counts=c;method=m;return render()}};
 }

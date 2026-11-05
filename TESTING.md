@@ -254,6 +254,16 @@ press, sphere/flat-marker/label/edge clicks, rotation, normal/maximized panels,
 and exact sample identities and boundary highlights. It runs no fits and is
 not part of the update command.
 
+For the separately supplied 1-CST graph-layout bank, add `--connection-layouts`
+to the browser command. It exercises all four graph algorithms, all three
+geometries and coverages, pure/merged graphs, both target-length rules, physical
+vertex/edge clicks, unchanged sample coordinates and selection navigation.
+Run `COSMIX_AGP_LAYOUTS=/path/to/package python3 -m unittest discover -s scripts -p test_agp_connection_layouts.py` for fresh installation, upgrade, repeated
+installation, corruption rejection and unchanged prior data assets. These
+checks remain on demand and outside the update command.
+Add `--connection-layouts` to `test_agp_persistence.cjs` to verify the new
+connection-layout method, targets, camera and active selection across reloads.
+
 For browser-local state restoration, run on demand against an installation with
 the reviewed AGP local, unfolded and connection supplements:
 

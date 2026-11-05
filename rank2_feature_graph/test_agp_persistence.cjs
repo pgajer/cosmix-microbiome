@@ -38,6 +38,10 @@ const key='cosmix-agp-view-v1:agp-24k-silva',url=origin+'/?dataset=agp-24k-silva
   await page.click('#headerBackSelection');await page.check('#unfoldFaces');
   await page.check('#agpConnectionPure');
   await page.selectOption('#agpGraphLayout','reference');
+  if(process.argv.includes('--connection-layouts')){
+   await page.selectOption('#agpGraphLayout','graph');await page.selectOption('#graphEmbeddingMethod','grip');
+   await page.selectOption('#agpConnectionLengths','connection');
+  }
   for(const [id,value] of Object.entries({sampleReferenceScale:180,sampleReferenceColor:'#148050',sampleReferenceSphereAmbient:42,
    sampleReferenceSphereHighlights:65,participantVertexLabelSize:17,graphVertexScale:165,graphVertexColor:'#cc6688',
    graphEdgeColor:'#226677',graphEdgeWidth:8,graphWidthStrength:.65,graphFadeStrength:.17,graphSphereAmbient:39,graphSphereHighlights:61}))await change(id,value);

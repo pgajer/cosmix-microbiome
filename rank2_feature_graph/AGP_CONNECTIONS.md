@@ -154,6 +154,65 @@ smaller states. Neighbor search includes those states too.
 
 ## Selecting objects in 3D
 
+### Connection graph layouts
+
+Choose **Connection graph layout · 3D** in Graph layout, then choose the same
+four methods available in comb-V3V4-tx: **Spring preview**, **Metric MDS (SGD)**,
+**GRIP (hop hierarchy)** or **Weighted GRIP**. The population-coordinate layout
+and the 2D state diagram remain available. Layout changes preserve the selected
+state or connection and the sample view. Each graph layout has its own remembered
+camera. Vertex sizes, colors, lighting, edge widths and fading remain independent.
+
+The separately supplied `connection-layouts-3d.json` contains all 2,160 settings:
+three coverages, pure/merged memberships, three sample geometries, three requested
+neighbor counts, the five effective measure/rule combinations, two length rules
+and four layout algorithms. Identical requests reuse the same fit (1,676 fits).
+The runtime only loads checked coordinates; neither viewing nor updating runs R.
+Older packages without this supplement retain their previous layouts.
+
+Every **positive** connection between retained states defines the layout graph.
+Minimum weight, minimum boundary count and degree filters affect drawing only.
+This keeps positions stable while hiding weak connections. In particular, a
+hidden weak connection can still influence a graph layout. This is a layout of
+the whole retained connection graph, not a refit of the visible subgraph.
+
+**Equal targets (1)** is the default. The optional strength-based rule uses
+`target = 1 + 4 × (1 − weight / largest weight)`: the strongest connection has
+target length 1 and weaker connections approach 5. Strength is similarity, so
+strong connections have shorter targets. These are display lengths, not abundance
+distances or transition probabilities. The connection measure still controls
+the saved edge score, independently of the chosen length rule.
+
+Spring uses the same deterministic 600-step relaxation as the main viewer.
+Metric MDS uses full, uniform-pair-weight SGD on within-component length-weighted
+shortest paths, three random starts, 500 epochs and the Zheng schedule (epsilon
+0.1). GRIP uses hop-count hierarchy/neighborhoods with the supplied adjacent-edge
+lengths; Weighted GRIP uses length-weighted shortest paths throughout and no
+internal length normalization. Both use 160 rounds and 384 final rounds. The
+base seed is 20261016 plus the component number. As in the main graph worker,
+each non-spring result is uniformly scaled against its graph-geodesic targets
+and aligned to the observed-reference coordinates without changing distances.
+Disconnected-component placement is arbitrary. Finishing the iteration budget
+does not certify convergence.
+
+Relative RMS edge-length error is the square root of the mean squared
+`(drawn center-to-center distance / target length − 1)` over all layout edges.
+Geodesic normalized RMSE is the square root of the summed squared distance
+residuals divided by summed squared shortest-path targets, using pairs within
+the same connected component. Both are displayed as percentages and refer to
+the graph drawing, not to the sample embedding. A three-dimensional map cannot
+in general satisfy every target, especially for dense graphs.
+
+The author-side preparation is `scripts/prepare_agp_connection_layouts.py`;
+`scripts/verify_agp_connection_layouts.py` independently checks every saved
+edge error and within-component geodesic error. The run records input checksums,
+the optimized authoritative grip snapshot, worker settings, full diagnostics and
+restartable checked results. The release adds only graph coordinates: previous
+sample memberships, ordinary/unfolded embeddings and connection scores are
+preserved byte for byte.
+
+### Linked selection
+
 Click a sphere, flat vertex marker or its label to open the existing local
 1-CST sample embedding. Click anywhere along a visible connection to highlight
 its boundary samples in the population map and populate the connection table.
@@ -174,11 +233,13 @@ applies to the saved 3D pair-graph layouts. Flat 2D diagrams retain selection.
 ```sh
 node rank2_feature_graph/test_agp_graph_picking.cjs
 node rank2_feature_graph/test_agp_graph_picking_browser.cjs http://127.0.0.1:4173 /path/to/population.json
+node rank2_feature_graph/test_agp_graph_picking_browser.cjs http://127.0.0.1:4173 /path/to/population.json --connection-layouts
+COSMIX_AGP_LAYOUTS=/path/to/package python3 -m unittest discover -s scripts -p test_agp_connection_layouts.py
 node rank2_feature_graph/test_agp_connections.cjs /path/to/population.json
 COSMIX_AGP_CONNECTIONS=/path/to/package python3 -m unittest discover -s scripts -p test_agp_connections.py
 node rank2_feature_graph/test_agp_connections_browser.cjs http://127.0.0.1:4173 /path/to/population.json
 ```
 
 The browser check needs Playwright and Chrome. Checks use saved assets, run no
-fits, and remain outside installation and update commands. The numerical audit
-and reproducible data-generation sources remain with the owning AGP project.
+fits, and remain outside installation and update commands. The numerical audit and graph-layout generation sources remain in the author's
+development repository; the underlying connection analysis belongs to the AGP project.
