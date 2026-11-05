@@ -109,10 +109,13 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   const frame=local?localKey:method.value;
   const localRows=local?new Map(local.indices.map((row,index)=>[row,index])):null;
   el('sampleTitle').textContent=local?title+' · '+selected.name+' · Local 3D MDS':title;
-  const fullLocal=local?.metrics.evaluationRule==='all-pairs';
-  if(fullLocal){
+  const allPairsLocal=local?.metrics.evaluationRule==='all-pairs';
+  if(allPairsLocal){
    const m=local.metrics;
-   formula.textContent='Full metric-MDS fitted all '+m.pairs.toLocaleString()+' pairs in this state. RMS relative error is 100 × √mean[((3D distance − original distance) / original distance)²]. Each sample retains an average of '+m.localRecall.toFixed(2)+'% of its ten original nearest neighbors in the 3D map.';
+   const note=m.approximation==='sparse'
+    ? 'Sparse metric-MDS used '+m.pivots.toLocaleString()+' pivots. Error was measured on all '+m.pairs.toLocaleString()+' pairs in this state.'
+    : 'Full metric-MDS fitted all '+m.pairs.toLocaleString()+' pairs in this state.';
+   formula.textContent=note+' RMS relative error is 100 × √mean[((3D distance − original distance) / original distance)²]. Each sample retains an average of '+m.localRecall.toFixed(2)+'% of its ten original nearest neighbors in the 3D map.';
   }else formula.textContent=local?'RMS relative error compares Euclidean distances in the 3D map with original distances under the selected method. It is 100 × the square root of the mean squared relative difference. On the same '+local.metrics.pairs.toLocaleString()+' within-state pairs excluded from both fits, the local map scored '+local.metrics.localError.toFixed(2)+'% and the population map scored '+local.metrics.populationError.toFixed(2)+'%. Lower is better.':populationFormula;
   const xyz=[[],[],[]],colors=[],hover=[],ids=[],counts=new Map(s.cores.map(key=>[key,0]));
   const coreCounts=new Map(counts);
@@ -148,7 +151,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
    for(const v of [c,n-c,n,(100*n/data.ids.length).toFixed(2)])tr.insertCell().textContent=v.toLocaleString();
   }
   info.append(table);add('small','Percentages use all 24,421 samples. A merged label names its retained core.');info.append(details);
-  stress.textContent='RMS relative error: '+(local?local.metrics.localError:bank.error).toFixed(2)+(fullLocal?'% (all pairs)':'% (held-out pairs)');
+  stress.textContent='RMS relative error: '+(local?local.metrics.localError:bank.error).toFixed(2)+(allPairsLocal?'% (all pairs)':'% (held-out pairs)');
   if(!ranges.has(frame))ranges.set(frame,[0,1,2].map(j=>{
    const column=coords.map(v=>v[j]),lo=Math.min(...column),hi=Math.max(...column),pad=(hi-lo)*0.05;
    return [lo-pad,hi+pad];

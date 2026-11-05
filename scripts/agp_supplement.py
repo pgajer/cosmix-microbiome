@@ -11,6 +11,7 @@ REFERENCE_PIN = '77f0276af8e7bffd2f1c433a518040fa81b4398fa37db469c0565093ce1ef49
 LOCAL_ALL_PIN = '49ae4a557268d614e6acbda31c47ee91f7fc1dc966b1e7ad718e702a037ef243'
 LOCAL_THROUGH_5006_PIN = 'fbb2f0ea6b59267868e31b684b6ccd7945d4fc97e6045792eafc383c06d5f6fc'
 LOCAL_PILOT_PIN = 'f3c5c29a39407c3d6dc83630382592ddca2e941759730dab8dc2c929a90e7fd3'
+LOCAL_REVIEWED_PIN = '51473823570462976a9f8a76e20ceb7949ebd7c7e828ffa7b72299ca45645533'
 LAYOUT_PIN = 'b4249fcdcbfa322ad301ff93840593db4b6541bfb8dab8fddfc9e9348dd756a0'
 
 
@@ -49,29 +50,27 @@ def attach(page, source):
             raise ValueError('AGP graph layouts differ from the reviewed revision')
         entry['parts'].append(publish(layout_bytes, '.json'))
     accepted.append(entry['parts'].copy())
-    pilot = source.with_name('local-1cst-pilot.json')
-    complete = source.with_name('local-1cst-all.json')
-    updated = source.with_name('local-1cst-through-5006.json')
-    if updated.is_file() or complete.is_file():
-        chosen = updated if updated.is_file() else complete
-        full_bytes = chosen.read_bytes()
-        expected = LOCAL_THROUGH_5006_PIN if chosen == updated else LOCAL_ALL_PIN
-        if p.sha(full_bytes) != expected:
+    # Newer banks are complete replacements. Accept an upgrade from any reviewed
+    # older bank, even when the original file is no longer beside population.json.
+    releases = [
+        ('local-1cst-pilot.json', LOCAL_PILOT_PIN, 4067864),
+        ('local-1cst-all.json', LOCAL_ALL_PIN, 14467743),
+        ('local-1cst-through-5006.json', LOCAL_THROUGH_5006_PIN, 15163011),
+        ('local-1cst-reviewed.json', LOCAL_REVIEWED_PIN, 15939243),
+    ]
+    for index in reversed(range(len(releases))):
+        name, checksum, size = releases[index]
+        path = source.with_name(name)
+        if not path.is_file():
+            continue
+        data = path.read_bytes()
+        if len(data) != size or p.sha(data) != checksum:
             raise ValueError('AGP local 1-CST bank differs from the reviewed fits')
-        # An existing pilot installation may upgrade directly to the complete bank.
-        pilot_descriptor = dict(url='/vme-assets/' + LOCAL_PILOT_PIN + '.json',
-                                sha256=LOCAL_PILOT_PIN, bytes=4067864)
-        accepted.append(entry['parts'] + [pilot_descriptor])
-        if chosen == updated:
-            sparse_descriptor = dict(url='/vme-assets/' + LOCAL_ALL_PIN + '.json',
-                                     sha256=LOCAL_ALL_PIN, bytes=14467743)
-            accepted.append(entry['parts'] + [sparse_descriptor])
-        entry['parts'].append(publish(full_bytes, '.json'))
-    elif pilot.is_file():
-        pilot_bytes = pilot.read_bytes()
-        if p.sha(pilot_bytes) != LOCAL_PILOT_PIN:
-            raise ValueError('AGP local 1-CST pilot differs from the reviewed fits')
-        entry['parts'].append(publish(pilot_bytes, '.json'))
+        for _, previous, length in releases[:index]:
+            descriptor = dict(url='/vme-assets/' + previous + '.json', sha256=previous, bytes=length)
+            accepted.append(entry['parts'] + [descriptor])
+        entry['parts'].append(publish(data, '.json'))
+        break
     accepted.append(entry['parts'])
     if existing is not None and not any(existing == {**entry, 'parts': parts} for parts in accepted):
         raise ValueError('Conflicting AGP dataset revision')

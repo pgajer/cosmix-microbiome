@@ -140,7 +140,8 @@ const reference=JSON.parse(require('fs').readFileSync(population));
  await page.click('#viewExportClose');
  console.log('PASS AGP selection navigation, history reset, and PNG download with legend at 2×');
  const localPath=path.join(path.dirname(population),'local-1cst-pilot.json');
- const reviewedPath=path.join(path.dirname(population),'local-1cst-through-5006.json');
+ const pivotPath=path.join(path.dirname(population),'local-1cst-reviewed.json');
+ const reviewedPath=fs.existsSync(pivotPath)?pivotPath:path.join(path.dirname(population),'local-1cst-through-5006.json');
  const fullPath=fs.existsSync(reviewedPath)?reviewedPath:path.join(path.dirname(population),'local-1cst-all.json');
  if(fs.existsSync(fullPath)||fs.existsSync(localPath)){
   const bank=fs.existsSync(fullPath)?JSON.parse(fs.readFileSync(fullPath)).agpLocalBank:null;
@@ -152,13 +153,21 @@ const reference=JSON.parse(require('fs').readFileSync(population));
      const expected=s.merged.flatMap((t,i)=>t===id&&(mode==='merged'||s.assignment[i]==='core')?[i]:[]);
      for(const method of Object.keys(reference.fits)){
       const fit=fits[[scheme,id,mode,method].join('/')];
-      if(fs.existsSync(reviewedPath))assert.equal(fit.metrics.evaluationRule==='all-pairs',expected.length<=5006);
+      if(fs.existsSync(reviewedPath)){
+       const upgraded=fs.existsSync(pivotPath)&&expected.length>5006;
+       assert.equal(fit.metrics.evaluationRule==='all-pairs',expected.length<=5006||upgraded);
+       if(upgraded){
+        assert.equal(id,'51');assert.equal(fit.metrics.pivots,4000);
+        assert.equal(fit.metrics.approximation,'sparse');assert.equal(fit.metrics.queries,expected.length);
+        assert.equal(fit.metrics.pairs,expected.length*(expected.length-1)/2);
+       }
+      }
       assert.deepEqual(fit.indices,expected);assert.equal(fit.coordinates.length,expected.length);
      }
     }
    }
   }
-  const cases=bank?[[70,'51'],[70,'146'],[80,'268'],[90,'299']]:[[70,'51'],[70,'13']];
+  const cases=bank?[[70,'51'],...(fs.existsSync(pivotPath)?[[80,'51'],[90,'51']]:[]),[70,'146'],[80,'268'],[90,'299']]:[[70,'51'],[70,'13']];
   for(const [q,id] of cases){
    const scheme=q+'%-1-CST',name=reference.schemes[scheme].labels[id];
    await page.selectOption('#sampleColorScheme',scheme);
@@ -181,8 +190,12 @@ const reference=JSON.parse(require('fs').readFileSync(population));
      if(refs)assert.deepEqual(rendered.labels,rendered.ids.includes(refs[id].sample)?[name]:[]);
      assert.ok((await page.locator('#sampleTitle').innerText()).includes(name+' · Local 3D MDS'));
      const full=fit.metrics.evaluationRule==='all-pairs',status=await page.locator('#sampleStress').innerText();
-     assert.ok(status.includes(fit.metrics.localError.toFixed(2)+'% ('+(full?'all pairs':'held-out pairs')+')'));
-     if(full)assert.ok(await page.getByText('Full metric-MDS fitted all '+fit.metrics.pairs.toLocaleString()+' pairs',{exact:false}).count());
+     const expectedStress=fit.metrics.localError.toFixed(2)+'% ('+(full?'all pairs':'held-out pairs')+')';
+     assert.ok(status.includes(expectedStress),[scheme,id,mode,method,expectedStress,status].join(' | '));
+     if(full){
+      const text=fit.metrics.approximation==='sparse'?'Sparse metric-MDS used 4,000 pivots. Error was measured on all ':'Full metric-MDS fitted all ';
+      assert.ok(await page.getByText(text+fit.metrics.pairs.toLocaleString()+' pairs',{exact:false}).count());
+     }
     }
    }
    await page.click('#headerClearSelection');
