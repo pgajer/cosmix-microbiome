@@ -124,8 +124,9 @@ def assemble(root, chosen, output):
         p.asset_path(outweb, desc).write_bytes(raw)
         return desc
     manifest['application'] = publish(('VME_ASSETS.releaseControls();\n' + application).encode())
-    if any(entry.get('capability') == 'skin-population-v1' for entry in manifest['datasets'].values()):
-        manifest['skinViewer'] = publish((p.HERE / 'skin_population.js').read_bytes())
+    if any(entry.get('capability') in ('skin-population-v1', 'skin-population-v2') for entry in manifest['datasets'].values()):
+        from skin_supplement import viewer_bytes
+        manifest['skinViewer'] = publish(viewer_bytes())
     manifest['validator'] = publish((p.HERE / 'bundle_format.js').read_bytes())
     loader = publish((p.HERE / 'asset_loader.js').read_bytes())
     bootstrap = '<script id="vme-http-manifest" type="application/json">' + p.encoded(manifest).decode().replace('</', '<\\/') + '</script><script src="' + loader['url'] + '"></script>'

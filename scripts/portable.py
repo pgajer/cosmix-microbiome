@@ -491,7 +491,7 @@ def app_destination(output=None):
 
 
 def update(package=None, metadata_path=None, output=None, neighborhood_package=None, neighborhood_metadata=None,
-           catalog=None, datasets=None, select_datasets=False, agp_population=None):
+           catalog=None, datasets=None, select_datasets=False, agp_population=None, skin_exchanges=None):
     output = app_destination(output)
     # Reject the source checkout before creating any locks or staging folders.
     if output == ROOT or output in ROOT.parents or ROOT in output.parents:
@@ -565,6 +565,18 @@ def update(package=None, metadata_path=None, output=None, neighborhood_package=N
                 receipt = json.loads(receipt_path.read_text())
                 receipt['agpPopulation'] = str(population_path)
                 receipt_path.write_text(json.dumps(receipt, indent=2)+'\n')
+            skin_exchanges = skin_exchanges if skin_exchanges is not None else old_receipt.get('skinExchanges')
+            if skin_exchanges:
+                from skin_supplement import attach as attach_skin
+                paths = [Path(path).expanduser().resolve() for path in skin_exchanges]
+                if any(output == path or output in path.parents or path in output.parents for path in paths):
+                    raise ValueError('Keep skin exchange data outside the app folder')
+                digest = attach_skin(candidate/'web/index.html', paths)
+                extend_instance(candidate, 'skin', digest)
+                receipt_path = candidate/'SOURCE_AND_DATA.json'
+                receipt = json.loads(receipt_path.read_text())
+                receipt['skinExchanges'] = list(map(str, paths))
+                receipt_path.write_text(json.dumps(receipt, indent=2)+'\n')
             validate_prepared(candidate)
             # Write recovery information before either directory is moved.
             with journal.open('x') as stream:
@@ -606,11 +618,12 @@ def main():
     item.add_argument('--datasets', nargs='+', help='Exact dataset IDs to install; replaces the installed selection')
     item.add_argument('--select-datasets', action='store_true', help='Choose datasets interactively')
     item.add_argument('--agp-population', type=Path, help='Reviewed AGP SILVA population file (remembered locally)')
+    item.add_argument('--skin-exchange', nargs='+', type=Path, help='Registered skin v2 exchange directories (remembered locally)')
     args = parser.parse_args()
     try:
         if args.command == 'update':
             update(args.package, args.metadata, args.output, args.neighborhood_package, args.neighborhood_metadata,
-                   args.catalog, args.datasets, args.select_datasets, args.agp_population)
+                   args.catalog, args.datasets, args.select_datasets, args.agp_population, args.skin_exchange)
         elif args.command == 'prepare':
             prepare(args.package.resolve(), args.metadata.resolve(), args.output.resolve())
         else:

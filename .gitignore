@@ -14,6 +14,7 @@
 !/THIRD_PARTY_NOTICES.md
 !/rank2_feature_graph/ASSOCIATIONS.md
 !/rank2_feature_graph/QUALITY_PREVIEW_POLICY.md
+!/rank2_feature_graph/SKIN_POPULATIONS.md
 !/rank2_feature_graph/VALENCIA2_DATASETS.md
 !/rank2_feature_graph/agp_population.js
 !/rank2_feature_graph/annotation_tracks.js
@@ -53,6 +54,7 @@
 !/rank2_feature_graph/sample_inspector.js
 !/rank2_feature_graph/sensitivity_views.js
 !/rank2_feature_graph/skin_population.js
+!/rank2_feature_graph/skin_population_v2.js
 !/rank2_feature_graph/sphere_geometry.js
 !/rank2_feature_graph/state_transitions.js
 !/rank2_feature_graph/subject_embedding.js
@@ -75,6 +77,7 @@
 !/rank2_feature_graph/test_sample_appearance.mjs
 !/rank2_feature_graph/test_sample_coloring.mjs
 !/rank2_feature_graph/test_skin_population.cjs
+!/rank2_feature_graph/test_skin_population_v2.cjs
 !/rank2_feature_graph/test_state_transitions.mjs
 !/rank2_feature_graph/test_transition_bayes.mjs
 !/rank2_feature_graph/test_unfolded_views.mjs
@@ -98,11 +101,14 @@
 !/scripts/portable.py
 !/scripts/pure_vertex_supplement.py
 !/scripts/skin_exchange.py
+!/scripts/skin_exchange_v2.py
+!/scripts/skin_supplement.py
 !/scripts/test_dataset_maxnorm_supplement.py
 !/scripts/test_max_normalized_supplement.py
 !/scripts/test_meeting_release.py
 !/scripts/test_portable.py
 !/scripts/test_pure_vertex_supplement.py
+!/scripts/test_skin_supplement.py
 !/scripts/test_unfolded_edge_supplement.py
 !/scripts/test_unfolded_supplement.py
 !/scripts/test_validation_shortcuts.py

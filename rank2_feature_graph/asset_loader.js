@@ -67,7 +67,9 @@ const requested=new URLSearchParams(location.search).get('dataset');
 if(requested==='empty'){location.replace(new URL('empty.html',location.href).href);return}
 const optionalNode=document.getElementById('vme-optional-neighborhoods'),optional=optionalNode?JSON.parse(optionalNode.textContent):null;
 const primary=JSON.parse(document.getElementById('vme-http-manifest').textContent);
-if(optional && primary.datasets['agp-24k-silva'] && !optional.seed.optionalDatasetLinks.some(x=>x.id==='agp-24k-silva'))optional.seed.optionalDatasetLinks.push(primary.datasets['agp-24k-silva'].dataset);
+if(optional)for(const entry of Object.values(primary.datasets)){
+ if(entry.capability && !optional.seed.optionalDatasetLinks.some(x=>x.id===entry.dataset.id))optional.seed.optionalDatasetLinks.push(entry.dataset);
+}
 const manifest=optional?.families.some(f=>f.id===requested)?optional:primary,loader=createLoader(manifest);
 root.VME_ASSETS=loader;
 // A population-only view has its own initialization. Route changes before an older
@@ -113,13 +115,13 @@ async function start(id){
  try{
   library??=script(manifest.plotly).catch(error=>{library=null;throw error});
   const capability=manifest.datasets[id]?.capability;
-  if(capability==='skin-population-v1'||capability==='agp-population-v1'){
-   const skin=capability==='skin-population-v1';
+  if(['skin-population-v1','skin-population-v2','agp-population-v1'].includes(capability)){
+   const skin=capability.startsWith('skin-population-');
    const [part]=await Promise.all([loader.dataset(id),library,script(skin?manifest.skinViewer:manifest.agpViewer)]);
    if(attempt!==revision)return;
    const data=skin?part.skinPopulation:part.agpPopulation;
    if(data?.id!==id||data.revision!==manifest.datasets[id].dataset.revision)throw Error('Population identity mismatch.');
-   await (skin?root.showSkinPopulation:root.showAgpPopulation)(data,choices,part.agpReferences,part.agpGraphLayouts,part.agpLocalFits,part.agpLocalBank,part.agpUnfolded);
+   await (capability==='skin-population-v2'?root.showSkinPopulationV2:skin?root.showSkinPopulation:root.showAgpPopulation)(data,choices,part.agpReferences,part.agpGraphLayouts,part.agpLocalFits,part.agpLocalBank,part.agpUnfolded);
    loader.status('');return;
   }
   validationLibrary??=script(manifest.validator).catch(error=>{validationLibrary=null;throw error});

@@ -165,7 +165,7 @@ function datasetMessage(message){for(const id of ['datasetMessage','panelDataset
 for(const id of ['datasetSelect','panelDatasetSelect'])el(id).onchange=()=>{
  const value=el(id).value;
  if(value==='empty'){location.assign(new URL('empty.html',location.href).href);return}
- if(globalThis.VME_ASSETS?.manifest.datasets[value]?.capability==='skin-population-v1'||BUNDLE_PACK.optionalDatasetLinks?.some(item=>item.id===value)){const url=new URL(location.href);url.searchParams.set('dataset',value);location.assign(url.href);return}
+ if(['skin-population-v1','skin-population-v2'].includes(globalThis.VME_ASSETS?.manifest.datasets[value]?.capability)||BUNDLE_PACK.optionalDatasetLinks?.some(item=>item.id===value)){const url=new URL(location.href);url.searchParams.set('dataset',value);location.assign(url.href);return}
  if(value===''){
   // Restore both selectors before opening the picker, including when it is canceled.
   updateDatasetChoices();el('datasetFile').value='';el('datasetFile').click();return;

@@ -542,3 +542,12 @@ assigned by higher-rank support or neighbor vote. With it disabled, the plot
 shows the original core members in their saved population coordinates.
 Percentages use all 24,421 samples. Pair names put the taxon with greater total
 relative abundance across this population first.
+
+### Exploratory skin population maps
+
+Skin v2 uses a discrete visit-order palette within each population; unknown or
+unverified visits are gray. Colors repeat after eight visit orders, so the
+textual legend and hover labels explicitly identify the order. Visit colors do
+not imply elapsed time, cross-study correspondence or a CST assignment. Filtering
+to a participant shows that participant's retained specimens and vetted same-site
+edges only. Unknown metadata and exploratory notices remain in views and exports.

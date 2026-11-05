@@ -264,3 +264,13 @@ An installation without the matching supplement keeps these methods disabled.
 The standard metadata installation/update command also accepts metadata containing
 this bank; it does not compute embeddings or run integration/layout tests. The
 coordinate bank loads only when its dataset is opened, in bounded JSON fragments.
+
+## Optional registered skin exchanges
+
+Use `python3 scripts/portable.py update --skin-exchange /path/to/exchange`
+(or several exchange directories) to add reviewed exploratory skin populations.
+Keep the exchange folders outside the installed app. Subsequent updates remember
+them and retain existing datasets, including AGP. See
+[skin population behavior and checks](rank2_feature_graph/SKIN_POPULATIONS.md)
+for metadata, trajectory and distortion limitations. Scientific assets remain
+separately distributed under their own reuse terms.
