@@ -32,11 +32,27 @@ const AgpConnections = (() => {
   }
   return bank;
  }
- function edges(bank,scheme,method,h,measure='boundary',rule='inclusive'){
+ function validateMerged(merged,data){
+  if(!merged)return null;
+  const fail=()=>{throw Error('AGP merged connection supplement does not match this population.')};
+  if(merged.schema!=='agp-merged-connections-v1')fail();
+  for(const q of [70,80,90]){
+   const scheme=data.schemes[q+'%-1-CST'],view=merged.coverages?.[q];
+   if(!view||!Array.isArray(view.memberships)||view.memberships.length!==data.ids.length||
+    !view.memberships.every((s,i)=>s===Number(scheme.merged[i])))fail();
+   // The same structural checks apply, with each coverage's frozen merged labels.
+   const proxy={...data,schemes:{'90%-1-CST':{original:scheme.merged,cores:scheme.cores}}};
+   validate({...merged,...view,schema:'agp-pure-connections-v1',pureStates:view.memberships},proxy);
+  }
+  return merged;
+ }
+ function source(bank,scheme,pure=true){return pure?bank:bank?.merged?.coverages?.[scheme.q]}
+ function edges(bank,scheme,method,h,measure='boundary',rule='inclusive',pure=true){
   if(!bank||scheme.k!==1)return [];
+  const view=source(bank,scheme,pure);if(!view)return [];
   const keep=new Set(scheme.cores.map(Number)),counts=new Map();
-  for(const s of bank.pureStates)counts.set(s,(counts.get(s)||0)+1);
-  return bank.geometries[method][h].edges.filter(e=>keep.has(e.a)&&keep.has(e.b)).map(e=>{
+  for(const s of (pure?bank.pureStates:view.memberships))counts.set(s,(counts.get(s)||0)+1);
+  return view.geometries[method][h].edges.filter(e=>keep.has(e.a)&&keep.has(e.b)).map(e=>{
    const strict=measure==='boundary'&&rule==='two-only';
    const ba=strict?e.twoA:e.boundaryA,bb=strict?e.twoB:e.boundaryB;
    const fa=ba.length/counts.get(e.a),fb=bb.length/counts.get(e.b);
@@ -47,6 +63,6 @@ const AgpConnections = (() => {
   });
  }
  function filter(edges,minWeight,minSamples){return edges.filter(e=>e.weight>0&&e.weight>=minWeight&&e.ba.length>=minSamples&&e.bb.length>=minSamples)}
- return {validate,edges,filter,measures};
+ return {validate,validateMerged,source,edges,filter,measures};
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=AgpConnections;

@@ -1,3 +1,43 @@
+# AGP 1-CST connections by coverage
+
+The graph defaults to the **merged q%-1-CSTs** chosen by Color by (70%, 80%
+ or 90%). **Pure 1-CST graph** instead uses the corresponding retained original
+leading-taxon states. Both choices use the same original-space neighbors, but
+merged weights and node counts are recomputed from that coverage's frozen
+merged memberships. The pure graph selects a subset of the original pure-state
+analysis. Its edge weights therefore remain the same across coverage levels;
+merged weights generally change. Titles distinguish these meanings explicitly.
+
+The graph checkbox does not change samples, assignments, local fits or sample
+coordinates. The header's Assign remaining samples checkbox continues to control
+sample display. An edge highlights only boundary records present in that display;
+the edge table reports the whole graph's boundary counts. Neither selection nor
+edge-display filters recomputes the saved weights.
+
+The default **Population metric-MDS · [geometry] · 3D** layout reuses the
+selected population embedding's coordinates for each taxon's highest-abundance
+observed reference sample. These are SGD metric-MDS sample coordinates, not a
+fit of connection weights. The reference positions stay fixed across coverage
+and pure/merged graph changes. **State diagram · 2D** is a schematic row layout.
+The 2-CST graph also retains **Graph edge-layout · 3D**, with its explicit Spring,
+Metric MDS (SGD), GRIP and Weighted GRIP method selector and edge-target controls.
+Those saved pair-graph fits are not repurposed as 1-CST connection-graph fits.
+Existing saved 1-CST layout preferences migrate once to the reference 3D view;
+subsequent layout choices and the pure-graph checkbox are remembered.
+
+The optional `merged-1cst-connections.json` supplement is pinned and checked
+against every coverage's membership vector. Old pure-only packages remain
+usable, clearly labeled pure, until the data supplement is installed. Source
+updates cannot manufacture missing numerical supplements.
+
+The aggregation source is `scripts/agp_state_connections/merged_viewer.py` in
+the owning gut-microbiome project. It reuses checksummed neighbor lists, covers
+27 geometry/scale/coverage combinations, and independently enumerates 81 pair
+checks. All previous files, memberships and embeddings are preserved. The pure
+L∞ tie audit below is not claimed as a merged-state tie-sensitivity validation.
+
+## Preserved pure-core methods and audit
+
 # Pure 1-CST connections
 
 ## What question does this graph answer?
@@ -6,15 +46,9 @@ Which pure leading-taxon states meet through nearby samples in the original
 abundance space? These connections describe sample proximity. They are not
 temporal transitions, interaction probabilities, or significance tests.
 
-Select AGP and choose a 70%, 80% or 90% **1-CSTs** coloring. The whole pure-core
-connection graph appears with or without a selected state. **Assign remaining
-samples to retained states** controls the 3D samples only: graph node counts,
-sizes and edge weights always use original pure-core memberships. A separately supplied, reviewed
-`pure-1cst-connections.json` must be beside `population.json`. The installer
-checks its checksum, sample order and original memberships. Older packages
-remain usable and explain why connections are unavailable. These are not
-connections computed between merged memberships. The existing 2-CST graph
-retains its previous behavior.
+The original pure-core supplement remains separate and unchanged. The new
+merged supplement adds coverage-specific aggregations, as described above.
+Both are separately distributed with the AGP data; neither contains new fits.
 
 ## Controls and selection
 
@@ -35,14 +69,14 @@ Edge thickness scales with the chosen weight relative to the largest pair weight
 in the current retained-core graph, before display filtering. The existing width,
 scaling strength, fading, degree, color and layout controls remain available.
 Degree counts connections passing weight/support filters, before the degree
-filter. Node area represents pure-state sample count. In the observed-reference
+filter. Node area represents the chosen pure or merged state sample count. In the population metric-MDS
 3D layout, sphere size/color/lighting controls are available; positions remain
 the saved observed reference coordinates. No graph or sample fit runs.
 
 Click an edge or use **Connection** to see both sides' counts, state sizes and
 percentages, plus unique known participants across both boundaries and unlinked
 records. Boundary samples retain their state colors; other currently displayed
-samples are gray, including assigned samples if displayed. The saved population coordinates and sample set do
+samples are gray, when they are outside the chosen boundary. The saved population coordinates and sample set do
 not change. An edge hidden by a subsequent display filter can remain selected;
 the picker explicitly marks it hidden. Back, Forward and Clear selection also
 work for connections. Vertex selection continues to open the existing pure or

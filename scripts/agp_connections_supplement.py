@@ -15,3 +15,22 @@ def checked_connections(path,population):
         bank['countSha256']!=population['countSha256'] or bank['featureSha256']!=population['featureSha256']):
         raise ValueError('AGP connection identities differ from the population')
     return raw
+
+MERGED_PIN = 'de7779816f252252c8b27e6d09063204821a0172097524fe8eebc7ce3684ae09'
+
+
+def checked_merged_connections(path, population):
+    raw = path.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != MERGED_PIN:
+        raise ValueError('AGP merged connections differ from the reviewed coverage analysis')
+    bank = json.loads(raw)['agpMergedConnections']
+    if (bank['schema'] != 'agp-merged-connections-v1' or bank['sampleIds'] != population['ids'] or
+        bank['countSha256'] != population['countSha256'] or bank['featureSha256'] != population['featureSha256']):
+        raise ValueError('AGP merged connection identities differ from the population')
+    for q in [70, 80, 90]:
+        view = bank['coverages'][str(q)]
+        scheme = population['schemes'][str(q)+'%-1-CST']
+        if (view['memberships'] != list(map(int, scheme['merged'])) or
+            view['states'] != sorted(map(int, scheme['cores']))):
+            raise ValueError('AGP merged connection memberships differ from the population')
+    return raw

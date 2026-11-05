@@ -107,6 +107,13 @@ def attach(page, source):
         from agp_connections_supplement import checked_connections
         entry['parts'].append(publish(checked_connections(connections,json.loads(raw)),'.json'))
         accepted.append(entry['parts'].copy())
+    merged_connections = source.with_name('merged-1cst-connections.json')
+    if merged_connections.is_file():
+        if not connections.is_file():
+            raise ValueError('AGP merged connections require the matching pure connection supplement')
+        from agp_connections_supplement import checked_merged_connections
+        entry['parts'].append(publish(checked_merged_connections(merged_connections,json.loads(raw)),'.json'))
+        accepted.append(entry['parts'].copy())
     accepted_entries = [{**entry, 'parts': parts} for parts in accepted]
     if revision == POPULATION_PINS[EPOCH500_PIN]:
         accepted_entries += [{**entry, 'dataset': {**entry['dataset'], 'revision': POPULATION_PINS[PIN]},

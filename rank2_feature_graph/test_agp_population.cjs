@@ -46,6 +46,7 @@ const reference=JSON.parse(require('fs').readFileSync(population));
   console.log('PASS AGP sample reference spheres in all embeddings, size, color, lighting and diamond mode');
  }
  else assert.equal(await page.locator('#participantShowVertices').isDisabled(),true);
+ if(connectionBank)await page.check('#agpConnectionPure'); // Pure-core regression; merged graphs have their own test.
  for(const [scheme,s] of Object.entries(reference.schemes)){
   await page.selectOption('#sampleColorScheme',scheme);
   for(const merged of [true,false]){

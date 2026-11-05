@@ -29,6 +29,23 @@ if(process.argv[2]){
    for(const e of edges){assert.deepEqual(e,large.find(x=>x.state===e.state));assert.equal(e.n,e.ba.length+e.bb.length)}
   }
  }
+ const mergedFile=path.join(path.dirname(process.argv[2]),'merged-1cst-connections.json');
+ if(fs.existsSync(mergedFile)){
+  const merged=JSON.parse(fs.readFileSync(mergedFile)).agpMergedConnections;
+  connections.merged=C.validateMerged(merged,population);
+  for(const geometry of Object.keys(population.fits))for(const h of [10,20,40])for(const q of [70,80,90]){
+   const s=population.schemes[q+'%-1-CST'],edges=C.edges(connections,s,geometry,h,'boundary','inclusive',false);
+   assert.equal(edges.length,s.cores.length*(s.cores.length-1)/2);
+   for(const e of edges){
+    assert.equal(e.nA,s.merged.filter(v=>Number(v)===e.a).length);
+    assert.equal(e.nB,s.merged.filter(v=>Number(v)===e.b).length);
+    assert(e.ba.every(i=>Number(s.merged[i])===e.a));assert(e.bb.every(i=>Number(s.merged[i])===e.b));
+   }
+  }
+  const bad=structuredClone(merged);bad.coverages[70].memberships[0]=-1;
+  assert.throws(()=>C.validateMerged(bad,population),/does not match/);
+  console.log('PASS all 27 merged views: membership, denominators and corrupt-label rejection');
+ }
  const bad=structuredClone(connections);bad.sampleIds.reverse();assert.throws(()=>C.validate(bad,population),/does not match/);
  const badRow=structuredClone(connections);const e=badRow.geometries['l1-euclidean'][20].edges.find(e=>e.boundaryA.length);
  e.boundaryA[0]=population.ids.length;assert.throws(()=>C.validate(badRow,population),/does not match/);

@@ -20,11 +20,25 @@ class ConnectionsTests(unittest.TestCase):
                 '</script><script src="/vme-assets/'+('0'*64)+'.js"></script>')
             old=root/'old';old.mkdir()
             for file in source.glob('*.json'):
-                if file.name!='pure-1cst-connections.json':shutil.copy2(file,old/file.name)
+                if file.name not in ['pure-1cst-connections.json','merged-1cst-connections.json']:shutil.copy2(file,old/file.name)
             a.attach(page,old/'population.json');before=p.read_manifest(page)
             a.attach(page,source/'population.json');after=p.read_manifest(page)
-            self.assertEqual(after['datasets'][a.ID]['parts'][:-1],before['datasets'][a.ID]['parts'])
-            self.assertEqual(after['datasets'][a.ID]['parts'][-1]['sha256'],c.PIN)
+            extra=[c.PIN]+([c.MERGED_PIN] if (source/'merged-1cst-connections.json').exists() else [])
+            self.assertEqual(after['datasets'][a.ID]['parts'][:-len(extra)],before['datasets'][a.ID]['parts'])
+            self.assertEqual([part['sha256'] for part in after['datasets'][a.ID]['parts'][-len(extra):]],extra)
+            if len(extra)==2:
+                # Upgrade an existing pure-core package, without changing any earlier part.
+                intermediate=root/'intermediate';shutil.copytree(source,intermediate)
+                (intermediate/'merged-1cst-connections.json').unlink()
+                stage=root/'stage.html';stage.write_text('<script id="vme-http-manifest" type="application/json">'+json.dumps(before)+
+                    '</script><script src="/vme-assets/'+('0'*64)+'.js"></script>')
+                a.attach(stage,intermediate/'population.json');middle=p.read_manifest(stage)
+                a.attach(stage,source/'population.json')
+                self.assertEqual(p.read_manifest(stage),after)
+                self.assertEqual(middle['datasets'][a.ID]['parts'],after['datasets'][a.ID]['parts'][:-1])
+                f=intermediate/'merged-1cst-connections.json';f.write_bytes((source/f.name).read_bytes()+b' ')
+                with self.assertRaisesRegex(ValueError,'reviewed coverage'):a.attach(page,intermediate/'population.json')
+
             a.attach(page,source/'population.json');self.assertEqual(after,p.read_manifest(page))
             # Missing or altered scientific supplements cannot silently replace a release.
             frozen=page.read_bytes()

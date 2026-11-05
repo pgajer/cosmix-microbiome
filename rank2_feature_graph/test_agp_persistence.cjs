@@ -36,6 +36,7 @@ const key='cosmix-agp-view-v1:agp-24k-silva',url=origin+'/?dataset=agp-24k-silva
   await page.getByRole('button',{name:'Akkermansia muciniphila',exact:true}).click();
   await page.getByRole('button',{name:'Bacteroides dorei',exact:true}).click();
   await page.click('#headerBackSelection');await page.check('#unfoldFaces');
+  await page.check('#agpConnectionPure');
   await page.selectOption('#agpGraphLayout','reference');
   for(const [id,value] of Object.entries({sampleReferenceScale:180,sampleReferenceColor:'#148050',sampleReferenceSphereAmbient:42,
    sampleReferenceSphereHighlights:65,participantVertexLabelSize:17,graphVertexScale:165,graphVertexColor:'#cc6688',

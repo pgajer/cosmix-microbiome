@@ -7,7 +7,7 @@ function agpViewPreferences(data){
   'graphProportionStrength','graphSpheres','graphSphereAmbient','graphSphereHighlights','graphVertexScale',
   'vertexLabels','graphVertexColor','graphEdgeColor','graphWidthBySize','graphEdgeWidth','graphWidthStrength',
   'graphFadeBySize','graphFadeStrength','graphDegreeFilter','graphMinimumDegree','agpConnectionNeighbors',
-  'agpConnectionMeasure','agpConnectionBoundary','agpConnectionMinWeight','agpConnectionMinSamples'];
+  'agpConnectionPure','agpConnectionMeasure','agpConnectionBoundary','agpConnectionMinWeight','agpConnectionMinSamples'];
  const detailIds=['dataControls','sampleAppearance','sampleAppearanceVertices','graphVertexCharacteristics','agpConnectionHelp','agpEmbeddingDetails'];
  const el=id=>document.getElementById(id);
  let saved={},ready=false,snapshot=()=>({}),views=new Map();
@@ -95,8 +95,9 @@ function agpViewPreferences(data){
 }
 
 // AGP colors and filters are assignments in abundance space. Coordinates come from the saved population fit.
-async function showAgpPopulation(data, choices, references, graphLayouts, localFits, localBank, unfoldedBank, connectionBank){
+async function showAgpPopulation(data, choices, references, graphLayouts, localFits, localBank, unfoldedBank, connectionBank, mergedConnections){
  connectionBank=AgpConnections.validate(connectionBank,data);
+ if(connectionBank)connectionBank.merged=AgpConnections.validateMerged(mergedConnections,data);
  const preferences=agpViewPreferences(data);
  const el=id=>document.getElementById(id), method=el('sampleMethod'),color=el('sampleColorScheme'),
        assign=el('stateMode'),plot=el('samples'),info=el('sampleContext'),selector=el('datasetSelect');
@@ -269,7 +270,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   info.replaceChildren();
   function add(tag,value){const node=document.createElement(tag);node.textContent=value;info.append(node);return node}
   add('h3',color.selectedOptions[0].textContent);
-  if(selected?.connection)add('p','Pure-core boundary samples retain their state colors; other displayed samples are gray. The saved population coordinates and displayed memberships are unchanged.');
+  if(selected?.connection)add('p','Boundary samples for the graph’s current pure or merged memberships retain their state colors; other displayed samples are gray. The saved population coordinates and displayed memberships are unchanged.');
   if(s.k===1&&(localBank||(localFits&&s.q===70))){
    if(unfolded)add('p',entry.rotated?'Unfolded around '+selected.name+' · '+entry.rotated.toLocaleString()+' samples rotated.':'Every sample lies on the anchor face. Both views use the same coordinates.');
    if(local)add('p','Local fit of '+(assign.checked?'the merged state':'the pure state')+'. Clear selection to return to the population map.');
@@ -352,17 +353,17 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
  const plot=el('graph3d'),area=el('graphPlotArea'),toolbar=el('graphDetails').querySelector('.graphToolbar');
  const layout=document.createElement('select');
  layout.id='agpGraphLayout';
- layout.add(new Option('State diagram','diagram'));
- if(references)layout.add(new Option('Observed references · 3D','reference'));
- const fitted=new Option('2-CST graph · 3D','graph');
+ layout.add(new Option('State diagram · 2D','diagram'));
+ if(references)layout.add(new Option('Population metric-MDS · 3D','reference'));
+ const fitted=new Option('Graph edge-layout · 3D','graph');
  if(bank)layout.add(fitted);
  const lengths=el('graphEdgeLengths'),algo=el('graphEmbeddingMethod'),strength=el('graphProportionStrength');
  const spheres=el('graphSpheres'),ambient=el('graphSphereAmbient'),highlights=el('graphSphereHighlights');
  const fitControls=[lengths,strength,algo],sphereControls=[spheres,ambient,highlights];
- let pairLayout=bank?'graph':'diagram',previousAlgorithm='weighted_grip',singleLayout='diagram';
+ let pairLayout=bank?'graph':'diagram',previousAlgorithm='weighted_grip',singleLayout=references?'reference':'diagram';
  const previous=preferences.graph;
  if(['diagram',...(references?['reference']:[]),...(bank?['graph']:[])].includes(previous?.pairLayout))pairLayout=previous.pairLayout;
- if(['diagram',...(references?['reference']:[])].includes(previous?.singleLayout))singleLayout=previous.singleLayout;
+ if(previous?.layoutRevision===2&&['diagram',...(references?['reference']:[])].includes(previous?.singleLayout))singleLayout=previous.singleLayout;
  if(['spring','mds','grip','weighted_grip'].includes(previous?.previousAlgorithm))previousAlgorithm=previous.previousAlgorithm;
  lengths.disabled=spheres.disabled=false;lengths.value='proportion';algo.value=previousAlgorithm;
  const layoutLabel=document.createElement('label');
@@ -371,7 +372,13 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
   'graphEdgeWidth','graphWidthStrength','graphFadeBySize','graphFadeStrength','graphDegreeFilter','graphMinimumDegree'];
  const layoutNote=document.createElement('small');
  const connectionControls=document.createElement('fieldset');connectionControls.id='agpConnectionControls';
- const heading=document.createElement('legend');heading.textContent='Pure 1-CST connections';connectionControls.append(heading);
+ const heading=document.createElement('legend');heading.textContent='1-CST connections';connectionControls.append(heading);
+ const pureLabel=document.createElement('label'),pureGraph=document.createElement('input');
+ pureLabel.style.cssText='display:flex;align-items:center;gap:6px';pureGraph.style.cssText='width:auto;margin:0;flex:none';
+ pureGraph.type='checkbox';pureGraph.id='agpConnectionPure';pureGraph.checked=!connections?.merged;
+ pureLabel.append(pureGraph,' Pure 1-CST graph');
+ pureLabel.title='Show the retained original leading-taxon states at the selected coverage. Unchecked: use the corresponding merged states. This changes graph counts and connections, not the sample view.';
+ connectionControls.append(pureLabel);
  const control=(id,label,options)=>{
   const wrap=document.createElement('label'),input=document.createElement('select');input.id=id;
   options.forEach(([value,text])=>input.add(new Option(text,value)));wrap.append(label,input);connectionControls.append(wrap);return input;
@@ -387,13 +394,13 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
  const minSamples=numeric('agpConnectionMinSamples','Min boundary samples / side',5,1,data.ids.length);
  const connectionNote=document.createElement('p');connectionNote.id='agpConnectionNote';connectionControls.append(connectionNote);
  const help=document.createElement('details'),helpTitle=document.createElement('summary');help.id='agpConnectionHelp';helpTitle.textContent='How connections are measured';
- const helpText=document.createElement('div');helpText.innerHTML=`<p><strong>Which pure states meet through nearby samples?</strong> Neighbors use original 340-taxon profiles under the selected sample method, never the 3D map. All 24,421 samples remain eligible neighbors, including states hidden by coverage. Each center is excluded. All distances within 10⁻¹² of the cutoff are included.</p>
+ const helpText=document.createElement('div');helpText.innerHTML=`<p><strong>Which states meet through nearby samples?</strong> Neighbors use original 340-taxon profiles under the selected sample method, never the 3D map. All 24,421 samples remain eligible neighbors, including states hidden by coverage in the pure graph. The merged graph regroups these same neighbors using the selected coverage’s existing assignments; the pure graph uses the original leading-taxon labels. Each center is excluded. All distances within 10⁻¹² of the cutoff are included.</p>
  <p>For states A and B, let b<sub>A</sub> and b<sub>B</sub> count records having a neighbor in the other state; n<sub>A</sub> and n<sub>B</sub> are their state sizes. Boundary weight is their geometric mean:</p>
  <math display="block"><mi>W</mi><mo>=</mo><msqrt><mfrac><msub><mi>b</mi><mi>A</mi></msub><msub><mi>n</mi><mi>A</mi></msub></mfrac><mo>×</mo><mfrac><msub><mi>b</mi><mi>B</mi></msub><msub><mi>n</mi><mi>B</mi></msub></mfrac></msqrt></math>
  <p>Two-state only additionally requires every neighbor to belong to A or B. This rule changes the boundary weight and support counts; other measures use inclusive neighborhoods.</p>
  <p>Contact intensity is the geometric mean of the two directed means of the fraction of actual neighbors in the other state. Expanded Jaccard is |H<sub>A</sub> ∩ H<sub>B</sub>| / |H<sub>A</sub> ∪ H<sub>B</sub>|, where H is a state plus all its neighbors. Jaccard can be positive without direct contact.</p>
  <p>PAGA is min(1, C/E): C counts directed cross-state links both ways; E = (e<sub>A</sub>n<sub>B</sub> + e<sub>B</sub>n<sub>A</sub>)/(N−1), with e the total outgoing links and N = 24,421. It compares link counts with uniformly random destinations and can saturate at 1.</p>
- <p>These scores describe sample proximity, not transitions, interaction probabilities or significance. Repeated participants remain; participant counts deduplicate boundary support. A state with at most h samples must have external neighbors. Display thresholds do not recompute scores. The tie audit compares these scores with exact averages over uniformly chosen fixed-size tied neighborhoods; expanded Jaccard was not averaged.</p>`;
+ <p>These scores describe sample proximity, not transitions, interaction probabilities or significance. Repeated participants remain; participant counts deduplicate boundary support. A state with at most h samples must have external neighbors. Display thresholds do not recompute scores. The pure-core tie audit compares pure-state scores with exact averages over uniformly chosen fixed-size tied neighborhoods; expanded Jaccard was not averaged.</p>`;
  help.append(helpTitle,helpText);connectionControls.append(help);
  const edgeDetails=document.createElement('section');edgeDetails.id='agpConnectionDetails';
  const pickerLabel=document.createElement('label'),picker=document.createElement('select');picker.id='agpConnectionPicker';pickerLabel.append('Connection',picker);edgeDetails.append(pickerLabel);
@@ -423,7 +430,7 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
  }
  let scheme,layoutScheme,counts,method,selected=null,notify=null,connectionEdges=[],boundaryRows=new Set();
  const connectionMode=()=>Boolean(connections&&scheme?.k===1);
- function currentEdges(){return connectionMode()?AgpConnections.edges(connections,scheme,method,neighbors.value,measure.value,rule.value):[]}
+ function currentEdges(){return connectionMode()?AgpConnections.edges(connections,scheme,method,neighbors.value,measure.value,rule.value,pureGraph.checked):[]}
  function contains(state,row){return !selected || (selected.connection?boundaryRows.has(row):selected.edge?state===selected.id:state.split(',').includes(selected.id))}
  const clear=document.createElement('button');clear.type='button';clear.textContent='Clear graph selection';clear.hidden=true;
  el('graphSummary').append(clear);
@@ -443,7 +450,7 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
  forward.onclick=()=>{if(cursor+1<history.length){cursor++;syncNavigation();notify()}};
  clearHeader.onclick=clear.onclick=()=>select(null);
  picker.onchange=()=>{if(picker.value)select({id:picker.value,edge:true,connection:true});else if(selected?.connection)select(null)};
- for(const input of [neighbors,measure,rule,minWeight,minSamples])input.onchange=()=>{
+ for(const input of [pureGraph,neighbors,measure,rule,minWeight,minSamples])input.onchange=()=>{
   if(input.type==='number')input.value=String(Math.max(0,Math.min(Number(input.max),Number(input.value)||0)));
   notify();
  };
@@ -451,6 +458,14 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
   if(!scheme)return;
   const pair=scheme.k===2,useFit=pair&&layout.value==='graph',spatial=useFit||layout.value==='reference';
   const vertices=new Map(),edges=[],connected=connectionMode();
+  if(connected){
+   pureGraph.disabled=!connections.merged;
+   if(pureGraph.disabled)pureGraph.checked=true;
+   const labels=pureGraph.checked?connections.pureStates:connections.merged.coverages[scheme.q].memberships;
+   counts=new Map(scheme.cores.map(id=>[id,0]));
+   for(const value of labels){const id=String(value);if(counts.has(id))counts.set(id,counts.get(id)+1)}
+  }
+  const membership=pureGraph.checked?'pure':'merged';
   fitted.hidden=!pair;fitted.disabled=!pair;
   for(const c of fitControls)c.closest('label').hidden=!useFit;
   const saved=lengths.value==='reference';
@@ -480,11 +495,13 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
    connectionEdges=currentEdges();
    edges.push(...AgpConnections.filter(connectionEdges,Number(minWeight.value),Number(minSamples.value)));
    for(const e of edges)for(const id of e.ids)vertices.get(id).degree++;
-   const diag=connections.geometries[method][neighbors.value].diagnostics[scheme.q];
-   connectionNote.textContent='Node sizes and connections use pure 1-CST cores. “Assign remaining samples” changes only the 3D sample view. The whole graph remains visible with or without a selected state. All distance ties included. '+Number(neighbors.value)+' requested; '+diag.maxNeighbors.toLocaleString()+' maximum actual neighbors among displayed cores. '+diag.extraTies.toLocaleString()+' of '+diag.queries.toLocaleString()+' queries have extra ties. Filters affect drawing only.';
+   const diag=AgpConnections.source(connections,scheme,pureGraph.checked).geometries[method][neighbors.value].diagnostics[scheme.q];
+   connectionNote.textContent='Node sizes and connections use '+(pureGraph.checked?'retained pure 1-CST cores':scheme.q+'%-1-CST merged memberships')+'. “Assign remaining samples” changes only the 3D sample view. The whole graph remains visible with or without a selected state. All distance ties included. '+Number(neighbors.value)+' requested; '+diag.maxNeighbors.toLocaleString()+' maximum actual neighbors among displayed cores. '+diag.extraTies.toLocaleString()+' of '+diag.queries.toLocaleString()+' queries have extra ties. Filters affect drawing only.';
+   if(!connections.merged)connectionNote.textContent+=' Install the merged connection supplement to compare merged states.';
    const audit=connections.tieSensitivity?.find(r=>r.h===Number(neighbors.value)&&r.q===scheme.q);
-   if(method==='max-linf'&&audit)connectionNote.textContent+=' Fixed-size tie audit: '+audit.top20_overlap+'/'+audit.top20_count+' leading boundary connections retained; rank correlation '+audit.spearman.toFixed(3)+'.';
-   if(method==='max-linf'&&measure.value==='paga')connectionNote.textContent+=' PAGA weights are more sensitive to ties; stable boundary rankings do not guarantee stable PAGA values.';
+   if(pureGraph.checked&&method==='max-linf'&&audit)connectionNote.textContent+=' Fixed-size tie audit: '+audit.top20_overlap+'/'+audit.top20_count+' leading boundary connections retained; rank correlation '+audit.spearman.toFixed(3)+'.';
+   if(method==='max-linf'&&!pureGraph.checked)connectionNote.textContent+=' Fixed-size tie sensitivity has not been evaluated for merged states.';
+   if(method==='max-linf'&&measure.value==='paga')connectionNote.textContent+=' The pure-core audit found PAGA more sensitive to ties; stable boundary rankings do not guarantee stable PAGA values.';
    const previous=selected?.connection?selected.id:'';
    picker.replaceChildren(new Option('Choose a connection',''));
    const options=[...edges].sort((a,b)=>b.weight-a.weight||a.a-b.a||a.b-b.b);
@@ -497,12 +514,12 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
     p(chosen.ids.map(id=>names.get(id)).join(' ↔ '));
     p(AgpConnections.measures[measure.value]+': '+chosen.weight.toFixed(4)+(measure.value==='boundary'?' · '+rule.selectedOptions[0].textContent:''));
     const table=document.createElement('table');table.style.width='100%';const head=table.insertRow();
-    for(const s of ['Boundary side','n / pure-state size','%']){const th=document.createElement('th');th.textContent=s;head.append(th)}
+    for(const s of ['Boundary side','n / '+membership+'-state size','%']){const th=document.createElement('th');th.textContent=s;head.append(th)}
     for(const [id,ba,n,f] of [[chosen.a,chosen.ba,chosen.nA,chosen.fa],[chosen.b,chosen.bb,chosen.nB,chosen.fb]]){
      const row=table.insertRow();for(const value of [names.get(String(id)),ba.length.toLocaleString()+' / '+n.toLocaleString(),(100*f).toFixed(2)])row.insertCell().textContent=value;
     }edgeText.append(table);
     p(chosen.n.toLocaleString()+' boundary samples · '+chosen.participants.toLocaleString()+' known participants counted once · '+chosen.unlinked+' samples without participant IDs.');
-    p(chosen.n?'These boundary samples are highlighted in the population map; other displayed samples remain gray.':'Shared-neighborhood overlap only: there are no direct boundary samples to highlight.');
+    p(chosen.n?'Boundary samples that are included in the current sample display are highlighted in the population map; other displayed samples remain gray.':'Shared-neighborhood overlap only: there are no direct boundary samples to highlight.');
     if(chosen.nA<=Number(neighbors.value)||chosen.nB<=Number(neighbors.value))p('Small-state caution: this neighbor count forces some neighbors outside a state.');
     if(measure.value==='paga'&&chosen.paga===1)p('PAGA is capped at 1; this does not mean all samples meet.');
    }else p('Click a connection, or choose one above, to inspect both sides and highlight boundary samples.');
@@ -529,11 +546,11 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
   for(const id of ['graphVertexScale','graphEdgeWidth','graphWidthStrength','graphFadeStrength']){
    el(id+'Value').textContent=el(id).value+({graphVertexScale:'%',graphEdgeWidth:' px'}[id]||'');
   }
-  el('featurePanelTitle').textContent=connected?'Pure 1-CST connections · '+scheme.q+'% cores':scheme.q+'%-'+scheme.k+'-CST graph';
-  el('graphInformationTitle').textContent=connected?'Displayed pure 1-CST graph':'Displayed '+scheme.k+'-CST graph';
+  el('featurePanelTitle').textContent=connected?(pureGraph.checked?'Pure 1-CST connections · '+scheme.q+'% retained cores':scheme.q+'%-1-CST connections · merged'):scheme.q+'%-'+scheme.k+'-CST graph';
+  el('graphInformationTitle').textContent=connected?'Displayed '+membership+' 1-CST graph':'Displayed '+scheme.k+'-CST graph';
   el('status').textContent=nodes.length+' of '+all.length+' component taxa'+(pair?' · '+visibleEdges.length+' of '+edges.length+' retained pairs':connected?' · '+visibleEdges.length+' of '+connectionEdges.length+' possible connections':' · one vertex per retained state');
-  el('graphVertexNote').textContent=(pair?'n counts samples in incident pairs. A sample contributes to both endpoints.':connected?'n counts original pure-core samples, excluding samples assigned from other states.':'n counts samples in each displayed state.')+' Percentages use the full AGP population.';
-  if(connected)el('graphVertexNote').textContent+=' Degree counts edges passing connection filters, before degree filtering. Vertex size represents pure-state sample count. Click a vertex to open its pure or merged local sample view, according to “Assign remaining samples”.';
+  el('graphVertexNote').textContent=(pair?'n counts samples in incident pairs. A sample contributes to both endpoints.':connected?(pureGraph.checked?'n counts original pure-core samples, excluding samples assigned from other states.':'n counts all samples assigned to each retained core at '+scheme.q+'% coverage.'):'n counts samples in each displayed state.')+' Percentages use the full AGP population.';
+  if(connected)el('graphVertexNote').textContent+=' Degree counts edges passing connection filters, before degree filtering. Vertex size represents the graph’s state sample count. Click a vertex to open its pure or merged local sample view, according to “Assign remaining samples”.';
   else el('graphVertexNote').textContent+=' Click a vertex or pair to highlight its samples.';
   const tbody=el('graphVertexRows');tbody.replaceChildren();
   for(const v of all){
@@ -545,7 +562,12 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
   const assignment=el('stateMode').checked?'merged':'pure';
   const key=[tick?assignment:'equal',tick,algo.value].join('/');
   const fit=useFit?(saved?bank.reference:bank.fits[key]):null;
-  layoutNote.hidden=!useFit;
+  const geometryLabel={'l1-euclidean':'L1–Euclidean','max-euclidean':'Max–Euclidean','max-linf':'Max–L∞'}[method];
+  const referenceOption=[...layout.options].find(o=>o.value==='reference');
+  if(referenceOption)referenceOption.textContent='Population metric-MDS · '+geometryLabel+' · 3D';
+  layout.title='Population metric-MDS places each taxon at its highest-abundance observed reference sample in the selected population embedding. It does not optimize the connection graph. Graph edge-layout uses the separately named graph drawing method below.';
+  layoutNote.hidden=!(useFit||layout.value==='reference');
+  if(layout.value==='reference')layoutNote.textContent='Population metric-MDS (SGD), '+geometryLabel+'. Vertices use their highest-abundance observed reference samples. Positions stay fixed when coverage or graph membership changes; edges are measured in original abundance space, not this 3D layout.';
   if(useFit)layoutNote.textContent=(saved?'Saved MDS reference. Edge targets are Euclidean distances between the observed reference compositions.':
    tick?'Edge target = 1 + '+strength.value+' × pair count / largest pair count.':'All edge targets are 1.')+
    ' Relative RMS edge-length error: '+(fit.rms*100).toFixed(2)+'%.';
@@ -632,6 +654,7 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
   render();
  };
  return {begin(s,m){if(s!==scheme)resetNavigation();scheme=s;method=m;
+   if(!connections?.merged)pureGraph.checked=true;
    if(pendingNavigation){
     const items=pendingNavigation.history,position=pendingNavigation.cursor;
     if(Array.isArray(items)&&items.length<=100&&Number.isInteger(position)&&position>=0&&position<items.length){
@@ -653,7 +676,7 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences){
    // Bound browser storage while retaining the current selection and nearby navigation.
    const start=Math.max(0,cursor-49),end=Math.min(history.length,start+100);
    return {history:history.slice(start,end).map(item=>item?{id:item.id,edge:item.edge,connection:item.connection===true}:null),
-    cursor:cursor-start,pairLayout,singleLayout,previousAlgorithm};
+    cursor:cursor-start,pairLayout,singleLayout,previousAlgorithm,layoutRevision:2};
   },
   update(s,c,m){if(s!==layoutScheme){layout.value=s.k===2?pairLayout:singleLayout;layoutScheme=s}scheme=s;counts=c;method=m;return render()}};
 }

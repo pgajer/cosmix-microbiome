@@ -35,12 +35,12 @@ The active legend determines the meaning of color in a particular view.
 
 ## Sample coloring
 
-In AGP pure 1-CST connection views, selecting an edge preserves the state colors
+In AGP pure or merged 1-CST connection views, selecting an edge preserves the state colors
 of its boundary samples and draws other displayed samples in gray (`#dedede`).
 This is a proximity highlight, not reassignment or filtering. Connection edges
 use the graph edge color (selected edges orange); reference vertices retain their
 independent color. Counts, stored coordinates and pure labels are unchanged.
-See [pure-state connections](rank2_feature_graph/AGP_CONNECTIONS.md).
+See [state connections](rank2_feature_graph/AGP_CONNECTIONS.md).
 
 The **Color by** selector explicitly chooses sample colors independently of the
 graph mode, selected samples and saved embedding:

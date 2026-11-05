@@ -13,6 +13,45 @@ const data=JSON.parse(fs.readFileSync(file)),bank=JSON.parse(fs.readFileSync(pat
   const graphSnapshot=()=>page.locator('#graph3d').evaluate(g=>g.data.filter(t=>t.mode==='lines'||t.meta?.agpGraphVertices).map(t=>({
    mode:t.mode,x:t.x,y:t.y,z:t.z,customdata:t.customdata,size:t.marker?.size
   })));
+  assert.equal(await page.locator('#agpGraphLayout').inputValue(),'reference','Reference 3D is the new default');
+  assert((await page.locator('#agpGraphLayout option:checked').textContent()).includes('metric-MDS'));
+  const mergedFile=path.join(path.dirname(file),'merged-1cst-connections.json');
+  if(fs.existsSync(mergedFile)){
+   bank.merged=connections.validateMerged(JSON.parse(fs.readFileSync(mergedFile)).agpMergedConnections,data);
+   assert(!(await page.isChecked('#agpConnectionPure')));
+   const samples=()=>page.locator('#samples').evaluate(g=>{const t=g.data[0];return {ids:t.ids,x:t.x,y:t.y,z:t.z}});
+   for(const q of [70,80,90])for(const method of Object.keys(data.fits)){
+    const scheme=data.schemes[q+'%-1-CST'];
+    await page.selectOption('#sampleColorScheme',q+'%-1-CST');await page.selectOption('#sampleMethod',method);
+    const before=await samples();
+    for(const pure of [false,true]){
+     await page.locator('#agpConnectionPure').setChecked(pure);
+     const expected=connections.filter(connections.edges(bank,scheme,method,20,'boundary','inclusive',pure),.05,5);
+     const actual=await page.locator('#graph3d').evaluate(g=>g.data.filter(t=>t.mode==='lines').map(t=>t.customdata[0].id));
+     assert.deepEqual(actual,expected.map(e=>e.state));
+     const vertices=await page.locator('#graph3d').evaluate(g=>g.data.find(t=>t.meta?.agpGraphVertices).customdata);
+     for(const v of vertices)assert.equal(v.n,(pure?scheme.original:scheme.merged).filter(id=>String(id)===v.id).length);
+     assert((await page.locator('#featurePanelTitle').textContent()).includes(pure?'Pure 1-CST':q+'%-1-CST connections · merged'));
+     assert.deepEqual(await samples(),before,'Graph membership preserves sample memberships and coordinates');
+    }
+   }
+   await page.uncheck('#agpConnectionPure');
+   for(const method of Object.keys(data.fits))for(const h of [10,20,40]){
+    await page.selectOption('#sampleMethod',method);await page.selectOption('#agpConnectionNeighbors',String(h));
+    const before=await samples(),key=await page.locator('#agpConnectionPicker option').nth(1).getAttribute('value');
+    await page.selectOption('#agpConnectionPicker',key);
+    const e=connections.edges(bank,data.schemes['90%-1-CST'],method,h,'boundary','inclusive',false).find(e=>e.state===key);
+    const expected=[...e.ba,...e.bb].map(i=>data.ids[i]).sort();
+    const marked=await page.locator('#samples').evaluate(g=>g.data[0].ids.filter((_,i)=>g.data[0].marker.color[i]!=='#dedede'));
+    assert.deepEqual(marked.sort(),expected);assert.deepEqual(await samples(),before);
+    await page.click('#headerClearSelection');
+   }
+   await page.selectOption('#agpConnectionNeighbors','20');
+   console.log('PASS coverage-specific pure/merged graphs in all geometries; sample coordinates unchanged');
+  }
+  // Existing tests exercise physical clicks on the schematic SVG layout.
+  await page.selectOption('#agpGraphLayout','diagram');
+  await page.check('#agpConnectionPure');
   const checkGraph=async(s,method)=>{
    const expected=connections.filter(connections.edges(bank,s,method,20),.05,5).map(e=>e.state);
    const actual=await page.locator('#graph3d').evaluate(g=>g.data.filter(t=>t.mode==='lines').map(t=>t.customdata[0].id));
