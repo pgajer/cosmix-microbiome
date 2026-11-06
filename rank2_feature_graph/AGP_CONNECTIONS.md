@@ -76,8 +76,12 @@ the saved observed reference coordinates. No graph or sample fit runs.
 Click an edge or use **Connection** to see both sides' counts, state sizes and
 percentages, plus unique known participants across both boundaries and unlinked
 records. Boundary samples retain their state colors; other currently displayed
-samples are gray, when they are outside the chosen boundary. The saved population coordinates and sample set do
-not change. An edge hidden by a subsequent display filter can remain selected;
+samples are gray, when they are outside the chosen boundary. **Show background
+samples** in the 3D header is checked by default; turn it off to show only the
+boundary samples from both connected states that pass the current sample filter.
+The sample table then counts only visible samples, while graph details retain
+the whole boundary counts. Stored coordinates and memberships never change.
+An edge hidden by a subsequent display filter can remain selected;
 the picker explicitly marks it hidden. Back, Forward and Clear selection also
 work for connections. Vertex selection continues to open the existing pure or
 merged local embedding, according to the assignment checkbox. Graph node sizes,

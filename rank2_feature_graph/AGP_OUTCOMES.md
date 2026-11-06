@@ -19,6 +19,29 @@ estimate; lighter gray can indicate samples outside a selected graph boundary.
 Hover text distinguishes these cases and the recorded outcome. Missing answers
 are never coded as negative and can still have valid predictions.
 
+**Relative to cohort mean** switches the displayed quantity to
+`r(x) = p̂(x) / ȳ`, where `p̂(x)` is the saved probability and `ȳ` is the fraction
+of positive answers among the cohort's answered index samples. Each participant
+contributes once; missing answers are excluded. The baseline uses the whole
+outcome cohort, not the selected CST or the mean of predictions. It stays fixed
+for both sample policies, all estimators, fitting populations and estimate types.
+The current positive count, respondent denominator and percentage are shown.
+The ratio is unavailable when this denominator is empty or the mean is zero.
+1× means the cohort mean, 2× twice the mean, and 0.5× half the mean. This is a
+descriptive relative probability, not a causal risk ratio or a new validation.
+Ratios have their own 2.5th/97.5th-percentile limits and × labels; hover retains
+both original probability and unclipped ratio. Dividing estimates and limits by
+the same positive constant preserves the colors. Both toggles are remembered.
+
+Selecting a 1-CST graph edge highlights boundary samples from **both endpoint
+states**, not a single state or all members of those states. **Show background
+samples** in the 3D header is initially checked: the rest of the currently
+eligible population stays gray. Uncheck it to display only highlighted samples.
+The control appears only for selections drawn in population coordinates; local
+vertex fits already contain only that state. Coordinates, graph weights and
+memberships remain unchanged. The sample table counts only visible samples;
+the graph's edge details still describe the full saved boundary.
+
 The CST selector continues to control the displayed states and graph. Separate
 state estimates always use the eight **frozen merged 70%-1-CSTs**, even in pure
 views or another coverage. The loader rejects mismatched frozen memberships.

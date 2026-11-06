@@ -9,8 +9,9 @@ const reference=JSON.parse(require('fs').readFileSync(population));
  await page.goto(new URL('/?dataset=agp-24k-silva',origin).href);await page.waitForSelector('#samples canvas',{timeout:60000});
  const header=page.locator('.sampleHeaderActions');
  assert.deepEqual(await header.locator('input, select').evaluateAll(items=>items.map(e=>e.id)),
-  ['sampleColorScheme','stateMode','participantShowVertices','sampleMethod','unfoldFaces']);
+  ['sampleColorScheme','stateMode','participantShowVertices','sampleMethod','unfoldFaces','agpShowBackground']);
  assert.ok(await header.locator('#unfoldFaces').isHidden());
+ assert.ok(await header.locator('#agpShowBackground').isHidden());
  const fs=require('fs'),path=require('path'),refFile=path.join(path.dirname(population),'component-references.json');
  const refs=fs.existsSync(refFile)?JSON.parse(fs.readFileSync(refFile)).agpReferences:null;
  const connectionFile=path.join(path.dirname(population),'pure-1cst-connections.json');

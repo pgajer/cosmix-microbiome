@@ -1,7 +1,7 @@
 // Browser-local display state only: never store samples, memberships or fitted coordinates.
 function agpViewPreferences(data){
  const key='cosmix-agp-view-v1:'+encodeURIComponent(data.id),identity=[data.countSha256,data.featureSha256];
- const ids=['sampleColorScheme','sampleMethod','stateMode','unfoldFaces','participantShowVertices',
+ const ids=['sampleColorScheme','sampleMethod','stateMode','unfoldFaces','participantShowVertices','agpShowBackground',
   'sampleReferenceSpheres','sampleReferenceScale','sampleReferenceColor','sampleReferenceSphereAmbient',
   'sampleReferenceSphereHighlights','participantVertexLabelSize','graphEdgeLengths','graphEmbeddingMethod',
   'graphProportionStrength','graphSpheres','graphSphereAmbient','graphSphereHighlights','graphVertexScale',
@@ -116,7 +116,11 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   unfold.type='checkbox';unfold.id='unfoldFaces';unfoldControl.append(unfold,' Unfold faces');
  }
  unfold.checked=false;
- header.replaceChildren(navigation,color.closest('label'),assign.closest('label'),labelControl,method.closest('label'),unfoldControl,save);
+ const background=document.createElement('input'),backgroundControl=document.createElement('label');
+ background.type='checkbox';background.id='agpShowBackground';background.checked=true;
+ backgroundControl.append(background,' Show background samples');backgroundControl.hidden=true;
+ backgroundControl.title='Keep samples outside the selected graph boundary in gray for context. Turn off to show only selected samples, at the same saved coordinates. A 1-CST edge connects boundary samples from both endpoint states.';
+ header.replaceChildren(navigation,color.closest('label'),assign.closest('label'),labelControl,method.closest('label'),unfoldControl,backgroundControl,save);
  el('controlSections').replaceChildren(el('dataControls'));
  el('cohortControl').hidden=true;
  el('datasetMessage').textContent=data.ids.length.toLocaleString()+' fecal samples · 340 SILVA taxa';
@@ -202,7 +206,8 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   const rows=[{text:color.selectedOptions[0].textContent+' · '+(assign.checked?'Assigned and core samples':'Core samples only')},
    {text:plot.data.filter(t=>t.meta?.agpSamples).reduce((n,t)=>n+t.ids.length,0).toLocaleString()+' samples displayed'}];
   const outcome=outcomes.current();
-  if(outcome.active)rows.push({text:outcome.title},{text:outcome.description},{text:outcome.scale.description},{text:'Gray: unavailable or selection context.'});
+  if(outcome.active)rows.push({text:outcome.title},{text:outcome.description},{text:outcome.baselineDescription},{text:outcome.scale.description},{text:'Gray: unavailable or selection context.'});
+  if(selected&&!localViewActive)rows.push({text:background.checked?'Background samples shown':'Background samples hidden'});
   if(selected)rows.push({text:'Selected '+(selected.edge?'state: ':'vertex: ')+selected.name});
   for(const tr of Array.from(info.querySelector('table').rows).slice(1)){
    const cells=tr.cells;rows.push({text:cells[0].textContent+' · '+cells[3].textContent+' samples ('+cells[4].textContent+'%)',color:cells[0].firstElementChild.style.backgroundColor});
@@ -222,7 +227,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   };
  }
  new ResizeObserver(resize).observe(workspace);
- let renderSamples,sampleReady;
+ let renderSamples,sampleReady,localViewActive=false;
  async function draw(){
   const s=data.schemes[color.value];
   graph.begin(s,method.value);
@@ -238,6 +243,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   unfoldControl.title=entry?'Rotate other dominant faces onto the selected taxon’s face.':'Install the AGP unfolded supplement to enable this view.';
   const unfolded=unfold.checked&&entry;
   const local=unfolded?.rotated?{...ordinary,coordinates:entry.coordinates,metrics:entry.metrics}:ordinary;
+  localViewActive=Boolean(local);backgroundControl.hidden=!selected||Boolean(local);
   const bank=data.fits[method.value],coords=local?local.coordinates:bank.coordinates;
   const frame=local?localKey+(unfolded?.rotated?'/unfolded':''):method.value;
   const localRows=local?new Map(local.indices.map((row,index)=>[row,index])):null;
@@ -260,6 +266,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   const outcome=outcomes.current();
   const xyz=[[],[],[]],colors=[],hover=[],ids=[],highlighted=[],counts=new Map(s.cores.map(key=>[key,0]));
   const coreCounts=new Map(counts);
+  const displayedCounts=new Map(counts),displayedCoreCounts=new Map(counts);
   let populationCore=0;
   for(let i=0;i<data.ids.length;i++){
    const isCore=s.assignment[i]==='core',state=s.merged[i];
@@ -267,8 +274,12 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
    if(!assign.checked&&!isCore)continue;
    counts.set(state,counts.get(state)+1);
    if(local&&!localRows.has(i))continue;
+   const selectedSample=graph.contains(state,i);
+   if(selected&&!local&&!background.checked&&!selectedSample)continue;
+   displayedCounts.set(state,displayedCounts.get(state)+1);
+   if(isCore)displayedCoreCounts.set(state,displayedCoreCounts.get(state)+1);
    const position=local?localRows.get(i):i;
-   ids.push(data.ids[i]);highlighted.push(graph.contains(state,i));colors.push(graph.contains(state,i)?stateColors.get(state):'#dedede');
+   ids.push(data.ids[i]);highlighted.push(selectedSample);colors.push(selectedSample?stateColors.get(state):'#dedede');
    for(let j=0;j<3;j++)xyz[j].push(coords[position][j]);
    hover.push([s.labels[state],isCore?'Original core member':s.assignment[i]==='rank-support'?'Assigned by rank '+(s.k+1)+' support':'Assigned by neighbor vote']);
   }
@@ -280,28 +291,32 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
    const values=ids.map(id=>outcomes.lookup(id,outcome)),available=values.filter(v=>v.probability!==null).length;
    add('p',available.toLocaleString()+' estimated · '+(ids.length-available).toLocaleString()+' unavailable. Unavailable estimates are gray. Observed answers are reported separately in the hover.');
    add('p',outcome.scale.description);
+   add('p',outcome.baselineDescription);
    if(outcome.scope==='state')add('p','Fitted within frozen merged 70%-1-CSTs, independently of the displayed CST coverage and pure/merged setting.');
-   if(selected?.connection)add('p','Probability colors highlight this graph boundary; other displayed samples are light gray context.');
+   if(selected?.connection)add('p',background.checked?'Outcome colors highlight this graph boundary; other displayed samples are light gray context. Turn off Show background samples to hide them.':'Only boundary samples from the two connected states are shown; background samples are hidden.');
   }
-  if(!outcome.active&&selected?.connection)add('p','Boundary samples for the graph’s current pure or merged memberships retain their state colors; other displayed samples are gray. The saved population coordinates and displayed memberships are unchanged.');
+  if(!outcome.active&&selected?.connection)add('p',background.checked?'Boundary samples from the two connected states retain their state colors; other displayed samples are gray. Turn off Show background samples to hide them.':'Only boundary samples from the two connected states are shown; background samples are hidden.');
+  if(selected?.connection)add('p','An edge represents a boundary between two 1-CSTs, not a single state. Sample coordinates and state memberships are unchanged.');
   if(s.k===1&&(localBank||(localFits&&s.q===70))){
    if(unfolded)add('p',entry.rotated?'Unfolded around '+selected.name+' · '+entry.rotated.toLocaleString()+' samples rotated.':'Every sample lies on the anchor face. Both views use the same coordinates.');
    if(local)add('p','Local fit of '+(assign.checked?'the merged state':'the pure state')+'. Clear selection to return to the population map.');
    else if(localBank)add('p','Select a taxon in the graph to open its local 3D fit.');
    else add('p','Select Bacteroides dorei or Akkermansia muciniphila in the graph to open its local 3D fit.');
   }
-  const core=local?coreCounts.get(selected.id):populationCore;
-  if(!local)add('p',core.toLocaleString()+' of '+data.ids.length.toLocaleString()+' samples are original core members ('+(100*core/data.ids.length).toFixed(2)+'%).');
+  const core=[...displayedCoreCounts.values()].reduce((a,b)=>a+b,0);
+  if(!local)add('p',populationCore.toLocaleString()+' of '+data.ids.length.toLocaleString()+' samples are original core members ('+(100*populationCore/data.ids.length).toFixed(2)+'%).');
   add('p',ids.length.toLocaleString()+' samples displayed · '+(ids.length-core).toLocaleString()+' assigned from other states');
+  if(!ids.length)add('p','No selected boundary samples pass the current sample filter. Show background samples or change the graph/sample membership settings to see context.');
   const table=document.createElement('table');table.style.width='100%';const head=table.createTHead().insertRow();
   for(const name of ['Retained state','Core','Assigned','n','%']){const th=document.createElement('th');th.textContent=name;head.append(th)}
   for(const state of local?[selected.id]:s.cores){
-   const n=counts.get(state),c=coreCounts.get(state),tr=table.insertRow(),label=tr.insertCell();
+   const n=displayedCounts.get(state),c=displayedCoreCounts.get(state);if(!n)continue;
+   const tr=table.insertRow(),label=tr.insertCell();
    const swatch=document.createElement('span');swatch.style.cssText='display:inline-block;width:10px;height:10px;margin-right:4px;background:'+stateColors.get(state);
    label.append(swatch,s.labels[state]);
    for(const v of [c,n-c,n,(100*n/data.ids.length).toFixed(2)])tr.insertCell().textContent=v.toLocaleString();
   }
-  info.append(table);add('small','Percentages use all 24,421 samples. A merged label names its retained core.');info.append(details);
+  info.append(table);add('small','Counts describe displayed samples. Percentages use all 24,421 samples. A merged label names its retained core.');info.append(details);
   stress.textContent='RMS relative error: '+(local?local.metrics.localError:bank.error).toFixed(2)+(allPairsLocal?'% (all pairs)':'% (held-out pairs)');
   if(!ranges.has(frame))ranges.set(frame,[0,1,2].map(j=>{
    const column=coords.map(v=>v[j]),lo=Math.min(...column),hi=Math.max(...column),pad=(hi-lo)*0.05;
@@ -350,7 +365,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   await Promise.all([renderSamples(),graph.update(s,connectionBank&&s.k===1?coreCounts:counts,method.value)]);
   preferences.save();
  }
- for(const control of [method,color,assign,unfold])control.onchange=draw;
+ for(const control of [method,color,assign,unfold,background])control.onchange=draw;
  for(const control of [labels,spheres])control.onchange=()=>renderSamples();
  for(const control of [scale,tint,ambient,highlights,fontSize])control.oninput=()=>renderSamples();
  graph.onSelect(draw);
@@ -544,7 +559,7 @@ function agpGraphPanel(data,references,rows,bank,connections,preferences,connect
      const row=table.insertRow();for(const value of [names.get(String(id)),ba.length.toLocaleString()+' / '+n.toLocaleString(),(100*f).toFixed(2)])row.insertCell().textContent=value;
     }edgeText.append(table);
     p(chosen.n.toLocaleString()+' boundary samples · '+chosen.participants.toLocaleString()+' known participants counted once · '+chosen.unlinked+' samples without participant IDs.');
-    p(chosen.n?'Boundary samples that are included in the current sample display are highlighted in the population map; other displayed samples remain gray.':'Shared-neighborhood overlap only: there are no direct boundary samples to highlight.');
+    p(chosen.n?'Boundary samples from both endpoint states are highlighted in the population map. Use Show background samples in the 3D panel to show or hide the remaining population.':'Shared-neighborhood overlap only: there are no direct boundary samples to highlight.');
     if(chosen.nA<=Number(neighbors.value)||chosen.nB<=Number(neighbors.value))p('Small-state caution: this neighbor count forces some neighbors outside a state.');
     if(measure.value==='paga'&&chosen.paga===1)p('PAGA is capped at 1; this does not mean all samples meet.');
    }else p('Click a connection, or choose one above, to inspect both sides and highlight boundary samples.');

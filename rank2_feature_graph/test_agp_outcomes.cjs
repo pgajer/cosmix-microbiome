@@ -19,4 +19,13 @@ assert.deepEqual(probabilities,before,'Scaling must not alter saved predictions'
 assert.equal(o.probabilityScale([null,null]),null);
 for(const value of [0,.2,1]){const constant=o.probabilityScale([value,null,value]);assert.equal(constant.lower,value);assert.equal(constant.upper,value);assert(constant.cmin<constant.cmax);assert.deepEqual(constant.tickvals,[value])}
 assert.deepEqual([o.probabilityScale([0,1]).lower,o.probabilityScale([0,1]).upper],[.025,.975]);
-console.log('PASS ID alignment, masks, frozen states, percentile interpolation, unchanged predictions and constant-value scales');
+assert.deepEqual(o.cohortMean(bank,'ibs'),{positive:1,n:1,mean:1},'Exclude unanswered index visits and all non-index answers');
+assert.deepEqual(o.cohortMean({index:[0,2,3],outcomes:{x:[0,1,null,1]}},'x'),{positive:1,n:2,mean:.5});
+assert.deepEqual(o.cohortMean({index:[0],outcomes:{x:[null]}},'x'),{positive:0,n:0,mean:null});
+assert.deepEqual(o.cohortMean({index:[0],outcomes:{x:[0]}},'x'),{positive:0,n:1,mean:0});
+const relative=o.probabilityScale(probabilities.map(v=>v===null?null:v/.2),true);
+assert.equal(relative.lower,scale.lower/.2);assert.equal(relative.upper,scale.upper/.2);assert(relative.tickvals.includes(1));assert(relative.ticktext.every(t=>t.endsWith('×')));
+const constantRatio=o.probabilityScale([3,3,null],true);assert(constantRatio.cmin<3&&constantRatio.cmax>3);
+const nearMean=o.probabilityScale([.7,1.25],true);assert(nearMean.tickvals.includes(1));
+assert(nearMean.tickvals.slice(1).every((v,i)=>v-nearMean.tickvals[i]>=(nearMean.upper-nearMean.lower)*.12),'Mean tick must not collide with nearby labels');
+console.log('PASS ID alignment, masks, frozen states, percentiles, unchanged predictions, cohort means, ratio units and constant-value scales');

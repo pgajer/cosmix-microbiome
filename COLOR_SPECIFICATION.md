@@ -1,6 +1,6 @@
 # CoSMiX color specification
 
-Specification version 34 · reviewed 5 November 2026.
+Specification version 35 · reviewed 5 November 2026.
 
 Canonical CoSMiX-wide reference for dataset authors and interface developers.
 Read this specification when preparing, adding or revising a CoSMiX dataset.
@@ -37,9 +37,11 @@ The active legend determines the meaning of color in a particular view.
 
 In AGP pure or merged 1-CST connection views, selecting an edge preserves the state colors
 of its boundary samples and draws other displayed samples in gray (`#dedede`).
-This is a proximity highlight, not reassignment or filtering. Connection edges
+The **Show background samples** checkbox hides or shows this gray context;
+unchecked, only boundary samples from the two endpoint states are displayed.
+This changes visibility and displayed counts, never membership. Connection edges
 use the graph edge color (selected edges orange); reference vertices retain their
-independent color. Counts, stored coordinates and pure labels are unchanged.
+independent color. Graph counts, stored coordinates and pure labels are unchanged.
 See [state connections](rank2_feature_graph/AGP_CONNECTIONS.md).
 
 The **Color by** selector explicitly chooses sample colors independently of the
@@ -603,3 +605,11 @@ Zero is a valid estimate, never an unavailable code. State colors and counts
 remain in the CST table and graph; reference vertices retain their own color.
 The fixed frozen 70%-1-CST fitting populations are independent of display
 coverage or pure/merged filtering. See [outcome estimates](rank2_feature_graph/AGP_OUTCOMES.md).
+
+**Relative to cohort mean** divides each saved probability by the observed outcome
+frequency among answered index samples (one per participant, missing excluded).
+This whole-cohort baseline is fixed across sample policies, selections and model
+settings for each outcome. Ratios use winsorized percentile limits in multiples
+(×), with 1× equal to the cohort mean. Both hover probability and ratio remain
+unclipped. Scaling values and bounds together preserves the colors. The checkbox
+is disabled if the cohort mean is zero or unavailable; no model is refitted.
