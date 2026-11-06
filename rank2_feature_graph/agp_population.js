@@ -162,11 +162,12 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  .agpWorkspace #sampleDetails>label.agpCheck{display:flex;align-items:center;gap:5px}
  .agpWorkspace #sampleDetails>label[hidden]{display:none}
  .agpWorkspace #sampleDetails>label select{width:100%;max-width:100%;min-width:0;box-sizing:border-box;font-size:12px}
- .agpWorkspace #agpColorControls{padding:8px;font-size:12px}
- .agpWorkspace #agpColorControls>label{display:grid;gap:4px;margin:9px 0;max-width:100%}
- .agpWorkspace #agpColorControls>label.agpCheck{display:flex;align-items:center;gap:5px;white-space:normal}
- .agpWorkspace #agpColorControls label[hidden],.agpWorkspace #agpOutcomeControls[hidden]{display:none}
- .agpWorkspace #agpColorControls select{width:100%;max-width:100%;min-width:0;box-sizing:border-box;font-size:12px}
+ .agpWorkspace :is(#agpColorControls,#agpStateGraphControls){padding:8px;font-size:12px}
+ .agpWorkspace :is(#agpColorControls,#agpStateGraphControls)>label{display:grid;gap:4px;margin:9px 0;max-width:100%}
+ .agpWorkspace :is(#agpColorControls,#agpStateGraphControls)>label.agpCheck{display:flex;align-items:center;gap:5px;white-space:normal}
+ .agpWorkspace #agpColorControls label[hidden],.agpWorkspace #agpOutcomeControls[hidden],.agpWorkspace #agpStateGraphControls[hidden]{display:none}
+ .agpWorkspace :is(#agpColorControls,#agpStateGraphControls) select{width:100%;max-width:100%;min-width:0;box-sizing:border-box;font-size:12px}
+ .agpWorkspace #agpStateGraphControls{border-bottom:1px solid #c9d9df}
  .agpWorkspace .sampleHeaderActions label{display:inline-flex;gap:4px;align-items:center;font-size:12px}
  .agpWorkspace .sampleHeaderActions label[hidden]{display:none}
  .agpWorkspace .agpExpanded{position:fixed!important;inset:0;z-index:1000;background:white}
@@ -226,6 +227,8 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  const outcomes=AgpOutcomes.install(outcomeBank,data,coloring,()=>draw(),color);
  const rows=new Map(data.ids.map((id,i)=>[id,i]));
  const graph=agpGraphPanel(data,references,rows,graphLayouts,connectionBank,preferences,connectionLayouts);
+ const graphStateControls=document.createElement('div');graphStateControls.id='agpStateGraphControls';graphStateControls.hidden=true;
+ el('graphDetails').prepend(graphStateControls);
  const openExport=installPngExportDialog(el,async()=>{
   await sampleReady;
   const clone=x=>JSON.parse(JSON.stringify(x)),layout=clone(plot.layout);
@@ -260,7 +263,14 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  let renderSamples,sampleReady,localViewActive=false;
  async function draw(){
   if(data.schemes[color.value])stateScheme.value=color.value;
-  schemeLabel.hidden=color.value!==AgpOutcomes.colorValue;
+  const outcomeColoring=color.value===AgpOutcomes.colorValue;
+  schemeLabel.hidden=!outcomeColoring;
+  graphStateControls.hidden=!outcomeColoring;
+  const stateControlParent=outcomeColoring?graphStateControls:coloring;
+  if(assignLabel.parentElement!==stateControlParent){
+   if(outcomeColoring)graphStateControls.append(schemeLabel,assignLabel);
+   else colorLabel.after(schemeLabel,assignLabel);
+  }
   const s=data.schemes[stateScheme.value];
   graph.begin(s,method.value);
   const selected=graph.selection();

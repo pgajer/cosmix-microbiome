@@ -18,11 +18,13 @@ coloring. **Unfold faces** appears directly below it for supported local views.
 alongside the reference marker size, color and lighting controls.
 
 Selecting Outcome probability retains the current CST scheme, graph selection,
-displayed sample IDs and coordinates. **States and graph** shows that retained
-scheme and lets users change coverage independently while viewing probabilities.
+displayed sample IDs and coordinates. **States and graph**, at the top of the
+graph panel's right sidebar, shows that retained scheme and lets users change
+coverage independently while viewing probabilities. **Assign remaining samples
+to retained states** appears directly below it in the graph sidebar.
 Choosing a CST item in Color by returns to state colors and selects that scheme.
-**Assign remaining samples to retained states** is beside these controls in the
-same sidebar. Existing saved views with the former outcome checkbox migrate to
+The assignment checkbox returns to Sample coloring when CST colors are selected;
+moving the controls preserves their values. Existing saved views with the former outcome checkbox migrate to
 Outcome probability while preserving their CST scheme, outcome settings and
 selection. Without the optional estimates, the outcome item is disabled.
 

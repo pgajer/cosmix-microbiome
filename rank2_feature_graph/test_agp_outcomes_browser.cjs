@@ -11,8 +11,15 @@ const population=JSON.parse(fs.readFileSync(path.join(folder,'population.json'))
   await page.goto(origin+'/?dataset=agp-24k-silva');await ready();
   const snapshot=()=>page.locator('#samples').evaluate(p=>p.data.filter(t=>t.meta?.agpSamples).flatMap(t=>t.ids.map((id,i)=>[id,t.x[i],t.y[i],t.z[i]])).sort((a,b)=>a[0].localeCompare(b[0])));
   const graph=()=>page.locator('#graph3d').evaluate(p=>JSON.stringify(p.data.map(t=>({x:t.x,y:t.y,z:t.z,customdata:t.customdata}))));
-  const enable=()=>page.selectOption('#sampleColorScheme','outcome-probability');
-  const disable=async()=>page.selectOption('#sampleColorScheme',await page.locator('#agpStateScheme').inputValue());
+  const checkStateControls=async outcome=>{
+   const parent=outcome?'#agpStateGraphControls':'#agpColorControls';
+   assert.equal(await page.locator(parent+' #agpStateScheme').count(),1);
+   assert.equal(await page.locator(parent+' #stateMode').count(),1);
+   assert.equal(await page.locator('#agpStateGraphControls').isVisible(),outcome);
+   assert(await page.locator('#graphDetails').evaluate(e=>e.firstElementChild.id==='agpStateGraphControls'));
+  };
+  const enable=async()=>{await page.selectOption('#sampleColorScheme','outcome-probability');await checkStateControls(true)};
+  const disable=async()=>{await page.selectOption('#sampleColorScheme',await page.locator('#agpStateScheme').inputValue());await checkStateControls(false)};
   const check=async()=>{
    const key=await page.evaluate(()=>['agpOutcomePolicy','agpOutcome','agpOutcomeMethod','agpOutcomeScope','agpOutcomeKind'].map(id=>document.getElementById(id).value).join('__'));
    const relative=await page.isChecked('#agpOutcomeRelative');
@@ -38,6 +45,7 @@ const population=JSON.parse(fs.readFileSync(path.join(folder,'population.json'))
   };
   assert.equal(await page.locator('#agpOutcomeEnabled').count(),0);
   assert(await page.locator('#agpOutcomeControls').isHidden());
+  await checkStateControls(false);
   assert.equal(await page.locator('#samplePanel #sampleColorScheme').count(),1);
   assert.equal(await page.locator('.sampleHeaderActions #sampleColorScheme').count(),0);
   assert.equal(await page.locator('#controlSections #agpOutcomeControls').count(),0);
@@ -73,7 +81,7 @@ const population=JSON.parse(fs.readFileSync(path.join(folder,'population.json'))
   await page.check('#agpOutcomeRelative');await check();assert.deepEqual(await snapshot(),local);
   assert.equal(await page.locator('#agpShowBackground').isVisible(),false);
   await page.uncheck('#stateMode');await page.check('#unfoldFaces');await check();
-  const unfolded=await snapshot();await page.reload();await ready();assert.equal(await page.locator('#sampleColorScheme').inputValue(),'outcome-probability');assert(await page.isChecked('#agpOutcomeRelative'));await check();assert.deepEqual(await snapshot(),unfolded);
+  const unfolded=await snapshot();await page.reload();await ready();assert.equal(await page.locator('#sampleColorScheme').inputValue(),'outcome-probability');assert(await page.isChecked('#agpOutcomeRelative'));await check();await checkStateControls(true);assert.deepEqual(await snapshot(),unfolded);
   await page.check('#stateMode');await page.click('#headerClearSelection');await check();
   const choice=await page.locator('#agpConnectionPicker option').nth(1).getAttribute('value');await page.selectOption('#agpConnectionPicker',choice);actual=await check();assert(actual.some(v=>v.context));
   const boundary=await snapshot();await disable();assert.deepEqual(await snapshot(),boundary);
