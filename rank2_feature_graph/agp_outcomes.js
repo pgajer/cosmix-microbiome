@@ -6,6 +6,21 @@ const AgpOutcomes=(()=>{
  const scopes={global:'Global fit',state:'Separate 70%-1-CST fits'};
  const kinds={outer:'Held-out · nested CV',final:'Full-reference estimates'};
  const controls=['agpOutcomeEnabled','agpOutcome','agpOutcomeMethod','agpOutcomePolicy','agpOutcomeScope','agpOutcomeKind'];
+ function probabilityScale(values){
+  const sorted=values.filter(v=>typeof v==='number'&&Number.isFinite(v)).sort((a,b)=>a-b);
+  if(!sorted.length)return null;
+  // Linear interpolation at (n - 1) p (R quantile type 7); unavailable values are excluded.
+  const quantile=p=>{const pos=(sorted.length-1)*p,i=Math.floor(pos),f=pos-i;return sorted[i]+f*(sorted[Math.min(i+1,sorted.length-1)]-sorted[i])};
+  const lower=quantile(.025),upper=quantile(.975),collapsed=lower===upper;
+  const pad=Math.max(1e-6,Math.abs(lower)*.01);
+  const cmin=collapsed?Math.max(0,lower-pad):lower,cmax=collapsed?Math.min(1,upper+pad):upper;
+  const digits=collapsed?2:Math.min(6,Math.max(2,Math.ceil(-Math.log10((upper-lower)*100/4))+1));
+  const percent=v=>(100*v).toFixed(digits)+'%';
+  const tickvals=collapsed?[lower]:Array.from({length:5},(_,i)=>lower+(upper-lower)*i/4);
+  const ticktext=tickvals.map((v,i)=>(collapsed?'':i===0?'≤':i===4?'≥':'')+percent(v));
+  const description=collapsed?'Both color limits equal '+percent(lower)+'.': 'Color range: '+percent(lower)+'–'+percent(upper)+'.';
+  return {lower,upper,cmin,cmax,tickvals,ticktext,description:description+' Limits are the 2.5th and 97.5th percentiles of all available estimates for these model settings, held fixed across selections and maps. Tail colors are clipped; hover values are unchanged.'};
+ }
  function validate(bank,population){
   if(!bank)return null;
   if(bank.version!==1||bank.identity!=='2805acb3d1da21309e0e972bc8cc6d05489ebc3138776c60c90130b454c870fd'||
@@ -57,7 +72,7 @@ const AgpOutcomes=(()=>{
     'Question: how does the probability of a reported condition vary with the community profile? The three estimators average nearby responding participants using a fixed intrinsic distance, not distances in this 3D plot.',
     'Ordinary kNN averages outcomes of k nearest participants. Raw nearest-case probability is k/T; corrected probability is (k−1)/(T−1), where T is the number of ranked participants needed to reach k positive cases. Thus k counts participants for kNN and cases for the nearest-case methods.',
     'Intrinsic distance is the shortest Euclidean-length path constrained to the max-normalized surface. It is not ambient Euclidean distance and not a Fermat density-weighted distance.',
-    'The map uses a fixed 0–100% color scale. Gray means an unavailable estimate; in a selected graph boundary it can also mark context samples, as explained in the hover. A missing survey answer does not imply an unavailable estimate.',
+    'The color scale runs from the 2.5th to the 97.5th percentile of available predictions for the selected outcome, estimator, sample policy, fitting population and estimate type. Colors beyond these limits are clipped (winsorized); actual probabilities in hover text are unchanged. These limits use the full prediction set, so selecting a state or switching maps does not rescale the colors. Gray means an unavailable estimate or graph-boundary context. A missing survey answer does not imply an unavailable estimate.',
     'Held-out predictions use five outer participant folds and three inner folds for choosing k. They support evaluation on held-out participants. Full-reference estimates exclude the query participant but use k tuned on the full responding reference; they are exploration estimates, not an independent validation.',
     'Predictive improvements over prevalence were modest. Separate-state fits did not consistently outperform global fits. These estimates describe responding participants and do not establish treatment effects or diagnoses.'
    ]){const p=document.createElement('p');p.textContent=text;help.append(p)}
@@ -65,12 +80,15 @@ const AgpOutcomes=(()=>{
    section.append(help);
   }
   parent.append(section);
+  const scaleCache=new Map();
   function current(){
    const value=id=>inputs[id].value;
    const policy=value(controls[3]),outcome=value(controls[1]),method=value(controls[2]),scope=value(controls[4]),kind=value(controls[5]);
    const active=Boolean(validated&&enabled.checked);
    for(const id of controls.slice(1))inputs[id].disabled=!active;
-   return {active,policy,outcome,method,scope,kind,key:[policy,outcome,method,scope,kind].join('__'),
+   const key=[policy,outcome,method,scope,kind].join('__');
+   if(active&&!scaleCache.has(key))scaleCache.set(key,probabilityScale(bank.series[key]));
+   return {active,policy,outcome,method,scope,kind,key,scale:active?scaleCache.get(key):null,
     title:outcomes[outcome]+' · '+methods[method],description:scopes[scope]+' · '+policies[policy]+' · '+kinds[kind]};
   }
   function lookup(id,setting){
@@ -92,14 +110,15 @@ const AgpOutcomes=(()=>{
     ...Object.fromEntries(['x','y','z','ids','text'].map(k=>[k,indices.map(i=>samples[k][i])])),
     customdata:indices.map(i=>values[i]),marker:{...samples.marker,...marker},
     hovertemplate:samples.hovertemplate.replace('<extra></extra>','<br>Estimated probability: %{customdata[2]}<br>Observed answer: %{customdata[3]}<br>Frozen 70%-1-CST: %{customdata[4]}<br>%{customdata[5]}<extra></extra>')});
-   const result=[trace(available,{outcome:setting.key},{color:available.map(i=>lookup(samples.ids[i],setting).probability),colorscale:'Viridis',cmin:0,cmax:1,showscale:true,
-    colorbar:{title:{text:'Probability'},tickvals:[0,.25,.5,.75,1],ticktext:['0%','25%','50%','75%','100%'],thickness:12,len:.65,x:1}})];
+   const scale=setting.scale;
+   const result=[trace(available,{outcome:setting.key},{color:available.map(i=>Math.max(scale.lower,Math.min(scale.upper,lookup(samples.ids[i],setting).probability))),colorscale:'Viridis',cmin:scale.cmin,cmax:scale.cmax,showscale:true,
+    colorbar:{title:{text:'Probability'},tickvals:scale.tickvals,ticktext:scale.ticktext,thickness:12,len:.65,x:1}})];
    if(unavailable.length)result.push(trace(unavailable,{unavailable:true},{color:'#9ca3af',opacity:.3}));
    if(context.length)result.push(trace(context,{context:true},{color:'#dedede',opacity:.25}));
    return result;
   }
   return {current,lookup,annotate,section};
  }
- return {validate,install,controls,outcomes,methods,policies,scopes,kinds};
+ return {validate,install,controls,probabilityScale,outcomes,methods,policies,scopes,kinds};
 })();
 if(typeof module!=='undefined')module.exports=AgpOutcomes;

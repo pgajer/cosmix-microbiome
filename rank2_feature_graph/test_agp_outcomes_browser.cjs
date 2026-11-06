@@ -15,13 +15,18 @@ const population=JSON.parse(fs.readFileSync(path.join(folder,'population.json'))
    const key=await page.evaluate(()=>['agpOutcomePolicy','agpOutcome','agpOutcomeMethod','agpOutcomeScope','agpOutcomeKind'].map(id=>document.getElementById(id).value).join('__'));
    await page.waitForFunction(key=>document.getElementById('samples').data[0].meta?.outcome===key,key);
    const actual=await page.locator('#samples').evaluate(p=>p.data.filter(t=>t.meta?.agpSamples).flatMap(t=>t.ids.map((id,i)=>({id,prob:t.meta.outcome?t.marker.color[i]:null,hover:t.customdata[i],unavailable:t.meta.unavailable,context:t.meta.context}))));
+   const values=bank.series[key].filter(v=>v!==null).sort((a,b)=>a-b);
+   const percentile=p=>{const n=(values.length-1)*p,l=Math.floor(n);return values[l]*(1-n+l)+values[Math.ceil(n)]*(n-l)};
+   const lower=percentile(.025),upper=percentile(.975);
    for(const v of actual){const row=rows.get(v.id),expected=row===undefined?null:bank.series[key][row];
-    if(!v.context)assert.equal(v.prob,expected,key+' '+v.id);
+    if(!v.context){if(expected===null)assert.equal(v.prob,null);else assert(typeof v.prob==='number'&&Math.abs(v.prob-Math.max(lower,Math.min(upper,expected)))<1e-12,key+' '+v.id)};
     if(row===undefined)assert(v.hover[2].includes('No participant linkage'));
     else if(expected===null)assert(v.hover[2].includes('Non-index visit'));
+    else assert.equal(v.hover[2],(100*expected).toFixed(2)+'%','Hover must retain the original prediction, including clipped tails');
     const answer=row===undefined?null:bank.outcomes[key.split('__')[1]][row];assert.equal(v.hover[3],answer===null?'No recorded answer':answer?'Positive':'Negative');
    }
-   const marker=await page.locator('#samples').evaluate(p=>p.data[0].marker);assert.equal(marker.cmin,0);assert.equal(marker.cmax,1);assert.equal(marker.showscale,true);
+   const marker=await page.locator('#samples').evaluate(p=>p.data[0].marker);assert(Math.abs(marker.cmin-lower)<1e-12);assert(Math.abs(marker.cmax-upper)<1e-12);assert.equal(marker.showscale,true);
+   assert(marker.colorbar.ticktext[0].startsWith('≤'));assert(marker.colorbar.ticktext.at(-1).startsWith('≥'));
    return actual;
   };
   assert.equal(await page.isChecked('#agpOutcomeEnabled'),false);
@@ -63,6 +68,6 @@ const population=JSON.parse(fs.readFileSync(path.join(folder,'population.json'))
    console.log('PASS unaffected comb and return to saved AGP outcome view');
   }
 
-  assert.deepEqual(errors,[]);console.log('PASS installed probabilities/answers by ID, missingness, fixed scale, all 3 maps, local/unfolded pure/merged views, boundary selection, history, persistence, PDF');
+  assert.deepEqual(errors,[]);console.log('PASS original probabilities/answers by ID, percentile tail clipping, selection-independent scales, all 3 maps, local/unfolded views, boundary selection, history, persistence, PDF');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});

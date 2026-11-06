@@ -12,4 +12,11 @@ bank.state[0]='2';assert.throws(()=>o.validate(bank,population),/memberships dif
 bank.series[first][0]=NaN;assert.throws(()=>o.validate(bank,population),/probabilities/);bank.series[first][0]=0;
 bank.outcomes.ibs[0]=false;assert.throws(()=>o.validate(bank,population),/answers/);bank.outcomes.ibs[0]=null;
 assert.equal(o.validate(null,population),null);
-console.log('PASS shuffled sample IDs, zero vs null, missing answers, frozen states, invalid probabilities and absent supplement');
+const probabilities=[null,...Array.from({length:101},(_,i)=>i/100).reverse()],before=[...probabilities];
+const scale=o.probabilityScale(probabilities);
+assert.equal(scale.lower,.025);assert.equal(scale.upper,.975);assert.deepEqual(scale.ticktext,['≤2.50%','26.25%','50.00%','73.75%','≥97.50%']);
+assert.deepEqual(probabilities,before,'Scaling must not alter saved predictions');
+assert.equal(o.probabilityScale([null,null]),null);
+for(const value of [0,.2,1]){const constant=o.probabilityScale([value,null,value]);assert.equal(constant.lower,value);assert.equal(constant.upper,value);assert(constant.cmin<constant.cmax);assert.deepEqual(constant.tickvals,[value])}
+assert.deepEqual([o.probabilityScale([0,1]).lower,o.probabilityScale([0,1]).upper],[.025,.975]);
+console.log('PASS ID alignment, masks, frozen states, percentile interpolation, unchanged predictions and constant-value scales');

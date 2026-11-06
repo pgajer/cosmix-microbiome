@@ -8,7 +8,13 @@ add samples, refit embeddings, change CST assignments or run models in the brows
 Open **Outcome estimates** in the left controls and turn on **Color by outcome probability**. Select an outcome, estimator, sample policy, fitting
 population and estimate type. Initially the controls select ordinary kNN,
 one index sample per participant, the global fit and held-out predictions.
-The fixed Viridis probability scale is 0–100%. Gray indicates an unavailable
+The Viridis color limits are the 2.5th and 97.5th percentiles of all available
+predictions for the selected model settings (linear interpolation, R type 7).
+Only colors are winsorized: actual predictions and hover values are unchanged.
+Limits stay fixed across state selections, coverage, pure/merged filtering and
+embedding switches; changing model settings can change them. End labels use
+≤ and ≥ to identify clipped tails. A collapsed percentile range uses one color
+and a single labeled probability. Gray indicates an unavailable
 estimate; lighter gray can indicate samples outside a selected graph boundary.
 Hover text distinguishes these cases and the recorded outcome. Missing answers
 are never coded as negative and can still have valid predictions.
@@ -55,7 +61,7 @@ masks. No output coordinates are imported. A normal update remembers the
 supplied population directory and retains its optional supplement. A recipient
 without that supplement receives no health-outcome arrays through a code update.
 Record-level data and PDF remain outside source Git and external packages unless
-separately authorized. The prepared AGP outreach package is unchanged.
+separately authorized. The separately authorized AGP outreach release includes this supplement.
 
 ## On-demand checks
 

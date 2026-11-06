@@ -1,6 +1,6 @@
 # CoSMiX color specification
 
-Specification version 33 · reviewed 5 November 2026.
+Specification version 34 · reviewed 5 November 2026.
 
 Canonical CoSMiX-wide reference for dataset authors and interface developers.
 Read this specification when preparing, adding or revising a CoSMiX dataset.
@@ -590,8 +590,13 @@ no membership. Unknown genus assignments retain their explicit higher-rank label
 ### AGP outcome probability colors
 
 The optional Outcome estimates controls override sample CST colors only when
-enabled. A common Viridis scale maps probability 0–1 to 0–100% for all outcomes,
-estimators, fitting populations and prediction types. Unavailable estimates
+enabled. Viridis limits are the 2.5th and 97.5th percentiles of non-null predictions
+for the current outcome, estimator, sample policy, fitting population and estimate
+type (linear interpolation, R type 7). Tail colors are clipped; predictions and
+hover values remain unchanged. Limits use the full prediction set and stay fixed
+across selections and embeddings. Colorbar end labels use ≤ and ≥. Equal limits
+produce one color and one labeled value; a tiny display-only padding avoids
+a degenerate renderer range. Unavailable estimates
 are gray (`#9ca3af`); samples outside a selected graph boundary are lighter gray
 (`#dedede`). Hover text distinguishes these from missing recorded answers.
 Zero is a valid estimate, never an unavailable code. State colors and counts

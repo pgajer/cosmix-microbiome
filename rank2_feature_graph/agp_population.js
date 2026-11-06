@@ -202,7 +202,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   const rows=[{text:color.selectedOptions[0].textContent+' · '+(assign.checked?'Assigned and core samples':'Core samples only')},
    {text:plot.data.filter(t=>t.meta?.agpSamples).reduce((n,t)=>n+t.ids.length,0).toLocaleString()+' samples displayed'}];
   const outcome=outcomes.current();
-  if(outcome.active)rows.push({text:outcome.title},{text:outcome.description},{text:'Probability scale: 0–100%. Gray: unavailable or selection context.'});
+  if(outcome.active)rows.push({text:outcome.title},{text:outcome.description},{text:outcome.scale.description},{text:'Gray: unavailable or selection context.'});
   if(selected)rows.push({text:'Selected '+(selected.edge?'state: ':'vertex: ')+selected.name});
   for(const tr of Array.from(info.querySelector('table').rows).slice(1)){
    const cells=tr.cells;rows.push({text:cells[0].textContent+' · '+cells[3].textContent+' samples ('+cells[4].textContent+'%)',color:cells[0].firstElementChild.style.backgroundColor});
@@ -278,7 +278,8 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   if(outcome.active){
    add('h3',outcome.title);add('p',outcome.description);
    const values=ids.map(id=>outcomes.lookup(id,outcome)),available=values.filter(v=>v.probability!==null).length;
-   add('p',available.toLocaleString()+' estimated · '+(ids.length-available).toLocaleString()+' unavailable. Fixed probability scale: 0–100%; unavailable estimates are gray. Observed answers are reported separately in the hover.');
+   add('p',available.toLocaleString()+' estimated · '+(ids.length-available).toLocaleString()+' unavailable. Unavailable estimates are gray. Observed answers are reported separately in the hover.');
+   add('p',outcome.scale.description);
    if(outcome.scope==='state')add('p','Fitted within frozen merged 70%-1-CSTs, independently of the displayed CST coverage and pure/merged setting.');
    if(selected?.connection)add('p','Probability colors highlight this graph boundary; other displayed samples are light gray context.');
   }
