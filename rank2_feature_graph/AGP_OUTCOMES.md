@@ -5,9 +5,22 @@ profile? An optional, separately supplied supplement adds saved estimates for
 seasonal allergies, skin condition and IBS to the existing AGP maps. It does not
 add samples, refit embeddings, change CST assignments or run models in the browser.
 
-Open **Outcome estimates** in the left controls and turn on **Color by outcome probability**. Select an outcome, estimator, sample policy, fitting
-population and estimate type. Initially the controls select ordinary kNN,
+Open **Sample coloring** in the 3D sample panel's right sidebar and choose
+**Color by → Outcome probability**. The outcome selector and its relative-scale,
+estimator, sample-policy, fitting-population and estimate-type controls appear
+there only while outcome coloring is selected. The former independent checkbox
+and left-panel Outcome estimates section have been removed. Initially the controls select ordinary kNN,
 one index sample per participant, the global fit and held-out predictions.
+
+Selecting Outcome probability retains the current CST scheme, graph selection,
+displayed sample IDs and coordinates. **States and graph** shows that retained
+scheme and lets users change coverage independently while viewing probabilities.
+Choosing a CST item in Color by returns to state colors and selects that scheme.
+**Assign remaining samples to retained states** is beside these controls in the
+same sidebar. Existing saved views with the former outcome checkbox migrate to
+Outcome probability while preserving their CST scheme, outcome settings and
+selection. Without the optional estimates, the outcome item is disabled.
+
 The Viridis color limits are the 2.5th and 97.5th percentiles of all available
 predictions for the selected model settings (linear interpolation, R type 7).
 Only colors are winsorized: actual predictions and hover values are unchanged.
@@ -31,7 +44,8 @@ The ratio is unavailable when this denominator is empty or the mean is zero.
 descriptive relative probability, not a causal risk ratio or a new validation.
 Ratios have their own 2.5th/97.5th-percentile limits and × labels; hover retains
 both original probability and unclipped ratio. Dividing estimates and limits by
-the same positive constant preserves the colors. Both toggles are remembered.
+the same positive constant preserves the colors. The color mode and relative-scale
+setting are remembered.
 
 Selecting a 1-CST graph edge highlights boundary samples from **both endpoint
 states**, not a single state or all members of those states. **Show background

@@ -1,20 +1,28 @@
 // Browser-local display state only: never store samples, memberships or fitted coordinates.
 function agpViewPreferences(data){
  const key='cosmix-agp-view-v1:'+encodeURIComponent(data.id),identity=[data.countSha256,data.featureSha256];
- const ids=['sampleColorScheme','sampleMethod','stateMode','unfoldFaces','participantShowVertices','agpShowBackground',
+ const ids=['sampleColorScheme','agpStateScheme','sampleMethod','stateMode','unfoldFaces','participantShowVertices','agpShowBackground',
   'sampleReferenceSpheres','sampleReferenceScale','sampleReferenceColor','sampleReferenceSphereAmbient',
   'sampleReferenceSphereHighlights','participantVertexLabelSize','graphEdgeLengths','graphEmbeddingMethod',
   'graphProportionStrength','graphSpheres','graphSphereAmbient','graphSphereHighlights','graphVertexScale',
   'vertexLabels','graphVertexColor','graphEdgeColor','graphWidthBySize','graphEdgeWidth','graphWidthStrength',
   'graphFadeBySize','graphFadeStrength','graphDegreeFilter','graphMinimumDegree','agpConnectionNeighbors',
   'agpConnectionPure','agpConnectionMeasure','agpConnectionBoundary','agpConnectionMinWeight','agpConnectionMinSamples','agpConnectionLengths',...AgpOutcomes.controls];
- const detailIds=['dataControls','sampleAppearance','sampleAppearanceVertices','graphVertexCharacteristics','agpConnectionHelp','agpEmbeddingDetails','agpOutcomeControls'];
+ const detailIds=['dataControls','sampleAppearance','sampleAppearanceVertices','graphVertexCharacteristics','agpConnectionHelp','agpEmbeddingDetails','agpColorControls'];
  const el=id=>document.getElementById(id);
  let saved={},ready=false,snapshot=()=>({}),views=new Map();
  try{
   const value=JSON.parse(localStorage.getItem(key));
   if(value?.version===1&&JSON.stringify(value.identity)===JSON.stringify(identity))saved=value;
  }catch{}
+ // Migrate the old independent outcome checkbox without losing the selected CST scheme.
+ if(saved.controls&&!Object.hasOwn(saved.controls,'agpStateScheme')){
+  const scheme=saved.controls.sampleColorScheme;
+  if(data.schemes[scheme]){
+   saved.controls.agpStateScheme=scheme;
+   if(saved.controls.agpOutcomeEnabled===true)saved.controls.sampleColorScheme=AgpOutcomes.colorValue;
+  }
+ }
  const camera=value=>{
   if(!value||!['eye','center','up'].every(k=>['x','y','z'].every(a=>Number.isFinite(value[k]?.[a])&&Math.abs(value[k][a])<1e6)))return null;
   const result=Object.fromEntries(['eye','center','up'].map(k=>[k,Object.fromEntries(['x','y','z'].map(a=>[a,value[k][a]]))]));
@@ -52,7 +60,7 @@ function agpViewPreferences(data){
     const node=el(id),value=saved.controls?.[id];
     if(node.type==='checkbox'){if(typeof value==='boolean')node.checked=value}
     else if(typeof value==='string'){
-     if(node.tagName==='SELECT'){if([...node.options].some(o=>o.value===value))node.value=value}
+     if(node.tagName==='SELECT'){if([...node.options].some(o=>o.value===value&&!o.disabled))node.value=value}
      else if(node.type==='color'){if(/^#[0-9a-f]{6}$/i.test(value))node.value=value}
      else if(['range','number'].includes(node.type)&&value.trim()&&Number.isFinite(Number(value))){
       const min=node.min===''?-1e6:Number(node.min),max=node.max===''?1e6:Number(node.max),step=Number(node.step)||1;
@@ -61,6 +69,8 @@ function agpViewPreferences(data){
      }
     }
    }
+   if(saved.controls?.sampleColorScheme===AgpOutcomes.colorValue&&el('sampleColorScheme').value!==AgpOutcomes.colorValue)
+    el('sampleColorScheme').value=el('agpStateScheme').value;
    for(const id of detailIds)if(typeof saved.details?.[id]==='boolean')el(id).open=saved.details[id];
    if(typeof saved.collapsed==='boolean'){
     el('explorerLayout').classList.toggle('controlsCollapsed',saved.collapsed);el('controlSections').hidden=saved.collapsed;
@@ -120,7 +130,8 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  background.type='checkbox';background.id='agpShowBackground';background.checked=true;
  backgroundControl.append(background,' Show background samples');backgroundControl.hidden=true;
  backgroundControl.title='Keep samples outside the selected graph boundary in gray for context. Turn off to show only selected samples, at the same saved coordinates. A 1-CST edge connects boundary samples from both endpoint states.';
- header.replaceChildren(navigation,color.closest('label'),assign.closest('label'),labelControl,method.closest('label'),unfoldControl,backgroundControl,save);
+ const colorLabel=color.closest('label'),assignLabel=assign.closest('label');
+ header.replaceChildren(navigation,labelControl,method.closest('label'),unfoldControl,backgroundControl,save);
  el('controlSections').replaceChildren(el('dataControls'));
  el('cohortControl').hidden=true;
  el('datasetMessage').textContent=data.ids.length.toLocaleString()+' fecal samples · 340 SILVA taxa';
@@ -145,12 +156,17 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  .agpWorkspace #agpConnectionDetails td:first-child{overflow-wrap:anywhere}
  .agpWorkspace #agpConnectionDetails>label{display:grid;gap:4px}
  .agpWorkspace #agpConnectionControls p{font-size:12px}
- .agpWorkspace #sampleContent{grid-template-columns:minmax(0,1fr) minmax(145px,30%);grid-template-rows:minmax(0,1fr)}
+ .agpWorkspace #sampleContent{grid-template-columns:minmax(0,1fr) minmax(210px,32%);grid-template-rows:minmax(0,1fr)}
  .agpWorkspace #sampleSidePanels{grid-column:2;grid-row:1}
+ .agpWorkspace #agpColorControls{padding:8px;font-size:12px}
+ .agpWorkspace #agpColorControls>label{display:grid;gap:4px;margin:9px 0;max-width:100%}
+ .agpWorkspace #agpColorControls>label.agpCheck{display:flex;align-items:center;gap:5px;white-space:normal}
+ .agpWorkspace #agpColorControls label[hidden],.agpWorkspace #agpOutcomeControls[hidden]{display:none}
+ .agpWorkspace #agpColorControls select{width:100%;max-width:100%;min-width:0;box-sizing:border-box;font-size:12px}
  .agpWorkspace .sampleHeaderActions label{display:inline-flex;gap:4px;align-items:center;font-size:12px}
  .agpWorkspace .sampleHeaderActions label[hidden]{display:none}
  .agpWorkspace .agpExpanded{position:fixed!important;inset:0;z-index:1000;background:white}
- @container (max-width:690px){
+ @container (max-width:480px){
    .agpWorkspace #sampleContent{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(90px,28%)}
    .agpWorkspace #sampleSidePanels{grid-column:1;grid-row:2}
  }
@@ -161,7 +177,14 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  const spheres=el('sampleReferenceSpheres'),scale=el('sampleReferenceScale'),tint=el('sampleReferenceColor'),
        ambient=el('sampleReferenceSphereAmbient'),highlights=el('sampleReferenceSphereHighlights'),fontSize=el('participantVertexLabelSize');
  const group=el('sampleAppearance');
- group.replaceChildren(group.querySelector('summary'),appearance);side.replaceChildren(group);
+ const coloring=document.createElement('details');coloring.id='agpColorControls';coloring.open=true;
+ const coloringTitle=document.createElement('summary');coloringTitle.textContent='Sample coloring';
+ const stateScheme=document.createElement('select'),schemeLabel=document.createElement('label');stateScheme.id='agpStateScheme';
+ schemeLabel.append('States and graph',stateScheme);schemeLabel.hidden=true;
+ schemeLabel.title='The CST scheme used for sample membership, the graph and local fits. Outcome probability changes colors only; this selection remains independent.';
+ assignLabel.classList.add('agpCheck');
+ coloring.append(coloringTitle,colorLabel,schemeLabel,assignLabel);
+ group.replaceChildren(group.querySelector('summary'),appearance);side.replaceChildren(coloring,group);
  el('sampleSidePanels').replaceChildren(side,info);info.style.padding='8px';
  el('sampleInfoDivider').remove();
  el('sampleContent').removeAttribute('data-legend-position');
@@ -186,14 +209,15 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  };
  method.replaceChildren(new Option('L1-normalized · Euclidean','l1-euclidean'),new Option('Max-normalized · Euclidean','max-euclidean'),new Option('Max-normalized · L∞','max-linf'));
  color.replaceChildren(...Object.entries(data.schemes).map(([key,s])=>new Option(s.k+'-CSTs · '+s.q+'% coverage',key)));
- color.title='Retained states are ranked by the number of samples with those leading taxa.';
+ stateScheme.replaceChildren(...Object.entries(data.schemes).map(([key,s])=>new Option(s.k+'-CSTs · '+s.q+'% coverage',key)));
+ color.title='Choose CST colors or saved outcome probabilities. Switching to outcome probability preserves the current CST scheme, selection and embedding.';
  assign.checked=true;
  const palette=['#0072b2','#d55e00','#009e73','#cc79a7','#7158a5','#ab7512','#138d9c','#914c57'];
  const stateColors=new Map();
  for(const scheme of Object.values(data.schemes))for(const state of scheme.cores){
   if(!stateColors.has(state)){const i=stateColors.size;stateColors.set(state,palette[i]||('hsl('+Math.round(i*137.508%360)+',55%,'+(35+10*(i%3))+'%)'))}
  }
- const outcomes=AgpOutcomes.install(outcomeBank,data,el('controlSections'),()=>draw());
+ const outcomes=AgpOutcomes.install(outcomeBank,data,coloring,()=>draw(),color);
  const rows=new Map(data.ids.map((id,i)=>[id,i]));
  const graph=agpGraphPanel(data,references,rows,graphLayouts,connectionBank,preferences,connectionLayouts);
  const openExport=installPngExportDialog(el,async()=>{
@@ -202,8 +226,8 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   layout.scene=pngExportScene(plot,clone(plot._fullLayout.scene._scene.getCamera()));
   const width=Math.max(1,plot.clientWidth),height=Math.max(1,plot.clientHeight);
   Object.assign(layout,{width,height,autosize:false});
-  const s=data.schemes[color.value],selected=graph.selection();
-  const rows=[{text:color.selectedOptions[0].textContent+' · '+(assign.checked?'Assigned and core samples':'Core samples only')},
+  const s=data.schemes[stateScheme.value],selected=graph.selection();
+  const rows=[{text:stateScheme.selectedOptions[0].textContent+' · '+(assign.checked?'Assigned and core samples':'Core samples only')},
    {text:plot.data.filter(t=>t.meta?.agpSamples).reduce((n,t)=>n+t.ids.length,0).toLocaleString()+' samples displayed'}];
   const outcome=outcomes.current();
   if(outcome.active)rows.push({text:outcome.title},{text:outcome.description},{text:outcome.baselineDescription},{text:outcome.scale.description},{text:'Gray: unavailable or selection context.'});
@@ -229,10 +253,12 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  new ResizeObserver(resize).observe(workspace);
  let renderSamples,sampleReady,localViewActive=false;
  async function draw(){
-  const s=data.schemes[color.value];
+  if(data.schemes[color.value])stateScheme.value=color.value;
+  schemeLabel.hidden=color.value!==AgpOutcomes.colorValue;
+  const s=data.schemes[stateScheme.value];
   graph.begin(s,method.value);
   const selected=graph.selection();
-  const localKey=[color.value,selected?.id,assign.checked?'merged':'pure',method.value].join('/');
+  const localKey=[stateScheme.value,selected?.id,assign.checked?'merged':'pure',method.value].join('/');
   const originalKey=localBank?.views[localKey];
   const ordinary=selected&&!selected.edge&&(localBank?localBank.fits[originalKey]:localFits?.[localKey]);
   const entry=ordinary&&unfoldedBank?.fits[unfoldedBank.views[localKey]];
@@ -285,7 +311,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   }
   info.replaceChildren();
   function add(tag,value){const node=document.createElement(tag);node.textContent=value;info.append(node);return node}
-  add('h3',color.selectedOptions[0].textContent);
+  add('h3',stateScheme.selectedOptions[0].textContent);
   if(outcome.active){
    add('h3',outcome.title);add('p',outcome.description);
    const values=ids.map(id=>outcomes.lookup(id,outcome)),available=values.filter(v=>v.probability!==null).length;
@@ -365,7 +391,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
   await Promise.all([renderSamples(),graph.update(s,connectionBank&&s.k===1?coreCounts:counts,method.value)]);
   preferences.save();
  }
- for(const control of [method,color,assign,unfold,background])control.onchange=draw;
+ for(const control of [method,color,assign,unfold,background,stateScheme])control.onchange=draw;
  for(const control of [labels,spheres])control.onchange=()=>renderSamples();
  for(const control of [scale,tint,ambient,highlights,fontSize])control.oninput=()=>renderSamples();
  graph.onSelect(draw);

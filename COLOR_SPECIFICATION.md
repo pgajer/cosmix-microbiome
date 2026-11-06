@@ -1,6 +1,6 @@
 # CoSMiX color specification
 
-Specification version 35 · reviewed 5 November 2026.
+Specification version 36 · reviewed 5 November 2026.
 
 Canonical CoSMiX-wide reference for dataset authors and interface developers.
 Read this specification when preparing, adding or revising a CoSMiX dataset.
@@ -591,8 +591,15 @@ no membership. Unknown genus assignments retain their explicit higher-rank label
 
 ### AGP outcome probability colors
 
-The optional Outcome estimates controls override sample CST colors only when
-enabled. Viridis limits are the 2.5th and 97.5th percentiles of non-null predictions
+AGP's **Color by** dropdown is in **Sample coloring** in the sample panel's right
+sidebar. **Outcome probability** reveals the outcome and model controls there;
+there is no separate enable checkbox or left-panel outcome section. Switching
+to this mode preserves the CST scheme and selection. **States and graph** allows
+independent scheme changes while probability colors are active. Returning to a
+CST color item selects that scheme. The assignment checkbox is in the same
+sidebar. Existing saved outcome views migrate without changing their coverage.
+
+Viridis limits are the 2.5th and 97.5th percentiles of non-null predictions
 for the current outcome, estimator, sample policy, fitting population and estimate
 type (linear interpolation, R type 7). Tail colors are clipped; predictions and
 hover values remain unchanged. Limits use the full prediction set and stay fixed

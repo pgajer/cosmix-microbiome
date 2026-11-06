@@ -11,6 +11,8 @@ const population=JSON.parse(fs.readFileSync(path.join(folder,'population.json'))
   await page.goto(origin+'/?dataset=agp-24k-silva');await ready();
   const snapshot=()=>page.locator('#samples').evaluate(p=>p.data.filter(t=>t.meta?.agpSamples).flatMap(t=>t.ids.map((id,i)=>[id,t.x[i],t.y[i],t.z[i]])).sort((a,b)=>a[0].localeCompare(b[0])));
   const graph=()=>page.locator('#graph3d').evaluate(p=>JSON.stringify(p.data.map(t=>({x:t.x,y:t.y,z:t.z,customdata:t.customdata}))));
+  const enable=()=>page.selectOption('#sampleColorScheme','outcome-probability');
+  const disable=async()=>page.selectOption('#sampleColorScheme',await page.locator('#agpStateScheme').inputValue());
   const check=async()=>{
    const key=await page.evaluate(()=>['agpOutcomePolicy','agpOutcome','agpOutcomeMethod','agpOutcomeScope','agpOutcomeKind'].map(id=>document.getElementById(id).value).join('__'));
    const relative=await page.isChecked('#agpOutcomeRelative');
@@ -34,9 +36,13 @@ const population=JSON.parse(fs.readFileSync(path.join(folder,'population.json'))
    assert((await page.locator('#sampleContext').innerText()).includes((100*mean).toFixed(2)+'% ('+answers.reduce((a,b)=>a+b,0).toLocaleString()+' positive / '+answers.length.toLocaleString()));
    return actual;
   };
-  assert.equal(await page.isChecked('#agpOutcomeEnabled'),false);
-  const base=await snapshot(),baseGraph=await graph();await page.check('#agpOutcomeEnabled');
-  let actual=await check();assert.equal(actual.length,24421);assert.equal(actual.filter(v=>v.unavailable).length,3098);assert.deepEqual(await snapshot(),base);assert.equal(await graph(),baseGraph);
+  assert.equal(await page.locator('#agpOutcomeEnabled').count(),0);
+  assert(await page.locator('#agpOutcomeControls').isHidden());
+  assert.equal(await page.locator('#samplePanel #sampleColorScheme').count(),1);
+  assert.equal(await page.locator('.sampleHeaderActions #sampleColorScheme').count(),0);
+  assert.equal(await page.locator('#controlSections #agpOutcomeControls').count(),0);
+  const base=await snapshot(),baseGraph=await graph();await enable();
+  let actual=await check();assert(await page.locator('#agpOutcomeControls').isVisible());assert(await page.locator('#agpStateScheme').isVisible());assert.equal(await page.locator('#agpStateScheme').inputValue(),'70%-1-CST');assert.equal(actual.length,24421);assert.equal(actual.filter(v=>v.unavailable).length,3098);assert.deepEqual(await snapshot(),base);assert.equal(await graph(),baseGraph);
   await page.check('#agpOutcomeRelative');await check();assert.deepEqual(await snapshot(),base);assert.equal(await graph(),baseGraph);
   await page.uncheck('#agpOutcomeRelative');await check();
   for(const method of ['l1-euclidean','max-euclidean','max-linf']){
@@ -45,6 +51,10 @@ const population=JSON.parse(fs.readFileSync(path.join(folder,'population.json'))
    const expected=population.ids.map((id,i)=>[id,...coords[i]]).sort((a,b)=>a[0].localeCompare(b[0]));assert.deepEqual(await snapshot(),expected);
   }
   const unchanged=await snapshot();
+  for(const scheme of ['80%-1-CST','40%-2-CST','70%-1-CST']){
+   await page.selectOption('#agpStateScheme',scheme);await check();
+   assert.equal(await page.locator('#sampleColorScheme').inputValue(),'outcome-probability');assert.deepEqual(await snapshot(),unchanged);
+  }
   for(const [outcome,method,policy,scope,kind] of [
    ['skin_condition','case_raw','all_visits','state','final'],['ibs','case_corrected','index','state','outer'],
    ['seasonal_allergies','knn','all_visits','global','outer'],['ibs','knn','index','global','final']]){
@@ -53,27 +63,27 @@ const population=JSON.parse(fs.readFileSync(path.join(folder,'population.json'))
    await page.check('#agpOutcomeRelative');await check();assert.deepEqual(await snapshot(),unchanged);
    await page.uncheck('#agpOutcomeRelative');await check();
   }
-  await page.selectOption('#agpOutcomeScope','state');await page.selectOption('#sampleColorScheme','90%-1-CST');await check();
+  await page.selectOption('#agpOutcomeScope','state');await page.selectOption('#agpStateScheme','90%-1-CST');await check();
   assert((await page.locator('#sampleContext').innerText()).includes('frozen merged 70%-1-CSTs'));
   if(!await page.locator('#graphVertexCharacteristics').evaluate(e=>e.open))await page.locator('#graphVertexCharacteristics > summary').click();
   await page.getByRole('button',{name:'Akkermansia muciniphila',exact:true}).click();
   await page.waitForFunction(()=>document.getElementById('sampleTitle').textContent.includes('Local 3D MDS'));await check();
-  const local=await snapshot();await page.uncheck('#agpOutcomeEnabled');assert.deepEqual(await snapshot(),local);
-  await page.check('#agpOutcomeEnabled');await check();assert.deepEqual(await snapshot(),local);
+  const local=await snapshot();await disable();assert.deepEqual(await snapshot(),local);
+  await enable();await check();assert.deepEqual(await snapshot(),local);
   await page.check('#agpOutcomeRelative');await check();assert.deepEqual(await snapshot(),local);
   assert.equal(await page.locator('#agpShowBackground').isVisible(),false);
   await page.uncheck('#stateMode');await page.check('#unfoldFaces');await check();
-  const unfolded=await snapshot();await page.reload();await ready();assert(await page.isChecked('#agpOutcomeEnabled'));assert(await page.isChecked('#agpOutcomeRelative'));await check();assert.deepEqual(await snapshot(),unfolded);
+  const unfolded=await snapshot();await page.reload();await ready();assert.equal(await page.locator('#sampleColorScheme').inputValue(),'outcome-probability');assert(await page.isChecked('#agpOutcomeRelative'));await check();assert.deepEqual(await snapshot(),unfolded);
   await page.check('#stateMode');await page.click('#headerClearSelection');await check();
   const choice=await page.locator('#agpConnectionPicker option').nth(1).getAttribute('value');await page.selectOption('#agpConnectionPicker',choice);actual=await check();assert(actual.some(v=>v.context));
-  const boundary=await snapshot();await page.uncheck('#agpOutcomeEnabled');assert.deepEqual(await snapshot(),boundary);
-  await page.check('#agpOutcomeEnabled');await check();await page.click('#headerBackSelection');await check();await page.click('#headerForwardSelection');await check();
+  const boundary=await snapshot();await disable();assert.deepEqual(await snapshot(),boundary);
+  await enable();await check();await page.click('#headerBackSelection');await check();await page.click('#headerForwardSelection');await check();
   actual=await check();const selectedIds=new Set(actual.filter(v=>!v.context).map(v=>v.id)),selectedCoordinates=boundary.filter(v=>selectedIds.has(v[0])),edgeGraph=await graph();
   assert(await page.locator('#agpShowBackground').isVisible());await page.uncheck('#agpShowBackground');actual=await check();
   assert(actual.length>0&&actual.length<boundary.length);assert(actual.every(v=>!v.context));assert.deepEqual(await snapshot(),selectedCoordinates);assert.equal(await graph(),edgeGraph);
   const displayedN=await page.locator('#sampleContext table').evaluate(t=>Array.from(t.rows).slice(1).reduce((n,r)=>n+Number(r.cells[3].textContent.replaceAll(',','')),0));assert.equal(displayedN,actual.length);
-  await page.uncheck('#agpOutcomeEnabled');assert.deepEqual(await snapshot(),selectedCoordinates);
-  await page.check('#agpOutcomeEnabled');await check();await page.reload();await ready();assert.equal(await page.isChecked('#agpShowBackground'),false);await check();assert.deepEqual(await snapshot(),selectedCoordinates);
+  await disable();assert.deepEqual(await snapshot(),selectedCoordinates);
+  await enable();await check();await page.reload();await ready();assert.equal(await page.isChecked('#agpShowBackground'),false);await check();assert.deepEqual(await snapshot(),selectedCoordinates);
   await page.check('#agpShowBackground');await check();assert.deepEqual(await snapshot(),boundary);
   await page.uncheck('#stateMode');actual=await check();const pureSelected=new Set(actual.filter(v=>!v.context).map(v=>v.id));
   await page.uncheck('#agpShowBackground');actual=await check();assert.deepEqual(new Set(actual.map(v=>v.id)),pureSelected);
@@ -89,6 +99,19 @@ const population=JSON.parse(fs.readFileSync(path.join(folder,'population.json'))
    console.log('PASS unaffected comb and return to saved AGP outcome view');
   }
 
+  // Migrate an existing saved view with the removed independent checkbox.
+  const beforeMigration=await snapshot(),storageKey='cosmix-agp-view-v1:agp-24k-silva';
+  const retainedScheme=await page.locator('#agpStateScheme').inputValue();
+  await page.goto(origin+'/empty.html');
+  await page.evaluate(k=>{const p=JSON.parse(localStorage.getItem(k));p.controls.sampleColorScheme=p.controls.agpStateScheme;
+   delete p.controls.agpStateScheme;p.controls.agpOutcomeEnabled=true;p.details.agpOutcomeControls=false;delete p.details.agpColorControls;
+   localStorage.setItem(k,JSON.stringify(p))},storageKey);
+  await page.goto(origin+'/?dataset=agp-24k-silva');await ready();await check();
+  assert.equal(await page.locator('#sampleColorScheme').inputValue(),'outcome-probability');
+  assert.equal(await page.locator('#agpStateScheme').inputValue(),retainedScheme);assert(await page.locator('#agpOutcome').isVisible());
+  assert.deepEqual(await snapshot(),beforeMigration);
+  assert.equal(await page.evaluate(k=>'agpOutcomeEnabled' in JSON.parse(localStorage.getItem(k)).controls,storageKey),false);
+  console.log('PASS sidebar placement, conditional controls and migration of the removed checkbox');
   assert.deepEqual(errors,[]);console.log('PASS probabilities and ratios, fixed participant baseline, percentile clipping, all 3 maps, local/unfolded views, boundary-only filtering/counts, unchanged coordinates/graph, persistence, PDF');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});

@@ -5,7 +5,8 @@ const AgpOutcomes=(()=>{
  const policies={index:'Index sample (primary)',all_visits:'All visits (sensitivity)'};
  const scopes={global:'Global fit',state:'Separate 70%-1-CST fits'};
  const kinds={outer:'Held-out · nested CV',final:'Full-reference estimates'};
- const controls=['agpOutcomeEnabled','agpOutcome','agpOutcomeMethod','agpOutcomePolicy','agpOutcomeScope','agpOutcomeKind','agpOutcomeRelative'];
+ const colorValue='outcome-probability';
+ const controls=['agpOutcome','agpOutcomeMethod','agpOutcomePolicy','agpOutcomeScope','agpOutcomeKind','agpOutcomeRelative'];
  function cohortMean(bank,outcome){
   const answers=bank.index.map(i=>bank.outcomes[outcome][i]).filter(v=>v===0||v===1);
   const positive=answers.reduce((a,b)=>a+b,0),n=answers.length;
@@ -51,9 +52,9 @@ const AgpOutcomes=(()=>{
   for(const o of Object.keys(outcomes))if(bank.outcomes[o]?.length!==rows.size||bank.outcomes[o].some(v=>v!==null&&v!==0&&v!==1))throw Error('Invalid AGP outcome answers.');
   return {bank,rows,index};
  }
- function install(bank,population,parent,changed){
-  const section=document.createElement('details');section.id='agpOutcomeControls';section.open=true;
-  const summary=document.createElement('summary');summary.textContent='Outcome estimates';section.append(summary);
+ function install(bank,population,parent,changed,colorControl){
+  const section=document.createElement('div');section.id='agpOutcomeControls';section.hidden=true;
+  const colorOption=new Option('Outcome probability',colorValue);colorControl.add(colorOption);
   const inputs={};
   function add(id,label,options,title){
    const wrap=document.createElement('label'),input=document.createElement(options?'select':'input');
@@ -64,19 +65,19 @@ const AgpOutcomes=(()=>{
    input.style.maxWidth='100%';wrap.title=title||'';section.append(wrap);input.onchange=changed;
    return input;
   }
-  const enabled=add(controls[0],'Color by outcome probability',null,'Changes colors only. The CST coverage, selected samples, graph and saved embedding remain unchanged.');
-  const relative=add(controls[6],'Relative to cohort mean',null,'Show predicted probability divided by the observed outcome frequency among participants with an answered index sample. 1× is the cohort mean, 2× is twice the mean. The denominator stays fixed across selections and sample policies; missing answers are excluded.');
-  add(controls[1],'Outcome',outcomes,'Recorded survey answer: yes/no for seasonal allergies; reported medical, alternative-practitioner or self-diagnosis versus no condition for skin condition and IBS.');
-  add(controls[2],'Estimator',methods,'Ordinary kNN uses k nearest participants. Nearest-case methods expand until k cases; the corrected method adjusts for that stopping rule. k was selected separately inside participant folds.');
-  add(controls[3],'Sample policy',policies,'Primary: one fixed, outcome-independent index sample and its own answer. All visits: each reference participant contributes their nearest answering visit to the query.');
-  add(controls[4],'Fitting population',scopes,'Separate fits always use the eight frozen merged 70%-1-CSTs, even when the explorer displays another coverage or pure states.');
-  add(controls[5],'Estimate type',kinds,'Held-out: participant excluded in an outer fold, with k tuned in inner participant folds. Full-reference: k tuned by five-fold CV, then the query participant excluded from the responding reference.');
+  add('agpOutcome','Outcome',outcomes,'Recorded survey answer: yes/no for seasonal allergies; reported medical, alternative-practitioner or self-diagnosis versus no condition for skin condition and IBS.');
+  const relative=add('agpOutcomeRelative','Relative to cohort mean',null,'Show predicted probability divided by the observed outcome frequency among participants with an answered index sample. 1× is the cohort mean, 2× is twice the mean. The denominator stays fixed across selections and sample policies; missing answers are excluded.');
+  add('agpOutcomeMethod','Estimator',methods,'Ordinary kNN uses k nearest participants. Nearest-case methods expand until k cases; the corrected method adjusts for that stopping rule. k was selected separately inside participant folds.');
+  add('agpOutcomePolicy','Sample policy',policies,'Primary: one fixed, outcome-independent index sample and its own answer. All visits: each reference participant contributes their nearest answering visit to the query.');
+  add('agpOutcomeScope','Fitting population',scopes,'Separate fits always use the eight frozen merged 70%-1-CSTs, even when the explorer displays another coverage or pure states.');
+  add('agpOutcomeKind','Estimate type',kinds,'Held-out: participant excluded in an outer fold, with k tuned in inner participant folds. Full-reference: k tuned by five-fold CV, then the query participant excluded from the responding reference.');
   const note=document.createElement('p');note.style.fontSize='12px';section.append(note);
   let validated=null,error=null;
   try{validated=validate(bank,population)}catch(e){error=e.message}
   if(!validated){
-   enabled.disabled=true;
-   note.textContent=error||'Install the separately supplied AGP outcome estimates to enable probability coloring.';
+   colorOption.disabled=true;colorOption.textContent='Outcome probability (unavailable)';
+   colorOption.title=error||'Install the separately supplied AGP outcome estimates to enable probability coloring.';
+   note.textContent=colorOption.title;
   }else{
    note.textContent='Probabilities among survey respondents, not causal effects or clinical risk estimates. All fits use intrinsic Euclidean length on the max-normalized 340-taxon surface; the map selector changes display coordinates only.';
    const help=document.createElement('details'),h=document.createElement('summary');h.textContent='Methods and interpretation';help.append(h);
@@ -96,9 +97,10 @@ const AgpOutcomes=(()=>{
   const scaleCache=new Map(),baselines=validated?Object.fromEntries(Object.keys(outcomes).map(o=>[o,cohortMean(bank,o)])):{};
   function current(){
    const value=id=>inputs[id].value;
-   const policy=value(controls[3]),outcome=value(controls[1]),method=value(controls[2]),scope=value(controls[4]),kind=value(controls[5]);
-   const active=Boolean(validated&&enabled.checked);
-   for(const id of controls.slice(1))inputs[id].disabled=!active;
+   const policy=value('agpOutcomePolicy'),outcome=value('agpOutcome'),method=value('agpOutcomeMethod'),scope=value('agpOutcomeScope'),kind=value('agpOutcomeKind');
+   const active=Boolean(validated&&colorControl.value===colorValue);
+   section.hidden=!active;
+   for(const id of controls)inputs[id].disabled=!active;
    const baseline=baselines[outcome],canRelate=baseline?.mean>0;
    relative.disabled=!active||!canRelate;
    if(!canRelate)relative.checked=false;
@@ -136,8 +138,8 @@ const AgpOutcomes=(()=>{
    if(context.length)result.push(trace(context,{context:true},{color:'#dedede',opacity:.25}));
    return result;
   }
-  return {current,lookup,annotate,section};
+  return {current,lookup,annotate,section,available:Boolean(validated)};
  }
- return {validate,install,controls,cohortMean,probabilityScale,outcomes,methods,policies,scopes,kinds};
+ return {validate,install,controls,colorValue,cohortMean,probabilityScale,outcomes,methods,policies,scopes,kinds};
 })();
 if(typeof module!=='undefined')module.exports=AgpOutcomes;
