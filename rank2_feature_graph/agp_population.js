@@ -131,7 +131,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  backgroundControl.append(background,' Show background samples');backgroundControl.hidden=true;
  backgroundControl.title='Keep samples outside the selected graph boundary in gray for context. Turn off to show only selected samples, at the same saved coordinates. A 1-CST edge connects boundary samples from both endpoint states.';
  const colorLabel=color.closest('label'),assignLabel=assign.closest('label'),methodLabel=method.closest('label');
- header.replaceChildren(navigation,unfoldControl,backgroundControl,save);
+ header.replaceChildren(navigation,backgroundControl,save);
  el('controlSections').replaceChildren(el('dataControls'));
  el('cohortControl').hidden=true;
  el('datasetMessage').textContent=data.ids.length.toLocaleString()+' fecal samples · 340 SILVA taxa';
@@ -159,6 +159,8 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  .agpWorkspace #sampleContent{grid-template-columns:minmax(0,1fr) minmax(210px,32%);grid-template-rows:minmax(0,1fr)}
  .agpWorkspace #sampleSidePanels{grid-column:2;grid-row:1}
  .agpWorkspace #sampleDetails>label{display:grid;gap:4px;margin:8px;font-size:12px}
+ .agpWorkspace #sampleDetails>label.agpCheck{display:flex;align-items:center;gap:5px}
+ .agpWorkspace #sampleDetails>label[hidden]{display:none}
  .agpWorkspace #sampleDetails>label select{width:100%;max-width:100%;min-width:0;box-sizing:border-box;font-size:12px}
  .agpWorkspace #agpColorControls{padding:8px;font-size:12px}
  .agpWorkspace #agpColorControls>label{display:grid;gap:4px;margin:9px 0;max-width:100%}
@@ -187,7 +189,8 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  assignLabel.classList.add('agpCheck');
  coloring.append(coloringTitle,colorLabel,schemeLabel,assignLabel);
  appearance.querySelector('summary').after(labelControl);
- group.replaceChildren(group.querySelector('summary'),appearance);side.replaceChildren(methodLabel,coloring,group);
+ unfoldControl.classList.add('agpCheck');
+ group.replaceChildren(group.querySelector('summary'),appearance);side.replaceChildren(methodLabel,unfoldControl,coloring,group);
  el('sampleSidePanels').replaceChildren(side,info);info.style.padding='8px';
  el('sampleInfoDivider').remove();
  el('sampleContent').removeAttribute('data-legend-position');

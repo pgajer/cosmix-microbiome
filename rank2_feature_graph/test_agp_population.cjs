@@ -9,12 +9,13 @@ const reference=JSON.parse(require('fs').readFileSync(population));
  await page.goto(new URL('/?dataset=agp-24k-silva',origin).href);await page.waitForSelector('#samples canvas',{timeout:60000});
  const header=page.locator('.sampleHeaderActions');
  assert.deepEqual(await header.locator('input, select').evaluateAll(items=>items.map(e=>e.id)),
-  ['unfoldFaces','agpShowBackground']);
+  ['agpShowBackground']);
  assert.equal(await page.locator('#sampleDetails > :first-child #sampleMethod').count(),1);
+ assert.equal(await page.locator('#sampleDetails > :nth-child(2) #unfoldFaces').count(),1);
  assert.equal(await page.locator('#sampleAppearanceVertices #participantShowVertices').count(),1);
  assert.equal(await page.locator('#sampleSidePanels #sampleColorScheme').count(),1);
  assert.equal(await page.locator('#sampleSidePanels #stateMode').count(),1);
- assert.ok(await header.locator('#unfoldFaces').isHidden());
+ assert.ok(await page.locator('#unfoldFaces').isHidden());
  assert.ok(await header.locator('#agpShowBackground').isHidden());
  const fs=require('fs'),path=require('path'),refFile=path.join(path.dirname(population),'component-references.json');
  const refs=fs.existsSync(refFile)?JSON.parse(fs.readFileSync(refFile)).agpReferences:null;

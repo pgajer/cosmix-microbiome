@@ -13,7 +13,8 @@ and left-panel Outcome estimates section have been removed. Initially the contro
 one index sample per participant, the global fit and held-out predictions.
 
 **Sample embedding** is the first control in the right sidebar, above Sample
-coloring. **Component labels** is in **Sample appearance → Reference vertices**,
+coloring. **Unfold faces** appears directly below it for supported local views.
+**Component labels** is in **Sample appearance → Reference vertices**,
 alongside the reference marker size, color and lighting controls.
 
 Selecting Outcome probability retains the current CST scheme, graph selection,
