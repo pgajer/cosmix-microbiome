@@ -12,6 +12,10 @@ there only while outcome coloring is selected. The former independent checkbox
 and left-panel Outcome estimates section have been removed. Initially the controls select ordinary kNN,
 one index sample per participant, the global fit and held-out predictions.
 
+**Sample embedding** is the first control in the right sidebar, above Sample
+coloring. **Component labels** is in **Sample appearance → Reference vertices**,
+alongside the reference marker size, color and lighting controls.
+
 Selecting Outcome probability retains the current CST scheme, graph selection,
 displayed sample IDs and coordinates. **States and graph** shows that retained
 scheme and lets users change coverage independently while viewing probabilities.

@@ -130,8 +130,8 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  background.type='checkbox';background.id='agpShowBackground';background.checked=true;
  backgroundControl.append(background,' Show background samples');backgroundControl.hidden=true;
  backgroundControl.title='Keep samples outside the selected graph boundary in gray for context. Turn off to show only selected samples, at the same saved coordinates. A 1-CST edge connects boundary samples from both endpoint states.';
- const colorLabel=color.closest('label'),assignLabel=assign.closest('label');
- header.replaceChildren(navigation,labelControl,method.closest('label'),unfoldControl,backgroundControl,save);
+ const colorLabel=color.closest('label'),assignLabel=assign.closest('label'),methodLabel=method.closest('label');
+ header.replaceChildren(navigation,unfoldControl,backgroundControl,save);
  el('controlSections').replaceChildren(el('dataControls'));
  el('cohortControl').hidden=true;
  el('datasetMessage').textContent=data.ids.length.toLocaleString()+' fecal samples · 340 SILVA taxa';
@@ -158,6 +158,8 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  .agpWorkspace #agpConnectionControls p{font-size:12px}
  .agpWorkspace #sampleContent{grid-template-columns:minmax(0,1fr) minmax(210px,32%);grid-template-rows:minmax(0,1fr)}
  .agpWorkspace #sampleSidePanels{grid-column:2;grid-row:1}
+ .agpWorkspace #sampleDetails>label{display:grid;gap:4px;margin:8px;font-size:12px}
+ .agpWorkspace #sampleDetails>label select{width:100%;max-width:100%;min-width:0;box-sizing:border-box;font-size:12px}
  .agpWorkspace #agpColorControls{padding:8px;font-size:12px}
  .agpWorkspace #agpColorControls>label{display:grid;gap:4px;margin:9px 0;max-width:100%}
  .agpWorkspace #agpColorControls>label.agpCheck{display:flex;align-items:center;gap:5px;white-space:normal}
@@ -184,7 +186,8 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  schemeLabel.title='The CST scheme used for sample membership, the graph and local fits. Outcome probability changes colors only; this selection remains independent.';
  assignLabel.classList.add('agpCheck');
  coloring.append(coloringTitle,colorLabel,schemeLabel,assignLabel);
- group.replaceChildren(group.querySelector('summary'),appearance);side.replaceChildren(coloring,group);
+ appearance.querySelector('summary').after(labelControl);
+ group.replaceChildren(group.querySelector('summary'),appearance);side.replaceChildren(methodLabel,coloring,group);
  el('sampleSidePanels').replaceChildren(side,info);info.style.padding='8px';
  el('sampleInfoDivider').remove();
  el('sampleContent').removeAttribute('data-legend-position');
