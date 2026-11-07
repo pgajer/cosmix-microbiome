@@ -380,16 +380,16 @@ async function trimGraphEdges(){
   }
   if(kind==='graph'&&typeof stateTransitionsActive==='function'&&stateTransitionsActive()){
    const svg=el('stateTransitionSvg');if(!svg)throw Error('Transition graph is not ready');
-   return {kind,width:Number(svg.getAttribute('width')),height:Number(svg.getAttribute('height')),title:el('featurePanelTitle').textContent,rows:[{text:el('stateTransitionNote').textContent},{text:el('stateTransitionDisplay').value==='probabilities'?el('stateTransitionFitNote').textContent:'Blue: Azithromycin; orange: Placebo. Arrows: enrollment → follow-up.'}],svg:new XMLSerializer().serializeToString(svg),filename:`cosmix-transitions-${META.id}-${el('coverage').value}-${Date.now()}`};
+   return {kind,width:Number(svg.getAttribute('width')),height:Number(svg.getAttribute('height')),title:el('featurePanelTitle').textContent,rows:[{text:el('stateTransitionNote').textContent},{text:el('stateTransitionDisplay').value==='probabilities'?el('stateTransitionFitNote').textContent:'Blue: Azithromycin; orange: Placebo. Arrows: enrollment → follow-up.'}],svg:new XMLSerializer().serializeToString(svg),filename:`micove-transitions-${META.id}-${el('coverage').value}-${Date.now()}`};
   }
   if(kind==='graph'&&typeof cstSphereSummaryActive==='function'&&cstSphereSummaryActive()){
    await (activeEmbeddingFamily?familyRenderQueue:queue);const svg=el('cstSummarySvg');if(!svg)throw Error('CST summary is not ready');
-   return {kind,width:Number(svg.getAttribute('width')),height:Number(svg.getAttribute('height')),title:cstSummaryTitle(),rows:[{text:el('cstSummaryNote').textContent}],svg:new XMLSerializer().serializeToString(svg),filename:`cosmix-cst-summary-${META.id}-${new Date().toISOString().replace(/[:.]/g,'-')}`};
+   return {kind,width:Number(svg.getAttribute('width')),height:Number(svg.getAttribute('height')),title:cstSummaryTitle(),rows:[{text:el('cstSummaryNote').textContent}],svg:new XMLSerializer().serializeToString(svg),filename:`micove-cst-summary-${META.id}-${new Date().toISOString().replace(/[:.]/g,'-')}`};
   }
   if(kind==='graph')await waitGraphEmbedding();
   await (kind==='samples'?(activeEmbeddingFamily?familyRenderQueue:queue):graphQueue);await frame();await frame();
   const plot=el(kind==='samples'?(activeEmbeddingFamily?'familyPlot':'samples'):el('dimension').value==='3'?'graph3d':'graph'),r=plot.getBoundingClientRect();
-  const result={kind,width:Math.max(1,Math.round(r.width)),height:Math.max(1,Math.round(r.height)),title:kind==='samples'?(activeEmbeddingFamily?(el('familyTitle').title||el('familyTitle').textContent):(el('sampleTitle').title||el('sampleTitle').textContent)):'Features and top-2 CSTs graph',rows:information(kind),filename:`cosmix-${kind}-${META.id}-${new Date().toISOString().replace(/[:.]/g,'-')}`};
+  const result={kind,width:Math.max(1,Math.round(r.width)),height:Math.max(1,Math.round(r.height)),title:kind==='samples'?(activeEmbeddingFamily?(el('familyTitle').title||el('familyTitle').textContent):(el('sampleTitle').title||el('sampleTitle').textContent)):'Features and top-2 CSTs graph',rows:information(kind),filename:`micove-${kind}-${META.id}-${new Date().toISOString().replace(/[:.]/g,'-')}`};
   if(plot.id==='graph')result.svg=svgSnapshot(plot);
   else{
    result.data=clone(plot.data);result.layout=clone(plot.layout);result.layout.scene=exportScene(plot);

@@ -96,7 +96,7 @@ are rewritten. Hidden states remain eligible neighbors at every coverage.
 
 ## Returning to AGP
 
-CoSMiX remembers AGP's coverage/coloring, pure or merged display, embedding
+MiCOVE remembers AGP's coverage/coloring, pure or merged display, embedding
 method, unfolding, selected vertex or connection, Back/Forward history, graph
 settings and reference-sphere appearance. Camera positions and zoom, expanded
 panels and open information sections are restored too. Changes are saved as

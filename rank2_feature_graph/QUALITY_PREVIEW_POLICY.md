@@ -347,7 +347,7 @@ count field solely because its name contains “reads.”
 
 ## Policy distribution and updates
 
-This file is the maintained policy source in the CoSMiX repository. The build embeds
+This file is the maintained policy source in the MiCOVE repository. The build embeds
 its Quick guide and full contents directly in the explorer. The **Quality rules**
 button in the subject trajectory header opens the same document in normal and
 maximized layouts; **Download full policy (.md)** downloads that embedded copy.

@@ -141,7 +141,7 @@ from the old and new supplements; it performs no fitting.
 Only aggregates, reference topology, release names and source hashes are
 exported. No participant IDs, specimen IDs, outcomes per participant or covariates
 are included. The importer fails on mismatch rather than substituting current
-CoSMiX assignments. Source identities remain inspectable in the workspace.
+MiCOVE assignments. Source identities remain inspectable in the workspace.
 
 Run on demand, outside the update command:
 

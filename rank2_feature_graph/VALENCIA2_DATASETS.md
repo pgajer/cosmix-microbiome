@@ -28,7 +28,7 @@ Calls use the archived VALENCIA implementation at commit
 Sample-only taxa are retained with zero reference abundance; reference-only
 taxa have zero sample abundance. Matching does not renormalize the sample.
 
-For LSVF, each source count profile was checked against its frozen CoSMiX full
+For LSVF, each source count profile was checked against its frozen MiCOVE full
 composition. The original taxon labels were recovered by the documented
 underscore-to-space display transformation. Matching uses exact names and the
 same four explicit punctuation aliases used for the combined datasets; it
@@ -57,7 +57,7 @@ any new app directory and refuses to replace existing annotations.
 Install a supplied metadata supplement using the usual update command:
 
 ```sh
-python3 ~/cosmix-source/scripts/portable.py update --metadata /path/to/supplied-metadata.json
+python3 ~/micove-source/scripts/portable.py update --metadata /path/to/supplied-metadata.json
 ```
 
 The updater remembers that metadata path for subsequent updates. A Git update

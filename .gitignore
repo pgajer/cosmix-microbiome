@@ -117,6 +117,9 @@
 !/scripts/dataset_maxnorm_supplement.py
 !/scripts/max_normalized_supplement.py
 !/scripts/meeting_release.py
+!/scripts/micove-test
+!/scripts/micove-test-audit
+!/scripts/micove-test-layout
 !/scripts/portable.py
 !/scripts/pure_vertex_supplement.py
 !/scripts/skin_exchange.py

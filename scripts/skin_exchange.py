@@ -1,4 +1,4 @@
-"""Adapt reviewed skin population exchanges to a selectable CoSMiX data release."""
+"""Adapt reviewed skin population exchanges to a selectable MiCOVE data release."""
 import argparse
 from collections import defaultdict
 import json

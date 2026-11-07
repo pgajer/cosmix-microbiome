@@ -1,12 +1,12 @@
-# CoSMiX
+# MiCOVE
 
 Microbiome Community State Space Explorer
 
-CoSMiX (pronounced **KOZ-mik**) lets you explore
+MiCOVE (pronounced **MY-kohv**) lets you explore
 the composition of microbial communities and their variation
 across samples, cohorts, and participants over time.
 
-CoSMiX connects sample embeddings, graphs of phylotypes and community states,
+MiCOVE connects sample embeddings, graphs of phylotypes and community states,
 composition summaries, and participant trajectories. Selecting a state or
 phylotype links these views, helping users examine the samples behind a pattern.
 
@@ -29,16 +29,16 @@ phylotype links these views, helping users examine the samples behind a pattern.
   and export figures and tables for further examination.
 
 A top-k CST groups samples by the unordered set of their k most abundant
-phylotypes. CoSMiX also supports other classifications, including VALENCIA2 CSTs
+phylotypes. MiCOVE also supports other classifications, including VALENCIA2 CSTs
 and subCSTs where supplied by a dataset.
 
 Available views depend on the dataset and its accompanying metadata and saved
-embeddings. Obtain all CoSMiX dataset packages and metadata supplements directly
+embeddings. Obtain all MiCOVE dataset packages and metadata supplements directly
 from Pawel Gajer, on an individual basis. Contact him to arrange your own datasets
 or public datasets already prepared for the explorer. This repository contains
 the application source, not sample data; software updates do not download data.
 
-If you use CoSMiX in your research, please cite the software using
+If you use MiCOVE in your research, please cite the software using
 [CITATION.cff](CITATION.cff). Cite research datasets separately according to
 their providers' guidance.
 

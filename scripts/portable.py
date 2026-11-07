@@ -151,7 +151,8 @@ def copy_file(source, destination):
 
 
 def updated_launcher(package, instance):
-    launcher = (package / 'Start VME.command').read_text().replace('43817', '43818')
+    launcher_path = next((package / name for name in ('Start MiCOVE.command', 'Start CoSMiX.command', 'Start VME.command') if (package / name).is_file()), package / 'Start VME.command')
+    launcher = launcher_path.read_text().replace('43817', '43818')
     launcher = launcher.replace('/vme-health', '/vme-instance.txt').replace('VME-portable-2026-10-23', instance)
     prior = package / 'web/vme-instance.txt'
     if prior.is_file():
@@ -159,7 +160,16 @@ def updated_launcher(package, instance):
         if not re.fullmatch(r'[a-f0-9]{64}', identity):
             raise ValueError('Invalid packaged launcher identity')
         launcher = launcher.replace(identity, instance)
-    return launcher.replace('Vaginal Microbiome Explorer', 'CoSMiX')
+    return launcher.replace('Vaginal Microbiome Explorer', 'MiCOVE').replace('CoSMiX', 'MiCOVE')
+
+
+def write_launchers(output, launcher):
+    """Canonical launcher plus existing-user aliases; native server format is unchanged."""
+    (output / 'Start MiCOVE.command').write_text(launcher)
+    (output / 'Start MiCOVE.command').chmod(0o755)
+    for name in ('Start CoSMiX.command', 'Start VME.command'):
+        (output / name).symlink_to('Start MiCOVE.command')
+    (output / 'micove-server').symlink_to('vme-server')
 
 
 def prepare(package, metadata_path, output, announce=True):
@@ -293,12 +303,12 @@ def prepare(package, metadata_path, output, announce=True):
     (outweb / 'index.html').write_text(page)
     write_empty_view(manifest, outweb / 'empty.html')
     for name in ('about.html', 'portable.html'):
-        (outweb / name).write_text(coverage_terminology((web / name).read_text()).replace('Vaginal Microbiome Explorer', 'CoSMiX').replace(' · VME</title>', ' · CoSMiX</title>'))
+        (outweb / name).write_text(coverage_terminology((web / name).read_text()).replace('Vaginal Microbiome Explorer', 'MiCOVE').replace(' · VME</title>', ' · MiCOVE</title>').replace('CoSMiX', 'MiCOVE'))
     (outweb / 'QUALITY_PREVIEW_POLICY.md').write_bytes((HERE / 'QUALITY_PREVIEW_POLICY.md').read_bytes())
     (outweb / 'quality.html').write_text(resource_page('Quality preview rules', policy_html(HERE), 'index.html'))
     # Retain the data-package provenance, clearly separated from the new interface.
     about = outweb / 'about.html'
-    about.write_text(about.read_text().replace('<main>', '<main><h1>CoSMiX</h1><p>Microbiome Community State Space Explorer</p><p><strong>Interface updated from GitHub source.</strong> Source fingerprint: ' + source_digest(HERE)[:12] + '. The dataset and original build provenance below describe the separately supplied data package.</p>', 1))
+    about.write_text(about.read_text().replace('<main>', '<main><h1>MiCOVE</h1><p>Microbiome Community State Space Explorer</p><p><strong>Interface updated from GitHub source.</strong> Source fingerprint: ' + source_digest(HERE)[:12] + '. The dataset and original build provenance below describe the separately supplied data package.</p>', 1))
     for name in ('mutual-overlap', 'reports'):
         if (web / name).is_dir():
             shutil.copytree(web / name, outweb / name, copy_function=copy_file)
@@ -306,18 +316,16 @@ def prepare(package, metadata_path, output, announce=True):
     instance = sha(encoded(dict(source=source_digest(HERE), metadata=sha(metadata_path.read_bytes()), package=sha(encoded(original)))))
     (outweb / 'vme-instance.txt').write_text(instance)
     launcher = updated_launcher(package, instance)
-    (output / 'Start VME.command').write_text(launcher)
-    (output / 'Start VME.command').chmod(0o755)
-    (output / 'Start CoSMiX.command').symlink_to('Start VME.command')
+    write_launchers(output, launcher)
     receipt = dict(sourceSha256=source_digest(HERE), baseManifestSha256=sha(encoded(original)),
                    metadataSha256=sha(metadata_path.read_bytes()), dataPackage=str(package),
                    metadataFile=str(metadata_path),
                    datasets=list(manifest['seed']['distributionDatasets']), application=manifest['application'],
                    diagnosticCount=len(metadata['embeddingStressDiagnostics']))
     (output / 'SOURCE_AND_DATA.json').write_text(json.dumps(receipt, indent=2) + '\n')
-    (output / 'READ ME FIRST.txt').write_text('Double-click Start CoSMiX.command. Keep its Terminal open.\nThis copy uses current GitHub interface source with your separately supplied data.\nNo fitting or data changes occurred. Port: 43818.\nFor another update: stop this viewer, then in your source clone run git pull --ff-only followed by python3 scripts/portable.py update.\nThe original data package stays unchanged. SOURCE_AND_DATA.json records both identities.\n')
+    (output / 'READ ME FIRST.txt').write_text('Double-click Start MiCOVE.command. Keep its Terminal open.\nThis copy uses current GitHub interface source with your separately supplied data.\nNo fitting or data changes occurred. Port: 43818.\nFor another update: stop this viewer, then in your source clone run git pull --ff-only followed by python3 scripts/portable.py update.\nThe original data package stays unchanged. SOURCE_AND_DATA.json records both identities.\n')
     if announce:
-        print('Ready: ' + str(output / 'Start CoSMiX.command'))
+        print('Ready: ' + str(output / 'Start MiCOVE.command'))
 
 
 def attach_neighborhoods(page_path, optional_web):
@@ -468,26 +476,36 @@ def recover_update(output, journal):
 
 
 def app_destination(output=None):
+    """Use a new MiCOVE home or preserve an existing installation and safe aliases."""
     home = Path.home()
-    current, legacy = home / 'cosmix', home / 'vme'
-    if output is None:
-        # During an interrupted replacement the real folder can be temporarily absent.
-        legacy_install = (legacy / 'SOURCE_AND_DATA.json').is_file() or (home / '.vme-update.json').exists()
-        if legacy.is_symlink() or legacy_install:
-            if not legacy.is_symlink() and ((current / 'SOURCE_AND_DATA.json').is_file() or
-                                            (home / '.cosmix-update.json').exists()):
-                raise ValueError('Two CoSMiX installations found. Choose --output ~/cosmix or --output ~/vme.')
-            output = legacy
-        else:
-            output = current
-    output = Path(output).expanduser().absolute()
-    if output.is_symlink():
-        # Only the direct home-directory alias created by the CoSMiX migration is supported.
-        if (output != legacy or legacy.parent / legacy.readlink() != current or current.is_symlink()
-                or not (current.is_dir() or (home / '.cosmix-update.json').is_file())):
+    known = [home / name for name in ('micove', 'cosmix', 'vme')]
+
+    def destination(path):
+        seen = set()
+        while path.is_symlink():
+            if path not in known or path in seen:
+                raise ValueError('The app folder must not be an unrelated or dangling symbolic link')
+            seen.add(path)
+            target = path.readlink()
+            path = Path(os.path.abspath(path.parent / target))
+            if path not in known:
+                raise ValueError('The app folder must not be an unrelated or dangling symbolic link')
+        journal = path.parent / ('.' + path.name + '-update.json')
+        if seen and not (path.is_dir() or journal.is_file()):
             raise ValueError('The app folder must not be an unrelated or dangling symbolic link')
-        output = current
-    return output.resolve()
+        return path
+
+    if output is None:
+        installed = set()
+        for path in known:
+            resolved = destination(path)
+            journal = resolved.parent / ('.' + resolved.name + '-update.json')
+            if (resolved / 'SOURCE_AND_DATA.json').is_file() or journal.is_file():
+                installed.add(resolved)
+        if len(installed) > 1:
+            raise ValueError('Multiple MiCOVE installations found. Choose --output ~/micove, ~/cosmix or ~/vme.')
+        output = next(iter(installed), known[0])
+    return destination(Path(output).expanduser().absolute()).resolve()
 
 
 def update(package=None, metadata_path=None, output=None, neighborhood_package=None, neighborhood_metadata=None,
@@ -495,7 +513,7 @@ def update(package=None, metadata_path=None, output=None, neighborhood_package=N
     output = app_destination(output)
     # Reject the source checkout before creating any locks or staging folders.
     if output == ROOT or output in ROOT.parents or ROOT in output.parents:
-        raise ValueError('Keep the source clone (for example ~/cosmix-source) separate from the app (normally ~/cosmix)')
+        raise ValueError('Keep the source clone (for example ~/micove-source) separate from the app (normally ~/micove)')
     output.parent.mkdir(parents=True, exist_ok=True)
     with update_lock(output), stopped_viewer(output):
         journal = output.parent / ('.' + output.name + '-update.json')
@@ -519,7 +537,7 @@ def update(package=None, metadata_path=None, output=None, neighborhood_package=N
             if catalog is None and sha((release_root / 'catalog.json').read_bytes()) != saved_release['catalogSha256']:
                 raise ValueError('The installed release catalogue changed; supply --catalog explicitly for a new release')
             if meeting_release.read_catalog(release_root).get('synthetic'):
-                if output in (Path.home() / 'cosmix', Path.home() / 'vme') or (old_receipt and
+                if output in (Path.home() / 'micove', Path.home() / 'cosmix', Path.home() / 'vme') or (old_receipt and
                         saved_release.get('catalogSha256') != sha((release_root / 'catalog.json').read_bytes())):
                     raise ValueError('Use a separate test app folder for synthetic skin fixtures')
             chosen = meeting_release.selection(release_root, datasets,
@@ -608,7 +626,7 @@ def update(package=None, metadata_path=None, output=None, neighborhood_package=N
                     journal.unlink()
             print('Update did not finish. Diagnostic files retained at: ' + str(transaction), file=sys.stderr)
             raise
-        print('Ready: ' + str(output / 'Start CoSMiX.command'))
+        print('Ready: ' + str(output / 'Start MiCOVE.command'))
         if previous.exists():
             print('Previous app retained at: ' + str(previous))
 
@@ -622,10 +640,10 @@ def main():
         item.add_argument('--output', type=Path, required=True)
         if command == 'prepare':
             item.add_argument('--metadata', type=Path, required=True)
-    item = sub.add_parser('update', help='Install CoSMiX or update the existing app')
+    item = sub.add_parser('update', help='Install MiCOVE or update the existing app')
     item.add_argument('--package', type=Path, help='Original data package (remembered after setup)')
     item.add_argument('--metadata', type=Path, help='Metadata supplement (remembered after setup)')
-    item.add_argument('--output', type=Path, help='App folder (default: ~/cosmix, or an existing ~/vme installation)')
+    item.add_argument('--output', type=Path, help='App folder (default: ~/micove, or an existing ~/cosmix or ~/vme installation)')
     item.add_argument('--neighborhood-package', type=Path, help='Optional historical Li/Lc data package (remembered locally)')
     item.add_argument('--neighborhood-metadata', type=Path, help='Matching neighborhood metadata (remembered locally)')
     item.add_argument('--catalog', type=Path, help='Folder containing a selectable release catalog.json')
@@ -644,7 +662,7 @@ def main():
         else:
             export_metadata(args.package.resolve(), args.output.resolve())
     except (ValueError, KeyError, OSError, EOFError, subprocess.SubprocessError) as error:
-        parser.exit(1, 'CoSMiX setup: ' + str(error) + '\n')
+        parser.exit(1, 'MiCOVE setup: ' + str(error) + '\n')
 
 
 if __name__ == '__main__':

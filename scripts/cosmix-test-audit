@@ -1,5 +1,5 @@
 #!/bin/sh
-# Opt-in integration checks plus the exhaustive saved-layout audit.
+# Compatibility alias; validation remains on demand.
 set -eu
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-exec "$script_dir/cosmix-test" --audit-layouts "$@"
+exec "$script_dir/micove-test-audit" "$@"

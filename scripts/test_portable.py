@@ -192,7 +192,7 @@ class UpdateTests(unittest.TestCase):
         self.assertFalse((self.root / '.vme-update.json').exists())
 
     def test_new_legacy_and_migrated_default_destinations(self):
-        current = self.root / 'cosmix'
+        current = self.root / 'micove'
         with patch.object(Path, 'home', return_value=self.root):
             self.assertEqual(portable.app_destination(), current)
             self.install_old()
@@ -213,7 +213,7 @@ class UpdateTests(unittest.TestCase):
                 portable.update(output=self.output)
 
     def test_dangling_indirect_and_interrupted_app_paths(self):
-        current = self.root / 'cosmix'
+        current = self.root / 'micove'
         with patch.object(Path, 'home', return_value=self.root):
             journal = self.root / '.vme-update.json'
             journal.touch()
@@ -222,7 +222,7 @@ class UpdateTests(unittest.TestCase):
             self.output.symlink_to(current.name)
             with self.assertRaisesRegex(ValueError, 'symbolic link'):
                 portable.app_destination()
-            (self.root / '.cosmix-update.json').touch()
+            (self.root / '.micove-update.json').touch()
             self.assertEqual(portable.app_destination(), current)
             current.symlink_to(self.package)
             with self.assertRaisesRegex(ValueError, 'symbolic link'):
@@ -231,6 +231,30 @@ class UpdateTests(unittest.TestCase):
             self.output.symlink_to(self.package)
             with self.assertRaisesRegex(ValueError, 'symbolic link'):
                 portable.app_destination()
+
+    def test_cosmix_and_two_generation_aliases(self):
+        current = self.root / 'micove'
+        cosmix = self.root / 'cosmix'
+        with patch.object(Path, 'home', return_value=self.root):
+            self.prepare(self.package, self.metadata, cosmix)
+            self.assertEqual(portable.app_destination(), cosmix)
+            cosmix.rename(current)
+            cosmix.symlink_to(current.name)
+            self.output.symlink_to(cosmix.name)
+            for alias in (None, self.output, cosmix, current):
+                self.assertEqual(portable.app_destination(alias), current)
+            current.rename(self.root / 'saved')
+            (self.root / '.micove-update.json').touch()
+            self.assertEqual(portable.app_destination(self.output), current)
+
+    def test_canonical_launcher_and_legacy_aliases(self):
+        output = self.root / 'launcher-test'
+        output.mkdir()
+        (output / 'vme-server').write_text('original native server')
+        portable.write_launchers(output, '#!/bin/bash\necho MiCOVE\n')
+        for name in ('Start MiCOVE.command', 'Start CoSMiX.command', 'Start VME.command'):
+            self.assertEqual((output / name).read_text(), '#!/bin/bash\necho MiCOVE\n')
+        self.assertEqual((output / 'micove-server').read_text(), 'original native server')
 
     def test_build_and_validation_failures_preserve_old_app(self):
         self.install_old()

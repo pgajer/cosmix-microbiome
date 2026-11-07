@@ -1,6 +1,6 @@
 # Licensing and separately distributed material
 
-The original CoSMiX software and its documentation are licensed under the
+The original MiCOVE software and its documentation are licensed under the
 [MIT License](LICENSE). Third-party material retains its own terms; see
 [third-party notices](THIRD_PARTY_NOTICES.md).
 
@@ -9,16 +9,16 @@ The original CoSMiX software and its documentation are licensed under the
 The software license does not apply to separately distributed datasets,
 sample observations, participant or clinical metadata, saved scientific
 embeddings, fitted models, or research-derived metadata supplements. This
-includes the Mac data package and the companion CoSMiX metadata JSON used by the
+includes the Mac data package and the companion MiCOVE metadata JSON used by the
 portable setup tool. These materials are not part of the source distribution.
 
 Their respective owners and providers determine access and reuse terms.
-Receiving them, loading them into CoSMiX, or using MIT-licensed code to display
+Receiving them, loading them into MiCOVE, or using MIT-licensed code to display
 them does not grant additional rights to use, publish, or redistribute them.
 Follow the terms accompanying each separately supplied package.
 
 Third-party libraries supplied with a runtime package also retain their own
-licenses and notices. CoSMiX's MIT license does not replace those licenses.
+licenses and notices. MiCOVE's MIT license does not replace those licenses.
 
 ## Citation
 

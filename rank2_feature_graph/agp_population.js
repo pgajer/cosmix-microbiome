@@ -113,7 +113,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
  const el=id=>document.getElementById(id), method=el('sampleMethod'),color=el('sampleColorScheme'),
        assign=el('stateMode'),plot=el('samples'),info=el('sampleContext'),selector=el('datasetSelect');
  const title=choices.find(item=>item.id===data.id).title;
- document.title='CoSMiX — '+title;el('sampleTitle').textContent=title;
+ document.title='MiCOVE — '+title;el('sampleTitle').textContent=title;
  const header=el('samplePanel').querySelector('.sampleHeaderActions');
  const labels=el('participantShowVertices'),labelControl=labels.closest('label');
  labelControl.lastChild.textContent=' Component labels';
@@ -246,7 +246,7 @@ async function showAgpPopulation(data, choices, references, graphLayouts, localF
    const cells=tr.cells;rows.push({text:cells[0].textContent+' · '+cells[3].textContent+' samples ('+cells[4].textContent+'%)',color:cells[0].firstElementChild.style.backgroundColor});
   }
   return {width,height,layout,data:clone(plot.data),rows,title:el('sampleTitle').textContent+' · '+method.selectedOptions[0].textContent,
-   filename:'cosmix-agp-samples-'+method.value+'-'+s.q+'pct-'+s.k+'cst-'+Date.now()};
+   filename:'micove-agp-samples-'+method.value+'-'+s.q+'pct-'+s.k+'cst-'+Date.now()};
  });
  el('viewExportClose').disabled=false;save.disabled=false;save.onclick=()=>openExport('samples');
  const ranges=new Map();

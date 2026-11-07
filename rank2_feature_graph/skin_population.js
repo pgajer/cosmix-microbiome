@@ -2,7 +2,7 @@
 async function showSkinPopulation(data, choices) {
  const el=id=>document.getElementById(id);
  const title=choices.find(x=>x.id===data.id).title;
- document.title='CoSMiX — '+title;
+ document.title='MiCOVE — '+title;
  el('sampleTitle').textContent=title;
  const method=el('sampleMethod'), plot=el('samples'), selector=el('datasetSelect');
  const participant=el('participantSelect');

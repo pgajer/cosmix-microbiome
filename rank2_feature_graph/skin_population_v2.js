@@ -143,7 +143,7 @@ async function showSkinPopulationV2(data, choices) {
  const detail=el('sampleContext');el('sampleSidePanels').replaceChildren(detail);detail.style.padding='0 10px';
  el('sampleInfoDivider').setAttribute('role','presentation');el('sampleInfoDivider').removeAttribute('tabindex');el('sampleInfoDivider').style.pointerEvents='none';
  panel.querySelector('.sampleHeaderActions').replaceChildren(clear,method.closest('label'),colorField,assignField,save,maximize);
- el('sampleTitle').textContent=data.title;document.title='CoSMiX — '+data.title;
+ el('sampleTitle').textContent=data.title;document.title='MiCOVE — '+data.title;
  el('sampleStress').hidden=false;el('sampleStress').disabled=false;
  method.replaceChildren(new Option('L1-normalized · Euclidean','l1-euclidean'),new Option('Max-normalized · Euclidean','max-euclidean'),new Option('Max-normalized · L∞','max-linf'));
  for(const input of [el('datasetSelect'),method,participant,el('toggleControls')])input.disabled=false;

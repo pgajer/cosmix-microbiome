@@ -1,11 +1,11 @@
-# CoSMiX color specification
+# MiCOVE color specification
 
 Specification version 36 · reviewed 5 November 2026.
 
-Canonical CoSMiX-wide reference for dataset authors and interface developers.
-Read this specification when preparing, adding or revising a CoSMiX dataset.
+Canonical MiCOVE-wide reference for dataset authors and interface developers.
+Read this specification when preparing, adding or revising a MiCOVE dataset.
 
-This document consolidates the implemented color rules for CoSMiX. Version 6 extends the existing phylotype palette to thresholded
+This document consolidates the implemented color rules for MiCOVE. Version 6 extends the existing phylotype palette to thresholded
 participant stacked bars, with a fixed gray remainder and the same taxon
 overrides. Version 5 added a gray non-core pure-state inspection mode, retaining
 the original-pair colors within selected merged groups and stable pair colors
@@ -268,9 +268,9 @@ without a catalogued pair are reported separately rather than called non-core.
 ## Hypothetical-group context colors
 
 The mutual-overlap browser's **Group only** view uses original pure-state colors
-from the main CoSMiX palette when embedded, with local pure-state overrides. A
+from the main MiCOVE palette when embedded, with local pure-state overrides. A
 standalone browser uses a deterministic state-ID hue fallback. Overrides persist
-by dataset release and do not change the main CoSMiX palette.
+by dataset release and do not change the main MiCOVE palette.
 
 In **Taxon context**, records assigned to q%-merged reference pairs containing
 the chosen taxon form the gray background (`#a8adb2`, opacity 0.3). Checked
@@ -323,7 +323,7 @@ Resolve colors in this order:
 2. An exact normalized match in the VMRC union.
 3. A deterministic full-name hash color for an unlisted taxon.
 
-The fallback is a CoSMiX display color, not a VMRC recommendation. The editor's
+The fallback is a MiCOVE display color, not a VMRC recommendation. The editor's
 hover help identifies unmatched taxa. `trajectoryTaxonColor` in
 [subject_trajectory.js](rank2_feature_graph/subject_trajectory.js) defines the exact hash and HSL
 conversion. Fallback colors are stable for a given normalized name; uniqueness
@@ -400,7 +400,7 @@ for the two systems without extending and testing the saved-view format.
 
 [valencia2.js](rank2_feature_graph/valencia2.js) defines the following fixed display mappings.
 These mappings are separate from the VMRC phylotype tables and from top-k CST
-palettes. This document records CoSMiX's implementation; it does not assert that
+palettes. This document records MiCOVE's implementation; it does not assert that
 these are a universal externally mandated CST standard.
 
 | CST | Color | Subtype | Color |
@@ -449,7 +449,7 @@ The historical-name proposal in the development documentation
 includes Atopobium vaginae → Fannyhessea vaginae,
 Sneathia amnii → Sneathia vaginalis, and BVAB1 → Ca. Lachnocurva vaginae.
 These aliases are not currently applied. Additional proposals without a VMRC
-target would require explicitly labeled CoSMiX extension colors.
+target would require explicitly labeled MiCOVE extension colors.
 
 A future alias registry should record the original name, target color identity,
 dataset scope, relationship, evidence and review date. Color aliases must not

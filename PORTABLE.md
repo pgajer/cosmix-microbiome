@@ -3,13 +3,13 @@
 For new installations, follow [the simple setup guide](MEETING_SETUP.md).
 Obtain all dataset packages and metadata supplements directly from Pawel Gajer,
 on an individual basis. He supplies the files and setup steps for your chosen
-datasets, including your own data or public datasets prepared for CoSMiX.
+datasets, including your own data or public datasets prepared for MiCOVE.
 There is no general shared-folder download. Choose catalogue datasets during
 setup with `python3 scripts/portable.py update --catalog /path/to/release --select-datasets`.
 Later updates remember that choice. `--select-datasets` changes the installed set.
 The earlier package/metadata route below remains supported for existing users.
 
-# Run updated CoSMiX source with separately supplied data
+# Run updated MiCOVE source with separately supplied data
 
 The interface source and research datasets are distributed separately. A Git
 clone contains no observations, embeddings, private data package, or metadata
@@ -19,8 +19,8 @@ The [MIT software license](LICENSE) does not cover the data package or metadata
 supplement. Their separate access and reuse terms continue to apply; see
 [licensing scope](LICENSING.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
-New installations use `~/cosmix-source` for the clone, `~/cosmix` for the app,
-and `~/cosmix-data` for data. Existing installations can keep their current
+New installations use `~/micove-source` for the clone, `~/micove` for the app,
+and `~/micove-data` for data. Existing installations can keep their current
 folders and launchers. The update command finds the existing app and remembers
 its data paths. If two separate installations exist, select the intended one
 with `--output /path/to/app`. Backups are named after the actual app folder.
@@ -48,16 +48,16 @@ account or collaborator invitation is required for this read-only download:
 
 ```sh
 cd "$HOME"
-git clone https://github.com/pgajer/cosmix-microbiome.git "$HOME/cosmix-source"
-cd "$HOME/cosmix-source"
+git clone https://github.com/pgajer/micove-microbiome.git "$HOME/micove-source"
+cd "$HOME/micove-source"
 ```
 
 If you already have a clone, keep its existing folder and run `git pull --ff-only`
-there. Substitute that folder wherever this guide shows `~/cosmix-source`.
+there. Substitute that folder wherever this guide shows `~/micove-source`.
 Keep the source clone separate from the runnable app. On typical Macs,
 capitalization does not distinguish two folder names.
 
-From inside the `cosmix-source` folder, run:
+From inside the `micove-source` folder, run:
 
 ```sh
 python3 scripts/portable.py update \
@@ -67,8 +67,8 @@ python3 scripts/portable.py update \
 
 Use the actual input paths if the files are stored elsewhere. The same command
 installs the app initially or safely updates an existing prepared app. Stop the
-viewer with **Control-C in its Terminal** before updating. Open `~/cosmix` in Finder
-and double-click **Start CoSMiX.command**.
+viewer with **Control-C in its Terminal** before updating. Open `~/micove` in Finder
+and double-click **Start MiCOVE.command**.
 Keep its Terminal window open while exploring. The new copy uses
 `http://127.0.0.1:43818/`; the original October 23 launcher uses port 43817.
 Stop another copy on port 43818 before starting a different update. Browser
@@ -102,14 +102,14 @@ replace sample observations, memberships, fitted paths, or embedding coordinates
 Stop the running viewer with Control-C in its Terminal, then run:
 
 ```sh
-cd "$HOME/cosmix-source"
+cd "$HOME/micove-source"
 git pull --ff-only && python3 scripts/portable.py update
 ```
 
-This updates the source first and installs the resulting viewer at `~/cosmix`.
+This updates the source first and installs the resulting viewer at `~/micove`.
 The app remembers the data-package and metadata paths from setup, so keep those
 files in place. To change them, supply `--package` and `--metadata` again.
-Reopen `~/cosmix/Start CoSMiX.command` and reload an already open browser tab. Keeping
+Reopen `~/micove/Start MiCOVE.command` and reload an already open browser tab. Keeping
 the same port preserves browser preferences and saved views.
 
 The updater refuses concurrent updates and a running viewer. It validates the
@@ -119,11 +119,11 @@ it. If a process is killed between the two directory moves, the next update
 recovers the previous app before attempting another build.
 
 Each successful replacement keeps the old app under the printed
-`~/cosmix-update-<unique-id>/previous` path. Failed candidates and diagnostic files
-are retained in their own `cosmix-update-<unique-id>` folders. These folders are never removed automatically and can
-use additional disk space. To restore an earlier copy manually, first stop CoSMiX,
-move the current `~/cosmix` to another unused name, and move the chosen `previous`
-folder back to `~/cosmix`. Do not delete the original data package.
+`~/micove-update-<unique-id>/previous` path. Failed candidates and diagnostic files
+are retained in their own `micove-update-<unique-id>` folders. These folders are never removed automatically and can
+use additional disk space. To restore an earlier copy manually, first stop MiCOVE,
+move the current `~/micove` to another unused name, and move the chosen `previous`
+folder back to `~/micove`. Do not delete the original data package.
 
 A data revision or incompatible metadata format requires a separately supplied
 new package or supplement. Preparation errors identify mismatches; do not bypass
@@ -143,7 +143,7 @@ This step requires the private development build and is not needed by recipients
 ```sh
 python3 scripts/portable.py export-metadata \
   --package /path/to/supplied-data-package \
-  --output /path/to/CoSMiX-metadata.json
+  --output /path/to/MiCOVE-metadata.json
 ```
 
 Provide the generated JSON individually with the matching data package. It
@@ -219,10 +219,10 @@ other selections have newly fitted coordinates. Duplicate compositions share a
 point, while the sample count still includes their separate source records.
 Reference diamonds use observed maxima within that local fit.
 
-After obtaining the matching supplement separately, stop CoSMiX and run:
+After obtaining the matching supplement separately, stop MiCOVE and run:
 
 ```sh
-cd "$HOME/cosmix-source"
+cd "$HOME/micove-source"
 git pull --ff-only && python3 scripts/portable.py update \
   --metadata /path/to/supplied-metadata-pure-local.json
 ```
@@ -230,7 +230,7 @@ git pull --ff-only && python3 scripts/portable.py update \
 Use the actual supplied path. The updater checks that the supplement belongs to
 your data package; the October 26 rebuilt-reference-only supplement cannot be
 installed over the older October 23 package. Later updates remember the new
-metadata path. Reopen `~/cosmix/Start CoSMiX.command` and reload the browser tab.
+metadata path. Reopen `~/micove/Start MiCOVE.command` and reload the browser tab.
 
 Local geometries are selected from saved coordinates; no fitting runs in the
 browser. Population overviews and explicit common-reference comparisons keep
@@ -241,7 +241,7 @@ and label the fallback as a restricted population embedding.
 
 [On-demand validation](TESTING.md) describes focused checks, the integration
 test, and the separate opt-in saved-layout audit. These tests are not part of
-the update command and are not required for recipients to update CoSMiX.
+the update command and are not required for recipients to update MiCOVE.
 
 ## Dataset embedding supplements
 

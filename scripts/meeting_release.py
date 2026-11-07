@@ -32,7 +32,7 @@ def checked_file(root, descriptor):
 def read_catalog(root):
     catalog = json.loads((root / 'catalog.json').read_text())
     if catalog.get('format') != FORMAT or catalog.get('version') != VERSION:
-        raise ValueError('Unsupported data release; update CoSMiX source first')
+        raise ValueError('Unsupported data release; update MiCOVE source first')
     if not catalog.get('datasets'):
         raise ValueError('Empty data catalogue')
     for identifier in catalog['datasets']:
@@ -154,13 +154,11 @@ def assemble(root, chosen, output):
     identity = p.sha(p.encoded(dict(application=manifest['application'], release=p.sha((root / 'catalog.json').read_bytes()), datasets=chosen, skinViewer=manifest.get('skinViewer'))))
     (outweb / 'vme-instance.txt').write_text(identity)
     launcher = LAUNCHER.replace('INSTANCE_ID', identity)
-    (output / 'Start VME.command').write_text(launcher)
-    (output / 'Start VME.command').chmod(0o755)
-    (output / 'Start CoSMiX.command').symlink_to('Start VME.command')
+    p.write_launchers(output, launcher)
     receipt = dict(sourceSha256=p.source_digest(p.HERE), application=manifest['application'], datasets=chosen,
                    meetingRelease=dict(path=str(root), release=catalog['release'], catalogSha256=p.sha((root / 'catalog.json').read_bytes())))
     (output / 'SOURCE_AND_DATA.json').write_text(json.dumps(receipt, indent=2) + '\n')
-    (output / 'READ ME FIRST.txt').write_text('Double-click Start CoSMiX.command. Keep its Terminal open.\nTo update: stop CoSMiX, then run in your source clone:\ngit pull --ff-only && python3 scripts/portable.py update\nTo change datasets: python3 scripts/portable.py update --select-datasets\nKeep the original data release in place. Setup uses no scientific fitting.\n')
+    (output / 'READ ME FIRST.txt').write_text('Double-click Start MiCOVE.command. Keep its Terminal open.\nTo update: stop MiCOVE, then run in your source clone:\ngit pull --ff-only && python3 scripts/portable.py update\nTo change datasets: python3 scripts/portable.py update --select-datasets\nKeep the original data release in place. Setup uses no scientific fitting.\n')
 
 
 LAUNCHER = '''#!/bin/bash
@@ -177,15 +175,15 @@ server_pid=$!
 trap 'kill -TERM "$server_pid" 2>/dev/null || true' EXIT
 trap 'exit 0' INT TERM HUP
 for attempt in {1..100}; do
-  if ! kill -0 "$server_pid" 2>/dev/null; then echo 'Could not start CoSMiX; check whether its port is already in use.'; exit 1; fi
+  if ! kill -0 "$server_pid" 2>/dev/null; then echo 'Could not start MiCOVE; check whether its port is already in use.'; exit 1; fi
   if /usr/bin/curl --silent --max-time 1 "http://127.0.0.1:$port/vme-instance.txt" | /usr/bin/grep -qx "$identity"; then
-    echo "CoSMiX is ready at http://127.0.0.1:$port/ — keep this Terminal open; Control-C stops CoSMiX."
+    echo "MiCOVE is ready at http://127.0.0.1:$port/ — keep this Terminal open; Control-C stops MiCOVE."
     if [ "${VME_NO_BROWSER:-0}" != 1 ]; then /usr/bin/open "http://127.0.0.1:$port/"; fi
     wait "$server_pid"
     exit 0
   fi
   /bin/sleep 0.2
 done
-echo 'CoSMiX did not become ready.'
+echo 'MiCOVE did not become ready.'
 exit 1
 '''

@@ -1,4 +1,4 @@
-"""Validate the reviewed skin v2 exchange before adapting it for CoSMiX.
+"""Validate the reviewed skin v2 exchange before adapting it for MiCOVE.
 
 Sparse counts stay offline; native installation and UI acceptance are separate.
 """
@@ -158,7 +158,7 @@ def read_bundle(path):
  validate_safe(x,m);return x,m
 
 def export_view(x,m,visible,method):
- """Reference pure export semantics, not a native CoSMiX implementation."""
+ """Reference pure export semantics, not a native MiCOVE implementation."""
  validate_safe(x,m);need(method in METHODS);visible=set(visible);records={r['specimenId']:r for r in x['records.json']};need(visible<=records.keys())
  def envelope():return dict(datasetId=m['datasetId'],revision=m['revision'],embedding=method,exploratory=m['exploratory'])
  specimens=[];edges=[]

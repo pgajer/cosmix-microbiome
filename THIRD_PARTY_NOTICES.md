@@ -8,8 +8,8 @@ color specifications supplied by Jacques Ravel to the VMRC Research Team on
 September 22, 2026, under the title "Microbial Taxa Color Codes."
 
 These tables are included with permission for public redistribution, confirmed
-by the CoSMiX maintainer on October 24, 2026. Attribution and the original table
-contents are retained. This permission is recorded separately from CoSMiX's MIT
+by the MiCOVE maintainer on October 24, 2026. Attribution and the original table
+contents are retained. This permission is recorded separately from MiCOVE's MIT
 license; the tables are not relicensed under MIT by this repository.
 
 The tables are interface color configuration, not participant observations or
